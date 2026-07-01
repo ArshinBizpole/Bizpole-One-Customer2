@@ -26,6 +26,8 @@ import BizpoleOneDashboardLayout from "./pages/BizpoleOneDashboardLayout";
 import BizpoleOne from "./pages/BizpoleOne";
 import BizpoleOneServices from "./pages/BizpoleOneServices";
 import BizpoleOneTasks from "./pages/BizpoleOneTasks";
+import Refunds from "./pages/Refunds";
+import SupportTickets from "./pages/SupportTickets";
 
 import ProfileLayout from "./pages/ProfileLayout";
 import ProfilePage from "./pages/ProfilePage";
@@ -183,6 +185,8 @@ function App() {
                   <Route path="pricing" element={<Plansandpricing />} />
                   <Route path="individual" element={<MyIndividualservices />} />
                   <Route path="chat" element={<ChatPage />} />
+                  <Route path="refunds" element={<Refunds />} />
+                  <Route path="support" element={<SupportTickets />} />
                 </Route>
               </Route>
 
