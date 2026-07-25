@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import CryptoJS from 'crypto-js';
-import { initPayment } from '../api/Orders/Order';
 import { getInvoiceDetails } from '../api/Companyinvoice';
 import { motion } from 'framer-motion';
 import {
@@ -163,7 +162,6 @@ const MyOrderDetails = () => {
   const [serviceTasks, setServiceTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [tasksError, setTasksError] = useState(null);
-  const [payingOrderId, setPayingOrderId] = useState(null);
 
   const itemsAdvanceAmount = orderItems.reduce((sum, item) => sum + (item.AdvanceAmount ? Number(item.AdvanceAmount) : 0), 0);
   const itemsPendingAmount = orderItems.reduce((sum, item) => sum + (item.PendingAmount ? Number(item.PendingAmount) : 0), 0);
@@ -172,44 +170,14 @@ const MyOrderDetails = () => {
   const totalAdvanceAmount = order.ReceivedAmount != null ? Number(order.ReceivedAmount) : itemsAdvanceAmount;
   const totalPendingAmount = order.PendingAmount != null ? Number(order.PendingAmount) : itemsPendingAmount;
 
-  const handlePayBalance = async (orderObj) => {
-    try {
-      setPayingOrderId(orderObj.OrderID);
-      const servicePayment = (orderObj.ServiceDetails || []).map((service) => ({
-        serviceId: service.ServiceID || service.serviceId,
-        vendorFee: Number(service.VendorFee || 0),
-        professionalFee: Number(service.ProfessionalFee || service.ProfFee || 0),
-        contractorFee: Number(service.ContractorFee || 0),
-        govFee: Number(service.GovtFee || 0),
-        gst: Number(service.GstAmount || service.GST || 0),
-        pendingAmount: Number(service.PendingAmount || 0)
-      }));
-      const totalPending = servicePayment.reduce((sum, s) => sum + Number(s.pendingAmount || 0), 0);
-      const payload = {
-        QuoteID: orderObj.QuoteID,
-        totalAmount: Number(totalPending.toFixed(2)),
-        govFee: Number(orderObj.GovtFee || 0),
-        vendorFee: Number(orderObj.VendorFee || 0),
-        contractorFee: Number(orderObj.ContractorFee || 0),
-        profFee: Number(orderObj.ProfessionalFee || 0),
-        customer: {
-          name: orderObj.CustomerName || 'Customer',
-          email: orderObj.CustomerEmail || orderObj.Email || 'test@example.com',
-          phone: orderObj.CustomerPhone || orderObj.Phone || '9999999999'
-        },
-        servicePayment,
-        StateID: orderObj.StateID || 0,
-        IsInternal: orderObj.IsInternal || 0
-      };
-      const response = await initPayment(payload);
-      if (response.success && response.paymentUrl) {
-        window.open(response.paymentUrl, '_blank', 'noopener,noreferrer');
-      }
-    } catch (error) {
-      console.error('Payment Error:', error);
-    } finally {
-      setPayingOrderId(null);
-    }
+  // Opens the same quote saved-preview/approval page used elsewhere (QuotesList.jsx,
+  // ComplianceDashboard.jsx) so the customer can pay the balance from the quote itself.
+  const handlePayBalance = (orderObj) => {
+    if (!orderObj.QuoteID) return;
+    const secret = import.meta.env.VITE_QUOTE_LINK_SECRET || 'q3!9fKs7@pLzXr84$nmYtB!cVZdQ3';
+    const encrypted = CryptoJS.AES.encrypt(String(orderObj.QuoteID), secret).toString();
+    const url = `${import.meta.env.VITE_CLIENT_BASE_URL}/quotes/saved-preview/${encodeURIComponent(encrypted)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   // Orders.TotalAmount is the source of truth; summing per-service `Total` is a
@@ -450,6 +418,15 @@ const MyOrderDetails = () => {
                   <ClipboardList className="w-4 h-4" />
                   Task
                 </button>
+                {hasPendingAmount && (
+                  <button
+                    onClick={() => handlePayBalance(order)}
+                    className="flex items-center justify-center gap-2 border border-gray-200 bg-white text-gray-700 px-6 py-2.5 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    Pay Balance
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>
@@ -709,12 +686,11 @@ const MyOrderDetails = () => {
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className={`w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-700 px-6 py-2.5 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors ${payingOrderId === order.OrderID ? 'opacity-60 cursor-not-allowed' : ''}`}
-                    onClick={() => (payingOrderId ? null : handlePayBalance(order))}
-                    disabled={payingOrderId === order.OrderID}
+                    className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-700 px-6 py-2.5 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors"
+                    onClick={() => handlePayBalance(order)}
                   >
                     <CreditCard className="w-4 h-4" />
-                    {payingOrderId === order.OrderID ? 'Processing...' : 'Pay Balance'}
+                    Pay Balance
                   </motion.button>
                 ) : (
                   <motion.button
