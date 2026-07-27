@@ -9,6 +9,8 @@ import {
   ChevronDown,
   Box,
   Wrench,
+  RotateCcw,
+  LifeBuoy,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
@@ -174,22 +176,37 @@ const BizpoleOneDashboardLayout = () => {
                 </NavLink>
               </li>
 
-              {/* Customer supports */}
-              {/* <li>
+              {/* Refunds */}
+              <li>
                 <NavLink
-                  to="/dashboard/bizpoleone/support"
+                  to="/dashboard/bizpoleone/refunds"
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-3 rounded-lg font-medium transition-all ${
-                      isActive
-                        ? "bg-[#FFC42A] text-white shadow-inner"
-                        : "text-gray-600 hover:bg-gray-50"
+                    `flex items-center gap-3 px-3 py-3 rounded-lg font-medium transition-all ${isActive
+                      ? "bg-[#FFC42A] text-white shadow-inner"
+                      : "text-gray-600 hover:bg-gray-50"
                     }`
                   }
                 >
-                  <Settings size={20} />
+                  <RotateCcw size={20} />
+                  {!isCollapsed && <span>Refunds</span>}
+                </NavLink>
+              </li>
+
+              {/* Customer supports */}
+              <li>
+                <NavLink
+                  to="/dashboard/bizpoleone/support"
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-3 rounded-lg font-medium transition-all ${isActive
+                      ? "bg-[#FFC42A] text-white shadow-inner"
+                      : "text-gray-600 hover:bg-gray-50"
+                    }`
+                  }
+                >
+                  <LifeBuoy size={20} />
                   {!isCollapsed && <span>Customer supports</span>}
                 </NavLink>
-              </li> */}
+              </li>
             </ul>
           </nav>
         </div>
