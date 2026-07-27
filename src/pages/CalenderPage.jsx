@@ -13,6 +13,7 @@ import CalendarHeader from "../components/Calender/CalendarHeader";
 import CalendarSidebar from "../components/Calender/CalendarSidebar";
 import EventComponent from "../components/Calender/EventComponent";
 import CalendarToolbar from "../components/Calender/CalendarToolbar";
+import CalendarDayHeader from "../components/Calender/CalendarDayHeader";
 import { EventDetailsModal, AddEventModal } from "../components/Calender/EventModals";
 import { initialEvents, EVENT_TYPES } from "../components/Calender/constants";
 
@@ -92,6 +93,7 @@ const CalendarPage = () => {
     };
 
     setEvents([...events, event]);
+    setActiveFilter("ALL");
     setShowEventModal(false);
     setNewEvent({
       title: "",
@@ -148,7 +150,7 @@ const CalendarPage = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
-              className="bg-white rounded-xl overflow-hidden shadow-md"
+              className="bg-white rounded-2xl overflow-hidden border-2 border-amber-300 shadow-sm"
             >
               <Calendar
                 localizer={localizer}
@@ -166,6 +168,7 @@ const CalendarPage = () => {
                 views={["month", "week", "day"]}
                 components={{
                   event: EventComponent,
+                  header: CalendarDayHeader,
                   toolbar: (props) => (
                     <CalendarToolbar {...props} view={view} setView={setView} />
                   ),

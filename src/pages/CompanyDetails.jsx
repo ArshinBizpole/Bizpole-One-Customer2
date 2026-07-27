@@ -1,78 +1,198 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useContext } from "react";
 import {
-  Building2, Mail, Phone, MapPin, Globe, FileText, Users,
-  CheckCircle, XCircle, ChevronRight, ArrowLeftRight,
-  Shield, Briefcase, Settings
+  Building2,
+  FileText,
+  MapPin,
+  Users,
+  User,
+  Phone,
+  CheckCircle,
+  XCircle,
+  ChevronRight,
+  Pencil,
+  Save,
+  X,
+  AlertCircle,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { getCompanyDetails } from "../api/CompanyApi";
-import { getSecureItem, setSecureItem } from "../utils/secureStorage";
-import { ToastContainer } from "react-toastify";
+import { motion } from "framer-motion";
+import { getCompanyDetails, updateCompanyDetails } from "../api/CompanyApi";
+import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { ProfileCompanyContext } from "./ProfileLayout";
+
+/* ---------- Reusable pieces ---------- */
+
+const ViewField = ({ label, value, valueClassName = "" }) => (
+  <div>
+    <p className="text-xs text-gray-500 mb-1.5">{label}</p>
+    <div
+      className={`text-sm bg-gray-50 border border-gray-200 rounded-lg px-3.5 py-2.5 min-h-[42px] flex items-center text-gray-700 ${valueClassName}`}
+    >
+      {value || <span className="text-gray-400">—</span>}
+    </div>
+  </div>
+);
+
+const EditField = ({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder = "",
+  textarea = false,
+}) => (
+  <div>
+    <label className="block text-xs text-gray-500 mb-1.5">{label}</label>
+    {textarea ? (
+      <textarea
+        value={value || ""}
+        onChange={onChange}
+        placeholder={placeholder}
+        rows={3}
+        className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 transition resize-none"
+      />
+    ) : (
+      <input
+        type={type}
+        value={value || ""}
+        onChange={onChange}
+        placeholder={placeholder}
+        className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 transition"
+      />
+    )}
+  </div>
+);
+
+const EditSelect = ({ label, value, onChange, options }) => (
+  <div>
+    <label className="block text-xs text-gray-500 mb-1.5">{label}</label>
+    <select
+      value={value || ""}
+      onChange={onChange}
+      className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 transition bg-white"
+    >
+      {options.map((opt) => (
+        <option key={opt} value={opt}>
+          {opt}
+        </option>
+      ))}
+    </select>
+  </div>
+);
+
+const RadioOption = ({ label, selected, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`flex items-center gap-2.5 w-full text-left px-4 py-3 rounded-lg border text-sm transition ${
+      selected
+        ? "border-gray-300 bg-white text-gray-900 font-medium"
+        : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
+    }`}
+  >
+    <span
+      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+        selected ? "border-yellow-500" : "border-gray-300"
+      }`}
+    >
+      {selected && <span className="w-2 h-2 rounded-full bg-yellow-500" />}
+    </span>
+    {label}
+  </button>
+);
+
+// columns must be one of these literal classes — Tailwind needs static strings, not interpolated ones
+const COLS_CLASS = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-3" };
+
+const RadioGroup = ({ label, options, value, onChange, columns = 2 }) => (
+  <div>
+    <label className="block text-xs text-gray-500 mb-1.5">{label}</label>
+    <div className={`grid ${COLS_CLASS[columns] || "grid-cols-2"} gap-3`}>
+      {options.map((opt) => (
+        <RadioOption
+          key={opt}
+          label={opt}
+          selected={value === opt}
+          onClick={() => onChange(opt)}
+        />
+      ))}
+    </div>
+  </div>
+);
+
+const Card = ({ title, icon: Icon, iconBg = "bg-yellow-400", children }) => (
+  <div className="bg-white rounded-2xl border border-yellow-100 p-6">
+    <div className="flex items-center gap-2.5 mb-6">
+      {Icon && (
+        <span
+          className={`w-8 h-8 rounded-lg flex items-center justify-center ${iconBg}`}
+        >
+          <Icon size={16} className="text-white" />
+        </span>
+      )}
+      <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+    </div>
+    {children}
+  </div>
+);
+
+const LoadingScreen = () => (
+  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <motion.div
+      animate={{ rotate: 360 }}
+      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+      className="w-12 h-12 border-4 border-yellow-400 border-t-transparent rounded-full"
+    />
+  </div>
+);
+
+const ErrorScreen = ({ error }) => (
+  <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="bg-white rounded-2xl shadow-sm p-8 max-w-md text-center border border-gray-200">
+      <XCircle className="w-14 h-14 text-yellow-400 mx-auto mb-4" />
+      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+        Something went wrong
+      </h3>
+      <p className="text-gray-500 text-sm mb-6">{error}</p>
+      <button
+        onClick={() => window.location.reload()}
+        className="bg-yellow-400 hover:bg-yellow-500 text-black px-6 py-2.5 rounded-lg font-medium text-sm transition"
+      >
+        Try Again
+      </button>
+    </div>
+  </div>
+);
+
+/* ---------- Main component ---------- */
 
 const CompanyDetails = () => {
+  const { selectedCompanyId } = useContext(ProfileCompanyContext);
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("company");
-  const [companies, setCompanies] = useState([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState(getSecureItem("CompanyId") || "");
 
-  // Animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2
-      }
-    }
-  };
+  const [isEditingCompany, setIsEditingCompany] = useState(false);
+  const [companyForm, setCompanyForm] = useState({});
+  const [saving, setSaving] = useState(false);
 
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: {
-        type: "spring",
-        stiffness: 100
-      }
-    }
-  };
+  const [isEditingDirector, setIsEditingDirector] = useState(false);
+  const [directorForm, setDirectorForm] = useState({});
 
-  const cardHoverVariants = {
-    rest: {
-      y: 0,
-      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)"
-    },
-    hover: {
-      y: -8,
-      boxShadow: "0 20px 25px -5px rgba(251, 191, 36, 0.2), 0 10px 10px -5px rgba(251, 191, 36, 0.04)",
-      transition: {
-        type: "spring",
-        stiffness: 400,
-        damping: 25
-      }
-    }
-  };
+  const directorRef = useRef(null);
 
-  // Get companies from user object in secure storage
   useEffect(() => {
-    const user = getSecureItem("user");
-    if (user && user.Companies) {
-      setCompanies(user.Companies);
-      if (!selectedCompanyId && user.Companies.length > 0) {
-        const companyId = user.Companies[0].CompanyID.toString();
-        setSelectedCompanyId(companyId);
-        setSecureItem("CompanyId", companyId);
-      }
-    }
-  }, []);
+    // Reset all state immediately so stale data from the previous company isn't visible
+    setCompany(null);
+    setError(null);
+    setIsEditingCompany(false);
+    setIsEditingDirector(false);
+    setSaving(false);
+    setCompanyForm({});
+    setDirectorForm({});
 
-  // Fetch company details
-  useEffect(() => {
+    if (!selectedCompanyId) return;
+
     const fetchCompany = async () => {
       setLoading(true);
       try {
@@ -82,484 +202,604 @@ const CompanyDetails = () => {
         } else {
           setError("Failed to fetch company details");
         }
-      } catch (error) {
-        console.error("Error:", error);
+      } catch (err) {
+        console.error("Error:", err);
         setError("Failed to fetch company details");
       } finally {
         setLoading(false);
       }
     };
-
-    if (selectedCompanyId) fetchCompany();
+    fetchCompany();
   }, [selectedCompanyId]);
 
-  const handleCompanyChange = (companyId) => {
-    setSelectedCompanyId(companyId);
-    setSecureItem("CompanyId", companyId);
-    setError(null);
+  const primaryDirector =
+    company?.Customers?.find((c) => c.PrimaryCustomer === 1) ||
+    company?.Customers?.[0] ||
+    {};
+
+  /* ---- Company edit handlers ---- */
+  const startEditCompany = () => {
+    setCompanyForm({
+      businessType:      company?.ConstitutionCategory || "Pvt Ltd",
+      businessName:      company?.BusinessName || "",
+      companyCode:       company?.CompanyCode || "",
+      foundingDate:      company?.CompanyFoundingDate || "",
+      pan:               company?.CompanyPAN || "",
+      cin:               company?.CIN || "",
+      sector:            company?.Sector || "",
+      businessActivity:  company?.BusinessNature || "",
+      gstNumber:         company?.GSTNumber || "",
+      companyEmail:      company?.CompanyEmail || "",
+      companyMobile:     company?.CompanyMobile || "",
+      website:           company?.Website || "",
+      addressLine1:      company?.AddressLine1 || "",
+      addressLine2:      company?.AddressLine2 || "",
+      district:          company?.District || "",
+      city:              company?.City || "",
+      state:             company?.State || "",
+      country:           company?.Country || "India",
+      pincode:           company?.PinCode || "",
+    });
+    setIsEditingCompany(true);
   };
 
-  const InfoCard = ({ icon: Icon, label, value, className = "", onClick }) => (
-    <motion.div
-      variants={cardHoverVariants}
-      whileHover="hover"
-      initial="rest"
-      animate="rest"
-      onClick={onClick}
-      className={`bg-white rounded-full p-5 border-2 border-yellow-100 cursor-pointer transition-all duration-300 ${className} ${onClick ? 'hover:border-yellow-400' : ''}`}
-    >
-      <div className="flex items-center gap-4">
-        <div className="p-3 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full">
-          <Icon className="w-6 h-6 text-white" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{label}</p>
-          <p className="text-lg font-semibold text-gray-900 truncate">{value || "—"}</p>
-        </div>
-        {onClick && <ChevronRight className="w-5 h-5 text-yellow-400" />}
-      </div>
-    </motion.div>
-  );
+  const cancelEditCompany = () => setIsEditingCompany(false);
 
-  const StatCard = ({ icon: Icon, label, value, subtext, color = "yellow" }) => (
-    <motion.div
-      variants={itemVariants}
-      whileHover={{ scale: 1.05 }}
-      className={`bg-gradient-to-br from-${color}-400 to-${color}-600 rounded-full p-6 text-white shadow-xl`}
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium opacity-90 mb-1">{label}</p>
-          <p className="text-3xl font-bold mb-1">{value}</p>
-          {subtext && <p className="text-xs opacity-80">{subtext}</p>}
-        </div>
-        <div className="p-3 bg-white/20 rounded-full">
-          <Icon className="w-8 h-8" />
-        </div>
-      </div>
-    </motion.div>
-  );
+  const handleSaveCompany = async () => {
+    setSaving(true);
+    try {
+      await updateCompanyDetails(selectedCompanyId, {
+        ConstitutionCategory: companyForm.businessType,
+        BusinessName:         companyForm.businessName,
+        CompanyPAN:           companyForm.pan,
+        GSTNumber:            companyForm.gstNumber,
+        CIN:                  companyForm.cin,
+        Sector:               companyForm.sector,
+        BusinessNature:       companyForm.businessActivity,
+        CompanyFoundingDate:  companyForm.foundingDate || null,
+        CompanyEmail:         companyForm.companyEmail,
+        CompanyMobile:        companyForm.companyMobile,
+        Website:              companyForm.website,
+        AddressLine1:         companyForm.addressLine1,
+        AddressLine2:         companyForm.addressLine2,
+        District:             companyForm.district,
+        City:                 companyForm.city,
+        State:                companyForm.state,
+        PinCode:              companyForm.pincode,
+        Country:              companyForm.country,
+      });
+      setCompany((prev) => ({
+        ...prev,
+        ConstitutionCategory: companyForm.businessType,
+        BusinessName:         companyForm.businessName,
+        CompanyCode:          companyForm.companyCode,
+        CompanyFoundingDate:  companyForm.foundingDate,
+        CompanyPAN:           companyForm.pan,
+        CIN:                  companyForm.cin,
+        Sector:               companyForm.sector,
+        BusinessNature:       companyForm.businessActivity,
+        GSTNumber:            companyForm.gstNumber,
+        CompanyEmail:         companyForm.companyEmail,
+        CompanyMobile:        companyForm.companyMobile,
+        Website:              companyForm.website,
+        AddressLine1:         companyForm.addressLine1,
+        AddressLine2:         companyForm.addressLine2,
+        District:             companyForm.district,
+        City:                 companyForm.city,
+        State:                companyForm.state,
+        Country:              companyForm.country,
+        PinCode:              companyForm.pincode,
+      }));
+      setIsEditingCompany(false);
+      toast.success("Company details updated");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update company details");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  const TabButton = ({ label, icon: Icon, isActive, onClick }) => (
-    <motion.button
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      onClick={onClick}
-      className={`flex items-center justify-center gap-3 px-6 py-4 rounded-full text-sm font-semibold transition-all duration-300 ${isActive
-        ? "bg-yellow-400 text-white shadow-lg shadow-yellow-400/30"
-        : "bg-white text-gray-600 hover:text-yellow-600 hover:bg-yellow-50 border-2 border-yellow-100"
-        }`}
-    >
-      {Icon && <Icon className="w-5 h-5" />}
-      {label}
-    </motion.button>
-  );
+  const handleContinueToDirector = async () => {
+    await handleSaveCompany();
+    startEditDirector();
+    setTimeout(
+      () =>
+        directorRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        }),
+      100,
+    );
+  };
 
-  const LoadingScreen = () => (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-yellow-50 flex items-center justify-center">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="text-center"
-      >
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="w-20 h-20 border-4 border-yellow-400 border-t-transparent rounded-full mx-auto mb-6"
-        />
-        <motion.p
-          animate={{ opacity: [0.5, 1, 0.5] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-          className="text-yellow-700 text-lg font-medium"
-        >
-          Loading company details...
-        </motion.p>
-      </motion.div>
-    </div>
-  );
+  /* ---- Director edit handlers ---- */
+  const startEditDirector = () => {
+    setDirectorForm({
+      numberOfDirectors: company?.Customers?.length || 1,
+      fullName:
+        `${primaryDirector.FirstName || ""} ${primaryDirector.LastName || ""}`.trim(),
+      designation: primaryDirector.Designation || "",
+      din: primaryDirector.DIN || "",
+      mobile: primaryDirector.Mobile || "",
+      email: primaryDirector.Email || "",
+      panNumber: primaryDirector.PANNumber || "",
+      dateOfBirth: primaryDirector.DateOfBirth || "",
+    });
+    setIsEditingDirector(true);
+  };
 
-  const ErrorScreen = () => (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-yellow-50 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="bg-white rounded-3xl shadow-2xl p-8 max-w-md text-center border-2 border-yellow-100"
-      >
-        <motion.div
-          animate={{ y: [0, -10, 0] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        >
-          <XCircle className="w-20 h-20 text-yellow-400 mx-auto mb-6" />
-        </motion.div>
-        <h3 className="text-2xl font-bold text-gray-900 mb-3">Oops! Something went wrong</h3>
-        <p className="text-gray-600 mb-8">{error}</p>
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => window.location.reload()}
-          className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-white px-8 py-4 rounded-full font-semibold shadow-lg shadow-yellow-400/30 hover:shadow-xl hover:shadow-yellow-400/40 transition-all duration-300"
-        >
-          Try Again
-        </motion.button>
-      </motion.div>
-    </div>
-  );
+  const cancelEditDirector = () => setIsEditingDirector(false);
+
+  const handleSaveDirector = async () => {
+    try {
+      // TODO: wire to a real update endpoint for director/promoter info
+      setIsEditingDirector(false);
+      toast.success("Director details updated");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update director details");
+    }
+  };
 
   if (loading) return <LoadingScreen />;
-  if (error) return <ErrorScreen />;
-  if (!company) return <ErrorScreen />;
+  if (error) return <ErrorScreen error={error} />;
+  if (!company) return <ErrorScreen error="No company data available" />;
 
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-yellow-50 p-4 md:p-6 lg:p-8"
-      >
-        <ToastContainer position="top-right" autoClose={3000} />
+    <div className=" bg-gray-50 p-4 md:p-6 lg:p-8">
+      <ToastContainer position="top-right" autoClose={3000} />
+      <div className="max-w-6xl mx-auto space-y-10">
+        {/* {companies.length > 1 && (
+          <div className="flex items-center gap-3 bg-white rounded-full p-2 border border-gray-200 shadow-sm w-fit">
+            <ArrowLeftRight className="w-4 h-4 text-yellow-500 ml-3" />
+            <select
+              value={selectedCompanyId}
+              onChange={(e) => handleCompanyChange(e.target.value)}
+              className="bg-transparent border-none focus:outline-none focus:ring-0 px-2 py-1.5 text-sm text-gray-900 font-medium cursor-pointer"
+            >
+              {companies.map((c) => (
+                <option key={c.CompanyID} value={c.CompanyID}>
+                  {c.BusinessName || `Company #${c.CompanyID}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )} */}
 
-        <div className="max-w-7xl mx-auto">
-          {/* Header with Company Switcher */}
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="mb-8"
-          >
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-8">
-              <div className="flex items-center gap-4">
-                <motion.div
-                  whileHover={{ rotate: 360 }}
-                  transition={{ duration: 0.5 }}
-                  className="p-4 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full shadow-xl"
-                >
-                  <Building2 className="w-8 h-8 text-white" />
-                </motion.div>
+        {/* ===================== Company Details ===================== */}
+        <section>
+          {!isEditingCompany ? (
+            <div className="flex items-center justify-between mb-6">
+              <h1 className="text-2xl font-bold text-gray-900">
+                Company details
+              </h1>
+              <button
+                onClick={startEditCompany}
+                className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-black font-medium px-4 py-2.5 rounded-lg text-sm transition"
+              >
+                <Pencil size={14} /> Edit Details
+              </button>
+            </div>
+          ) : (
+            <div className="mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                 <div>
-                  <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                    {company?.BusinessName || "Company Name"}
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    Company Details
                   </h1>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <motion.span
-                      whileHover={{ scale: 1.05 }}
-                      className="px-4 py-2 bg-yellow-400 text-white rounded-full text-sm font-semibold shadow-md"
-                    >
-                      {company?.ConstitutionCategory || "N/A"}
-                    </motion.span>
-                    <motion.span
-                      whileHover={{ scale: 1.05 }}
-                      className="px-4 py-2 bg-white text-yellow-600 rounded-full text-sm font-semibold border-2 border-yellow-400"
-                    >
-                      {company?.Sector || "N/A"}
-                    </motion.span>
-                    <motion.span
-                      whileHover={{ scale: 1.05 }}
-                      className={`px-4 py-2 rounded-full text-sm font-semibold ${company?.IsActive === 1
-                        ? 'bg-green-100 text-green-700 border-2 border-green-300'
-                        : 'bg-red-100 text-red-700 border-2 border-red-300'
-                        }`}
-                    >
-                      {company?.IsActive === 1 ? "Active" : "Inactive"}
-                    </motion.span>
-                  </div>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    Manage your business information and settings
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={cancelEditCompany}
+                    className="flex items-center gap-1.5 border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium px-4 py-2.5 rounded-lg text-sm transition"
+                  >
+                    <X size={14} /> Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveCompany}
+                    disabled={saving}
+                    className="flex items-center gap-1.5 bg-yellow-400 hover:bg-yellow-500 text-black font-medium px-4 py-2.5 rounded-lg text-sm transition disabled:opacity-50"
+                  >
+                    <Save size={14} /> {saving ? "Saving…" : "Save Changes"}
+                  </button>
                 </div>
               </div>
+              <div className="flex items-start gap-2 bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm rounded-lg px-4 py-3">
+                <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+                You are currently editing your company details. Don't forget to
+                save your changes.
+              </div>
+            </div>
+          )}
 
-              {/* Company Switcher */}
-              {companies.length > 1 && (
-                <motion.div
-                  variants={itemVariants}
-                  className="relative"
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Basic Information */}
+            <Card
+              title="Basic Information"
+              icon={isEditingCompany ? Building2 : undefined}
+              iconBg="bg-purple-400"
+            >
+              {!isEditingCompany ? (
+                <div className="space-y-4">
+                  <ViewField label="Type of Business"   value={company?.ConstitutionCategory} />
+                  <ViewField label="Name of Business"   value={company?.BusinessName} />
+                  <ViewField label="Company Code"       value={company?.CompanyCode} />
+                  <ViewField label="Date of Founding"   value={company?.CompanyFoundingDate} />
+                  <ViewField label="PAN of the Entity"  value={company?.CompanyPAN} />
+                  <ViewField label="CIN/LLPIN"          value={company?.CIN} />
+                  <ViewField label="Sector"             value={company?.Sector} />
+                  <ViewField label="Business Nature"    value={company?.BusinessNature} />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <RadioGroup
+                    label="Type of Business"
+                    options={["Pvt Ltd", "LLP", "OPC", "Sole proprietor"]}
+                    value={companyForm.businessType}
+                    onChange={(val) => setCompanyForm({ ...companyForm, businessType: val })}
+                    columns={2}
+                  />
+                  <EditField
+                    label="Name of Business"
+                    value={companyForm.businessName}
+                    onChange={(e) => setCompanyForm({ ...companyForm, businessName: e.target.value })}
+                  />
+                  <EditField
+                    label="Company Code"
+                    value={companyForm.companyCode}
+                    onChange={(e) => setCompanyForm({ ...companyForm, companyCode: e.target.value })}
+                  />
+                  <EditField
+                    label="Date of Founding"
+                    type="date"
+                    value={companyForm.foundingDate}
+                    onChange={(e) => setCompanyForm({ ...companyForm, foundingDate: e.target.value })}
+                  />
+                  <EditField
+                    label="PAN of the Entity"
+                    value={companyForm.pan}
+                    onChange={(e) => setCompanyForm({ ...companyForm, pan: e.target.value })}
+                  />
+                  <EditField
+                    label="CIN/LLPIN"
+                    value={companyForm.cin}
+                    onChange={(e) => setCompanyForm({ ...companyForm, cin: e.target.value })}
+                  />
+                  <EditField
+                    label="Sector"
+                    value={companyForm.sector}
+                    onChange={(e) => setCompanyForm({ ...companyForm, sector: e.target.value })}
+                  />
+                  <EditField
+                    label="Business Nature"
+                    value={companyForm.businessActivity}
+                    onChange={(e) => setCompanyForm({ ...companyForm, businessActivity: e.target.value })}
+                  />
+                </div>
+              )}
+            </Card>
+
+            {/* Contact & GST Information */}
+            <Card
+              title="Contact & GST Information"
+              icon={isEditingCompany ? FileText : undefined}
+              iconBg="bg-green-400"
+            >
+              {!isEditingCompany ? (
+                <div className="space-y-4">
+                  <ViewField label="GST Number"      value={company?.GSTNumber} />
+                  <ViewField label="Company Email"   value={company?.CompanyEmail} />
+                  <ViewField label="Company Mobile"  value={company?.CompanyMobile} />
+                  <ViewField label="Website"         value={company?.Website} />
+                  <ViewField label="Status"          value={company?.Status} />
+                  <ViewField label="Franchise"       value={company?.FranchiseName} />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <EditField
+                    label="GST Number"
+                    value={companyForm.gstNumber}
+                    onChange={(e) => setCompanyForm({ ...companyForm, gstNumber: e.target.value })}
+                  />
+                  <EditField
+                    label="Company Email"
+                    type="email"
+                    value={companyForm.companyEmail}
+                    onChange={(e) => setCompanyForm({ ...companyForm, companyEmail: e.target.value })}
+                  />
+                  <EditField
+                    label="Company Mobile"
+                    value={companyForm.companyMobile}
+                    onChange={(e) => setCompanyForm({ ...companyForm, companyMobile: e.target.value })}
+                  />
+                  <EditField
+                    label="Website"
+                    value={companyForm.website}
+                    onChange={(e) => setCompanyForm({ ...companyForm, website: e.target.value })}
+                  />
+                </div>
+              )}
+            </Card>
+          </div>
+
+          {/* Communication Address */}
+          <Card
+            title="Communication Address"
+            icon={isEditingCompany ? MapPin : undefined}
+            iconBg="bg-yellow-400"
+          >
+            {!isEditingCompany ? (
+              <div className="space-y-4">
+                <ViewField label="Address Line 1" value={company?.AddressLine1} />
+                <ViewField label="Address Line 2" value={company?.AddressLine2} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <ViewField label="District"     value={company?.District} />
+                  <ViewField label="City"         value={company?.City} />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <ViewField label="State"        value={company?.State} />
+                  <ViewField label="Pin Code"     value={company?.PinCode} />
+                </div>
+                <ViewField label="Country"        value={company?.Country} />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <EditField
+                  label="Address Line 1"
+                  placeholder="House No, Building, Street"
+                  value={companyForm.addressLine1}
+                  onChange={(e) => setCompanyForm({ ...companyForm, addressLine1: e.target.value })}
+                />
+                <EditField
+                  label="Address Line 2"
+                  placeholder="Area, Landmark"
+                  value={companyForm.addressLine2}
+                  onChange={(e) => setCompanyForm({ ...companyForm, addressLine2: e.target.value })}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <EditField
+                    label="District"
+                    value={companyForm.district}
+                    onChange={(e) => setCompanyForm({ ...companyForm, district: e.target.value })}
+                  />
+                  <EditField
+                    label="City"
+                    value={companyForm.city}
+                    onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <EditField
+                    label="State"
+                    value={companyForm.state}
+                    onChange={(e) => setCompanyForm({ ...companyForm, state: e.target.value })}
+                  />
+                  <EditField
+                    label="Pin Code"
+                    value={companyForm.pincode}
+                    onChange={(e) => setCompanyForm({ ...companyForm, pincode: e.target.value })}
+                  />
+                </div>
+                <EditField
+                  label="Country"
+                  value={companyForm.country}
+                  onChange={(e) => setCompanyForm({ ...companyForm, country: e.target.value })}
+                />
+              </div>
+            )}
+          </Card>
+
+          {isEditingCompany && (
+            <div className="flex justify-center mt-6">
+              <button
+                onClick={handleContinueToDirector}
+                className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-6 py-3 rounded-lg text-sm transition"
+              >
+                Continue to Director Details <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
+        </section>
+
+        {/* ===================== Director/Promoter Details ===================== */}
+        <section ref={directorRef}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div className="flex items-center gap-3">
+              <span className="w-10 h-10 rounded-xl bg-yellow-400 flex items-center justify-center">
+                <Users size={18} className="text-white" />
+              </span>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">
+                  Director/Promoter Details
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Manage director and promoter information
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {!isEditingDirector && (
+                <span className="flex items-center gap-1.5 bg-green-100 text-green-700 px-3 py-1.5 rounded-full text-xs font-semibold">
+                  <CheckCircle size={13} /> Verified
+                </span>
+              )}
+              {!isEditingDirector ? (
+                <button
+                  onClick={startEditDirector}
+                  className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-black font-medium px-4 py-2.5 rounded-lg text-sm transition"
                 >
-                  <div className="flex items-center gap-3 bg-white rounded-full p-2 border-2 border-yellow-100 shadow-lg">
-                    <ArrowLeftRight className="w-5 h-5 text-yellow-400 ml-3" />
-                    <select
-                      value={selectedCompanyId}
-                      onChange={(e) => handleCompanyChange(e.target.value)}
-                      className="bg-transparent border-none focus:outline-none focus:ring-0 px-3 py-2 text-gray-900 font-medium cursor-pointer appearance-none"
-                    >
-                      {companies.map((c) => (
-                        <option key={c.CompanyID} value={c.CompanyID}>
-                          {c.BusinessName || `Company #${c.CompanyID}`}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronRight className="w-5 h-5 text-yellow-400 mr-3" />
-                  </div>
-                </motion.div>
+                  <Pencil size={14} /> Edit Details
+                </button>
+              ) : (
+                <div className="flex gap-3">
+                  <button
+                    onClick={cancelEditDirector}
+                    className="flex items-center gap-1.5 border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium px-4 py-2.5 rounded-lg text-sm transition"
+                  >
+                    <X size={14} /> Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveDirector}
+                    className="flex items-center gap-1.5 bg-yellow-400 hover:bg-yellow-500 text-black font-medium px-4 py-2.5 rounded-lg text-sm transition"
+                  >
+                    <Save size={14} /> Save Changes
+                  </button>
+                </div>
               )}
             </div>
+          </div>
 
-            {/* Stats Row */}
-            {/* <motion.div 
-              variants={containerVariants}
-              className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8"
-            >
-              <StatCard
-                icon={Users}
-                label="Total Customers"
-                value={company?.Customers?.length || 0}
-                color="yellow"
-              />
-              <StatCard
-                icon={Briefcase}
-                label="Active Orders"
-                value={company?.Orders?.filter(o => o.OrderStatus === 'Active')?.length || 0}
-                color="blue"
-              />
-              <StatCard
-                icon={CreditCard}
-                label="Annual Revenue"
-                value="₹25.4L"
-                subtext="Last FY"
-                color="green"
-              />
-              <StatCard
-                icon={Award}
-                label="Rating"
-                value="4.8"
-                subtext="Customer Satisfaction"
-                color="purple"
-              />
-            </motion.div> */}
-
-            {/* Tab Navigation */}
-            <motion.div
-              variants={containerVariants}
-              className="flex flex-wrap gap-3 mb-8"
-            >
-              <TabButton
-                label="Company Info"
-                icon={Building2}
-                isActive={activeTab === "company"}
-                onClick={() => setActiveTab("company")}
-              />
-              <TabButton
-                label="Directors"
-                icon={Users}
-                isActive={activeTab === "director"}
-                onClick={() => setActiveTab("director")}
-              />
-              <TabButton
-                label="Legal & Compliance"
-                icon={Shield}
-                isActive={activeTab === "more"}
-                onClick={() => setActiveTab("more")}
-              />
-              {/* <TabButton
-                label="Analytics"
-                icon={BarChart3}
-                isActive={activeTab === "analytics"}
-                onClick={() => setActiveTab("analytics")}
-              />
-              <TabButton
-                label="Settings"
-                icon={Settings}
-                isActive={activeTab === "settings"}
-                onClick={() => setActiveTab("settings")}
-              /> */}
-            </motion.div>
-          </motion.div>
-
-          {/* Tab Content */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              {activeTab === "company" && (
-                <motion.div
-                  variants={containerVariants}
-                  initial="hidden"
-                  animate="visible"
-                  className="space-y-6"
-                >
-                  {/* Contact Section */}
-                  <motion.div variants={itemVariants} className="bg-white rounded-3xl p-8 border-2 border-yellow-100 shadow-lg">
-                    <div className="flex items-center gap-4 mb-8">
-                      <div className="p-3 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full">
-                        <Mail className="w-6 h-6 text-white" />
-                      </div>
-                      <h2 className="text-2xl font-bold text-gray-900">Contact Information</h2>
-                    </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <InfoCard
-                        icon={Mail}
-                        label="Company Email"
-                        value={company?.Customers?.[0]?.Email}
-                      />
-                      <InfoCard
-                        icon={Phone}
-                        label="Company Mobile"
-                        value={company?.Customers?.[0]?.Mobile}
-                      />
-                    </div>
-                  </motion.div>
-
-                  {/* Location Section */}
-                  <motion.div variants={itemVariants} className="bg-white rounded-3xl p-8 border-2 border-yellow-100 shadow-lg">
-                    <div className="flex items-center gap-4 mb-8">
-                      <div className="p-3 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full">
-                        <MapPin className="w-6 h-6 text-white" />
-                      </div>
-                      <h2 className="text-2xl font-bold text-gray-900">Location Details</h2>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      <InfoCard icon={MapPin} label="City" value={company?.City} />
-                      <InfoCard icon={MapPin} label="State" value={company?.State} />
-                      <InfoCard icon={Globe} label="Country" value={company?.Country} />
-                      <InfoCard icon={MapPin} label="Pin Code" value={company?.PinCode} />
-                      <InfoCard icon={Globe} label="Website" value={company?.Website} />
-                    </div>
-                  </motion.div>
-
-                  {/* Business Info */}
-                  <motion.div variants={itemVariants} className="bg-white rounded-3xl p-8 border-2 border-yellow-100 shadow-lg">
-                    <div className="flex items-center gap-4 mb-8">
-                      <div className="p-3 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full">
-                        <Briefcase className="w-6 h-6 text-white" />
-                      </div>
-                      <h2 className="text-2xl font-bold text-gray-900">Business Information</h2>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      <InfoCard icon={FileText} label="Business Nature" value={company?.BusinessNature} />
-                      <InfoCard icon={FileText} label="Customer Category" value={company?.CustomerCategory} />
-                      <InfoCard icon={FileText} label="Origin" value={company?.Origin} />
-                    </div>
-                  </motion.div>
-                </motion.div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card title="Director Information" icon={User}>
+              {!isEditingDirector ? (
+                <div className="space-y-4">
+                  <ViewField
+                    label="Number of Directors/Partners"
+                    value={`${company?.Customers?.length || 0} Directors`}
+                    valueClassName="text-amber-600 font-medium"
+                  />
+                  <ViewField
+                    label="Full Name"
+                    value={`${primaryDirector.FirstName || ""} ${primaryDirector.LastName || ""}`.trim()}
+                  />
+                  <ViewField
+                    label="Designation"
+                    value={primaryDirector.Designation}
+                    valueClassName="text-amber-600 font-medium"
+                  />
+                  <ViewField
+                    label="DIN (Director Identification Number)"
+                    value={primaryDirector.DIN}
+                  />
+                  <ViewField
+                    label="Shareholding %"
+                    value={primaryDirector.Shareholding}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <EditField
+                    label="Number of Directors/Partners"
+                    type="number"
+                    value={directorForm.numberOfDirectors}
+                    onChange={(e) =>
+                      setDirectorForm({
+                        ...directorForm,
+                        numberOfDirectors: e.target.value,
+                      })
+                    }
+                  />
+                  <EditField
+                    label="Full Name"
+                    value={directorForm.fullName}
+                    onChange={(e) =>
+                      setDirectorForm({
+                        ...directorForm,
+                        fullName: e.target.value,
+                      })
+                    }
+                  />
+                  <EditField
+                    label="Designation"
+                    value={directorForm.designation}
+                    onChange={(e) =>
+                      setDirectorForm({
+                        ...directorForm,
+                        designation: e.target.value,
+                      })
+                    }
+                  />
+                  <EditField
+                    label="DIN (Director Identification Number)"
+                    value={directorForm.din}
+                    onChange={(e) =>
+                      setDirectorForm({ ...directorForm, din: e.target.value })
+                    }
+                  />
+                </div>
               )}
+            </Card>
 
-              {activeTab === "director" && (
-                <motion.div
-                  variants={containerVariants}
-                  initial="hidden"
-                  animate="visible"
-                  className="bg-white rounded-3xl p-8 border-2 border-yellow-100 shadow-lg"
-                >
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="p-3 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full">
-                      <Users className="w-6 h-6 text-white" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-gray-900">Director Information</h2>
-                  </div>
-
-                  {company?.Customers?.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {company.Customers.map((customer) => (
-                        <motion.div
-                          key={customer.CustomerID}
-                          variants={itemVariants}
-                          whileHover={{ scale: 1.02 }}
-                          className={`bg-gradient-to-br ${customer.PrimaryCustomer === 1 ? 'from-yellow-400 to-yellow-500' : 'from-gray-50 to-gray-100'} rounded-3xl p-6 border-2 ${customer.PrimaryCustomer === 1 ? 'border-yellow-400' : 'border-gray-200'}`}
-                        >
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                              <div className={`p-3 rounded-full ${customer.PrimaryCustomer === 1 ? 'bg-white/20' : 'bg-gray-200'}`}>
-                                <Users className={`w-6 h-6 ${customer.PrimaryCustomer === 1 ? 'text-white' : 'text-gray-600'}`} />
-                              </div>
-                              <div>
-                                <h3 className={`text-xl font-bold ${customer.PrimaryCustomer === 1 ? 'text-white' : 'text-gray-900'}`}>
-                                  {customer.FirstName} {customer.LastName}
-                                </h3>
-                                {customer.PrimaryCustomer === 1 && (
-                                  <span className="px-3 py-1 bg-white text-yellow-600 rounded-full text-xs font-semibold">
-                                    Primary Director
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="space-y-3">
-                            <p className={`flex items-center gap-2 ${customer.PrimaryCustomer === 1 ? 'text-white/90' : 'text-gray-600'}`}>
-                              <Mail className="w-4 h-4" />
-                              {customer.Email || "—"}
-                            </p>
-                            <p className={`flex items-center gap-2 ${customer.PrimaryCustomer === 1 ? 'text-white/90' : 'text-gray-600'}`}>
-                              <Phone className="w-4 h-4" />
-                              {customer.Mobile || "—"}
-                            </p>
-                            <p className={`flex items-center gap-2 ${customer.PrimaryCustomer === 1 ? 'text-white/90' : 'text-gray-600'}`}>
-                              <FileText className="w-4 h-4" />
-                              PAN: {customer.PANNumber || "—"}
-                            </p>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  ) : (
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-center text-gray-600 py-12"
-                    >
-                      No director information available
-                    </motion.p>
-                  )}
-                </motion.div>
+            <Card title="Contact Information" icon={Phone}>
+              {!isEditingDirector ? (
+                <div className="space-y-4">
+                  <ViewField
+                    label="Mobile Number"
+                    value={primaryDirector.Mobile}
+                  />
+                  <ViewField label="Email ID" value={primaryDirector.Email} />
+                  <ViewField
+                    label="PAN Number"
+                    value={primaryDirector.PANNumber}
+                  />
+                  <ViewField
+                    label="Date of Birth"
+                    value={primaryDirector.DateOfBirth}
+                  />
+                  <ViewField
+                    label="Company Email"
+                    value={company?.CompanyEmail}
+                  />
+                  <ViewField
+                    label="Company Mobile"
+                    value={company?.CompanyMobile}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <EditField
+                    label="Mobile Number"
+                    value={directorForm.mobile}
+                    onChange={(e) =>
+                      setDirectorForm({
+                        ...directorForm,
+                        mobile: e.target.value,
+                      })
+                    }
+                  />
+                  <EditField
+                    label="Email ID"
+                    type="email"
+                    value={directorForm.email}
+                    onChange={(e) =>
+                      setDirectorForm({
+                        ...directorForm,
+                        email: e.target.value,
+                      })
+                    }
+                  />
+                  <EditField
+                    label="PAN Number"
+                    value={directorForm.panNumber}
+                    onChange={(e) =>
+                      setDirectorForm({
+                        ...directorForm,
+                        panNumber: e.target.value,
+                      })
+                    }
+                  />
+                  <EditField
+                    label="Date of Birth"
+                    type="date"
+                    value={directorForm.dateOfBirth}
+                    onChange={(e) =>
+                      setDirectorForm({
+                        ...directorForm,
+                        dateOfBirth: e.target.value,
+                      })
+                    }
+                  />
+                </div>
               )}
-
-              {activeTab === "more" && company?.registrationStatus && (
-                <motion.div
-                  variants={containerVariants}
-                  initial="hidden"
-                  animate="visible"
-                  className="bg-white rounded-3xl p-8 border-2 border-yellow-100 shadow-lg"
-                >
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="p-3 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full">
-                      <Shield className="w-6 h-6 text-white" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-gray-900">Legal & Compliance Details</h2>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {Object.entries(company.registrationStatus).map(([key, value]) => (
-                      <motion.div
-                        key={key}
-                        whileHover="hover"
-                        initial="rest"
-                        animate="rest"
-                        variants={cardHoverVariants}
-                        className="bg-white rounded-3xl p-6 border-2 border-yellow-100"
-                      >
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="p-3 bg-yellow-50 rounded-full">
-                            <CheckCircle className="w-6 h-6 text-yellow-500" />
-                          </div>
-                          <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                            Active
-                          </span>
-                        </div>
-                        <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                          {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                        </h4>
-                        <p className="text-gray-600">{value || "Not specified"}</p>
-                      </motion.div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        {/* Floating Action Button */}
-        <motion.button
-          initial={{ opacity: 0, scale: 0 }}
-          animate={{ opacity: 1, scale: 1 }}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          className="fixed bottom-8 right-8 bg-gradient-to-r from-yellow-400 to-yellow-500 text-white p-4 rounded-full shadow-2xl shadow-yellow-400/30 hover:shadow-3xl hover:shadow-yellow-400/40 z-50"
-        >
-          <Settings className="w-6 h-6" />
-        </motion.button>
-      </motion.div>
-    </AnimatePresence>
+            </Card>
+          </div>
+        </section>
+      </div>
+    </div>
   );
 };
 

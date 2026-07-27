@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { loginWithPhone, signupWithPhone, verifyOtp } from "../../api/AuthApi";
 import { setSecureItem } from "../../utils/secureStorage";
+import { notifyTokenSet } from "../../utils/authSession";
 
 // Add a mode state for switching between sign-in and sign-up
 
@@ -102,6 +103,7 @@ const SigninModal = ({ isOpen = true, onClose = () => { } }) => {
           if (tokenData && tokenData.token) {
             console.log(tokenData, "token");
             localStorage.setItem('token', tokenData.token);
+            notifyTokenSet();
             setSignedMessage("Signed in successfully!");
           }
           if (tokenData && tokenData.user) {

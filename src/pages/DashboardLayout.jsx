@@ -69,6 +69,7 @@ const DashboardLayout = () => {
         }
 
         if (user && user.Companies && Array.isArray(user.Companies)) {
+     
           setCompanies(user.Companies);
 
           // Set default selected company to saved or first one
@@ -80,13 +81,16 @@ const DashboardLayout = () => {
           }
 
           if (targetCompany) {
+                 
             setSelectedCompany(targetCompany.BusinessName);
             setSelectedCompanyId(targetCompany.CompanyID);
+            
             // Load quotes for the selected company
             loadQuotesForCompany(targetCompany);
             setSecureItem("selectedCompany", JSON.stringify({
               CompanyID: targetCompany.CompanyID,
-              CompanyName: targetCompany.BusinessName
+              CompanyName: targetCompany.BusinessName,
+              State: targetCompany.State || ""
             }));
           }
         }
@@ -123,8 +127,10 @@ const DashboardLayout = () => {
     loadQuotesForCompany(company);
     setSecureItem("selectedCompany", JSON.stringify({
       CompanyID: company.CompanyID,
-      CompanyName: company.BusinessName
+      CompanyName: company.BusinessName,
+      State: company.State || ""
     }));
+    window.dispatchEvent(new Event("company-switched"));
     setShowCompanyDropdown(false);
   };
 
@@ -181,16 +187,22 @@ const DashboardLayout = () => {
     { name: "Bizpole One", path: "/dashboard/bizpoleone", icon: Layers },
     { name: "Bizpole Books", path: "/dashboard/books", icon: BookOpen },
   ];
-
+const uniqueCompanies = Array.from(
+  new Map(
+    companies.map((company) => [company.BusinessName.trim(), company]),
+  ).values(),
+);
   return (
-    <DashboardContext.Provider value={{
-      selectedCompany,
-      selectedCompanyId,
-      companies,
-      quotes,
-      handleCompanySelect,
-      loadQuotesForCompany
-    }}>
+    <DashboardContext.Provider
+      value={{
+        selectedCompany,
+        selectedCompanyId,
+        companies,
+        quotes,
+        handleCompanySelect,
+        loadQuotesForCompany,
+      }}
+    >
       <div className="min-h-screen flex flex-col bg-gray-50">
         {/* ✅ Top Navbar */}
         <header className="bg-white px-6 py-3 flex justify-between items-center shadow-sm">
@@ -214,11 +226,14 @@ const DashboardLayout = () => {
               {/* Company Dropdown */}
               {showCompanyDropdown && (
                 <div className="absolute left-0 mt-2 w-56 bg-white rounded-xl shadow-lg z-20 border border-gray-200">
-                  {companies.map((company) => (
+                  {uniqueCompanies.map((company) => (   
                     <button
-                      key={company.CompanyID || company.BusinessName}
-                      className={`w-full text-left px-5 py-3 hover:bg-yellow-100 rounded-xl transition ${selectedCompany === company.BusinessName ? "bg-yellow-50 font-bold" : ""
-                        }`}
+                      key={company.CompanyID}
+                      className={`w-full text-left px-5 py-3 hover:bg-yellow-100 rounded-xl transition ${
+                        selectedCompany === company.BusinessName
+                          ? "bg-yellow-50 font-bold"
+                          : ""
+                      }`}
                       onClick={() => handleCompanySelect(company)}
                     >
                       {company.BusinessName}
@@ -262,7 +277,10 @@ const DashboardLayout = () => {
               </button>
 
               {/* Profile */}
-              <NavLink to="/profile" className="flex items-center cursor-pointer">
+              <NavLink
+                to="/profile"
+                className="flex items-center cursor-pointer"
+              >
                 <img
                   src="/Images/user.jpg"
                   alt="Profile"
@@ -318,8 +336,11 @@ const DashboardLayout = () => {
                   {companies.map((company) => (
                     <button
                       key={company.CompanyID || company.BusinessName}
-                      className={`w-full text-left px-5 py-3 hover:bg-yellow-100 rounded-xl transition ${selectedCompany === company.BusinessName ? "bg-yellow-50 font-bold" : ""
-                        }`}
+                      className={`w-full text-left px-5 py-3 hover:bg-yellow-100 rounded-xl transition ${
+                        selectedCompany === company.BusinessName
+                          ? "bg-yellow-50 font-bold"
+                          : ""
+                      }`}
                       onClick={() => {
                         handleCompanySelect(company);
                         setIsMobileMenuOpen(false);
@@ -335,7 +356,9 @@ const DashboardLayout = () => {
             {/* Quotes Section for Mobile */}
             <div className="border-t pt-4">
               <div className="flex justify-between items-center mb-3">
-                <h3 className="font-semibold text-gray-800">Quotes ({quotes.length})</h3>
+                <h3 className="font-semibold text-gray-800">
+                  Quotes ({quotes.length})
+                </h3>
                 <button
                   onClick={handleGenerateQuote}
                   className="flex items-center gap-1 px-3 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
@@ -365,12 +388,20 @@ const DashboardLayout = () => {
                     >
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className="font-medium text-gray-800">{quote.PackageName || "Untitled Quote"}</p>
+                          <p className="font-medium text-gray-800">
+                            {quote.PackageName || "Untitled Quote"}
+                          </p>
                           <p className="text-sm text-gray-600">
-                            Status: <span className={`font-semibold ${quote.QuoteStatus === 'Approved' ? 'text-green-600' :
-                              quote.QuoteStatus === 'Draft' ? 'text-yellow-600' :
-                                'text-gray-600'
-                              }`}>
+                            Status:{" "}
+                            <span
+                              className={`font-semibold ${
+                                quote.QuoteStatus === "Approved"
+                                  ? "text-green-600"
+                                  : quote.QuoteStatus === "Draft"
+                                    ? "text-yellow-600"
+                                    : "text-gray-600"
+                              }`}
+                            >
                               {quote.QuoteStatus}
                             </span>
                           </p>
@@ -380,7 +411,9 @@ const DashboardLayout = () => {
                             ₹{quote.TotalAmount || quote.Total || "0"}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {new Date(quote.CreatedDate || quote.createdAt).toLocaleDateString()}
+                            {new Date(
+                              quote.CreatedDate || quote.createdAt,
+                            ).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
@@ -428,7 +461,9 @@ const DashboardLayout = () => {
               {/* Toggle + Title */}
               <div className="p-4 border-b border-gray-700 flex justify-between items-center">
                 {isSidebarOpen && (
-                  <span className="font-bold text-lg tracking-wide">Bizpole</span>
+                  <span className="font-bold text-lg tracking-wide">
+                    Bizpole
+                  </span>
                 )}
                 <button
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -447,14 +482,18 @@ const DashboardLayout = () => {
                         to={item.path}
                         className={({ isActive }) =>
                           `flex items-center gap-3 py-3 px-3 rounded-lg transition
-                        ${isActive
+                        ${
+                          isActive
                             ? "bg-gray-700 text-white"
-                            : "text-gray-300 hover:bg-gray-700 hover:text-white"}`
+                            : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                        }`
                         }
                       >
                         <item.icon size={isSidebarOpen ? 24 : 20} />
                         {isSidebarOpen && (
-                          <span className="text-sm font-medium">{item.name}</span>
+                          <span className="text-sm font-medium">
+                            {item.name}
+                          </span>
                         )}
                       </NavLink>
                     </li>
@@ -470,27 +509,34 @@ const DashboardLayout = () => {
                 className="flex items-center gap-3 py-2 px-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white"
               >
                 <HelpCircle size={isSidebarOpen ? 24 : 20} />
-                {isSidebarOpen && <span className="text-sm font-medium">Help</span>}
+                {isSidebarOpen && (
+                  <span className="text-sm font-medium">Help</span>
+                )}
               </NavLink>
               <button
                 onClick={() => setShowConfirm(true)}
                 className="flex items-center gap-3 py-2 px-3 rounded-lg text-red-500 hover:bg-gray-700 hover:text-red-400"
               >
-                <LogOut size={isSidebarOpen ? 24 : 20}  />
-                {isSidebarOpen && <span className="text-sm font-medium">Logout</span>}
+                <LogOut size={isSidebarOpen ? 24 : 20} />
+                {isSidebarOpen && (
+                  <span className="text-sm font-medium">Logout</span>
+                )}
               </button>
-                  {/* Confirm Logout Modal - moved outside button for correct event handling */}
-                  <ConfirmMsg
-                    open={showConfirm}
-                    title="Logout"
-                    message="Do you want to logout?"
-                    confirmText="Logout"
-                    cancelText="Cancel"
-                    onConfirm={() => { setShowConfirm(false); handleLogout(); }}
-                    onCancel={() => setShowConfirm(false)}
-                    showCancel={true}
-                    variant="delete"
-                  />
+              {/* Confirm Logout Modal - moved outside button for correct event handling */}
+              <ConfirmMsg
+                open={showConfirm}
+                title="Logout"
+                message="Do you want to logout?"
+                confirmText="Logout"
+                cancelText="Cancel"
+                onConfirm={() => {
+                  setShowConfirm(false);
+                  handleLogout();
+                }}
+                onCancel={() => setShowConfirm(false)}
+                showCancel={true}
+                variant="delete"
+              />
             </div>
           </div>
 

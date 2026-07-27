@@ -276,7 +276,7 @@ const Quiz = ({ onComplete = () => { } }) => {
         onComplete({ answers: newAnswers, recommendation: result });
         // After a short delay, navigate back and pass the recommendation
         setTimeout(() => {
-          navigate("/startbusiness/choose", { state: { suggested: result.recommendation } });
+          navigate("/startbusiness/choose", { state: { suggested: result.recommendation, reason: result.reason } });
         }, 2000);
       }
     }, 600);

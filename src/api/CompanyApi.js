@@ -135,4 +135,57 @@ export const getCompaniesByCustomerId = async (customerId) => {
         console.error("❌ Error in getCompaniesByCustomerId:", error);
         throw error;
     }
+};
+
+/**
+ * 🔹 Update Company Details (from CompanyDetails page)
+ * Sends all editable fields for a given CompanyId.
+ */
+// ── Compliance APIs ───────────────────────────────────────────────────────────
+
+export const getCompanyCompliances = async (companyId) => {
+  try {
+    const response = await axiosInstance.post("/company/compliances", { CompanyId: companyId });
+    console.log("✅ Response from getCompanyCompliances:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("❌ Error in getCompanyCompliances:", error);
+    throw error;
+  }
+};
+
+export const updateComplianceStatus = async (id, status) => {
+  try {
+    const response = await axiosInstance.post("/company/compliance/update-status", { id, status });
+    console.log("✅ Response from updateComplianceStatus:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("❌ Error in updateComplianceStatus:", error);
+    throw error;
+  }
+};
+
+export const getComplianceEvents = async (companyId) => {
+  try {
+    const response = await axiosInstance.post("/company/compliance/events", { CompanyId: companyId });
+    console.log("✅ Response from getComplianceEvents:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("❌ Error in getComplianceEvents:", error);
+    throw error;
+  }
+};
+
+export const updateCompanyDetails = async (companyId, fields) => {
+  try {
+    const response = await axiosInstance.post("/company/update-details", {
+      CompanyId: companyId,
+      ...fields,
+    });
+    console.log("✅ Response from updateCompanyDetails:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("❌ Error in updateCompanyDetails:", error);
+    throw error;
+  }
 };

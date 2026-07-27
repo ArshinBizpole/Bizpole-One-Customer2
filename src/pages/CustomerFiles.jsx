@@ -1,7 +1,8 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CustomerDocApi from '../api/CustomerDocApi';
 import { getSecureItem } from "../utils/secureStorage";
+import { ProfileCompanyContext } from './ProfileLayout';
 
 const fileTypes = [
   {
@@ -28,6 +29,7 @@ const fileTypes = [
 ];
 
 const CustomerFiles = () => {
+  const { selectedCompanyId } = useContext(ProfileCompanyContext);
   const [files, setFiles] = useState({ PAN: null, ADHAAR: null, PassportPhoto: null });
   const [previews, setPreviews] = useState({ PAN: '', ADHAAR: '', PassportPhoto: '' });
   const [uploadedDocs, setUploadedDocs] = useState({ PAN: false, ADHAAR: false, PassportPhoto: false });
@@ -73,9 +75,6 @@ const CustomerFiles = () => {
       return {};
     }
   };
-
-  // Get customerId from localStorage or context
-  const customerId = getUserData().FirstName;
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -141,6 +140,10 @@ const CustomerFiles = () => {
     const checkUploadedDocuments = async () => {
       try {
         setLoadingDocs(true);
+        setUploadedDocs({ PAN: false, ADHAAR: false, PassportPhoto: false });
+        setUploadedDocData({ PAN: '', ADHAAR: '', PassportPhoto: '' });
+
+        const customerId = getUserData().FirstName;
         const documents = await CustomerDocApi.getUploadedDocuments(customerId);
         console.log('Fetched documents:', documents);
 
@@ -168,7 +171,7 @@ const CustomerFiles = () => {
     };
 
     checkUploadedDocuments();
-  }, []);
+  }, [selectedCompanyId]);
 
   // Upload flow functions
   const handleFileChange = (type, e) => {
@@ -328,7 +331,7 @@ const CustomerFiles = () => {
     // If file is selected but not uploaded yet
     if (files[type]) {
       return (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
               <span className="text-2xl">📄</span>
@@ -338,23 +341,23 @@ const CustomerFiles = () => {
               <p className="text-sm text-gray-500">{(files[type].size / 1024 / 1024).toFixed(2)} MB</p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center flex-wrap gap-2">
             <button
               onClick={() => handlePreviewLocal(type)}
-              className="px-4 py-2 text-sm font-medium text-yellow-600 bg-white border border-yellow-600 rounded-md hover:bg-yellow-50"
+              className="w-24 px-3 py-2 text-sm font-medium text-center text-yellow-600 bg-white border border-yellow-600 rounded-md hover:bg-yellow-50"
             >
               View
             </button>
             <button
               onClick={() => handleUploadClick(type)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              className="w-24 px-3 py-2 text-sm font-medium text-center text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
             >
               Change
             </button>
 
             <button
               onClick={() => handleUploadToServer(type)}
-              className="px-4 py-2 text-sm font-medium text-white bg-yellow-600 rounded-md hover:bg-yellow-700"
+              className="w-24 px-3 py-2 text-sm font-medium text-center text-white bg-yellow-600 rounded-md hover:bg-yellow-700 disabled:opacity-60"
               disabled={isUploading[type]}
             >
               {isUploading[type] ? 'Uploading...' : 'Upload'}
@@ -373,39 +376,33 @@ const CustomerFiles = () => {
 
     // If document is already uploaded to server
     if (uploadedDocs[type]) {
-      return (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <span className="text-2xl text-green-600">✓</span>
-            </div>
-            <div>
-              <p className="font-medium text-gray-900">{label} Uploaded</p>
+  return (
+    <div className="flex flex-col items-center text-center">
+      
+      <p className="text-sm font-medium text-gray-900 mb-2">{label} Uploaded</p>
+      <div className="flex items-center justify-center flex-wrap gap-2">
+        <button
+          onClick={() => handlePreviewUploaded(type)}
+          className="w-28 px-2 py-1.5 text-sm font-medium text-center text-yellow-600 bg-white border border-yellow-600 rounded-md hover:bg-yellow-50"
+        >
+          View
+        </button>
+        <button
+          onClick={() => handleUploadClick(type)}
+          className="w-28 px-2 py-1.5 text-sm font-medium text-center text-white bg-yellow-400 cursor-pointer rounded-md hover:bg-yellow-700"
+        >
+          Upload New
+        </button>
+      </div>
+    </div>
+  );
+}
 
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => handlePreviewUploaded(type)}
-              className="px-4 py-2 text-sm font-medium text-yellow-600 bg-white border border-yellow-600 rounded-md hover:bg-yellow-50"
-            >
-              View
-            </button>
-            <button
-              onClick={() => handleUploadClick(type)}
-              className="px-4 py-2 text-sm font-medium text-white bg-yellow-400 cursor-pointer rounded-md hover:bg-yellow-700"
-            >
-              Upload New
-            </button>
-          </div>
-        </div>
-      );
-    }
 
     // Empty state - no file selected and not uploaded
     return (
       <div
-        className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${dragOver === type ? 'border-yellow-500 bg-yellow-50' : 'border-gray-300 hover:border-gray-400'
+        className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${dragOver === type ? 'border-yellow-500 bg-yellow-50' : 'border-gray-300 hover:border-gray-400'
           }`}
         onClick={() => handleUploadClick(type)}
         onDragOver={(e) => handleDragOver(e, type)}
@@ -413,14 +410,14 @@ const CustomerFiles = () => {
         onDrop={(e) => handleDrop(type, e)}
       >
         <div className="text-gray-400 mb-2">
-          <svg className="mx-auto h-12 w-12" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+          <svg className="mx-auto h-9 w-9" stroke="currentColor" fill="none" viewBox="0 0 48 48">
             <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
-        <p className="text-gray-600 mb-1">
+        <p className="text-sm text-gray-600 mb-1">
           <span className="text-yellow-600 hover:text-yellow-500 font-medium">Click to upload</span> or drag and drop
         </p>
-        <p className="text-sm text-gray-500">
+        <p className="text-xs text-gray-500">
           {type === 'PassportPhoto' ? 'JPG, PNG (Max 2MB)' : 'PNG, JPG up to 10MB'}
         </p>
       </div>
@@ -428,16 +425,16 @@ const CustomerFiles = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className=" mx-auto">
+    <div className="min-h-screen bg-gray-50 py-6 px-4 sm:px-6 lg:px-8">
+      <div className=" max-w-5xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Document Upload</h1>
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-semibold text-gray-900 mb-2">Document Upload</h1>
         </div>
 
         {/* Document Cards */}
         <motion.div
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
@@ -449,10 +446,10 @@ const CustomerFiles = () => {
               className="bg-white rounded-lg border border-yellow-200 overflow-hidden"
             >
               {/* Card Header */}
-              <div className="px-6 py-4 border-b border-gray-200">
+              <div className="px-4 py-3 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{label}</h3>
+                    <h3 className="text-base font-semibold text-gray-900">{label}</h3>
                     {(files[key] || uploadedDocs[key]) && (
                       <span className="text-sm text-green-600 font-medium">verified</span>
                     )}
@@ -461,8 +458,8 @@ const CustomerFiles = () => {
               </div>
 
               {/* Card Body */}
-              <div className="p-6">
-                <p className="text-gray-600 mb-4">{description}</p>
+              <div className="p-4">
+                <p className="text-sm text-gray-600 mb-3">{description}</p>
 
                 {loadingDocs ? (
                   <div className="flex items-center justify-center h-20">
@@ -511,58 +508,62 @@ const CustomerFiles = () => {
           ))}
         </motion.div>
         {/* Upload Guidelines */}
-        <div className="mt-12 bg-white rounded-lg border border-gray-200 p-6">
+        <div className="mt-12 bg-white rounded-lg border border-yellow-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Guidelines</h3>
           <p className="text-gray-600 mb-4">Please follow these guidelines for successful document verification</p>
 
           <div className="grid md:grid-cols-2 gap-6">
             <div>
-              <h4 className="font-medium text-gray-900 mb-3">Do's</h4>
+              <h4 className="font-medium text-gray-900 mb-3">
+                <span className="text-green-500 mr-2">✓</span>
+                Do's</h4>
               <ul className="space-y-2 text-sm text-gray-600">
                 <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
+                  <span className="mr-2">•</span>
                   Upload clear, high-resolution images
                 </li>
                 <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
+                  <span className="mr-2">•</span>
                   Ensure all text is readable
                 </li>
                 <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
+                  <span className="mr-2">•</span>
                   Use good lighting when taking photos
                 </li>
                 <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
+                 <span className="mr-2">•</span>
                   Keep documents flat and straight
                 </li>
                 <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
+                  <span className="mr-2">•</span>
                   Upload original documents only
                 </li>
               </ul>
             </div>
 
             <div>
-              <h4 className="font-medium text-gray-900 mb-3">Don'ts</h4>
+              <h4 className="font-medium text-gray-900 mb-3">
+                <span className="text-red-500 mr-2">✗</span>
+                Don'ts</h4>
               <ul className="space-y-2 text-sm text-gray-600">
                 <li className="flex items-start">
-                  <span className="text-red-500 mr-2">✗</span>
+                  <span className="mr-2">•</span>
                   Don't upload blurry or dark images
                 </li>
                 <li className="flex items-start">
-                  <span className="text-red-500 mr-2">✗</span>
+                 <span className="mr-2">•</span>
                   Don't crop important information
                 </li>
                 <li className="flex items-start">
-                  <span className="text-red-500 mr-2">✗</span>
+                  <span className="mr-2">•</span>
                   Don't upload photocopies
                 </li>
                 <li className="flex items-start">
-                  <span className="text-red-500 mr-2">✗</span>
+                  <span className="mr-2">•</span>
                   Don't use filters or edit images
                 </li>
                 <li className="flex items-start">
-                  <span className="text-red-500 mr-2">✗</span>
+                  <span className="mr-2">•</span>
                   Don't upload damaged documents
                 </li>
               </ul>

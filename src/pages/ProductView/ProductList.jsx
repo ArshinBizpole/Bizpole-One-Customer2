@@ -187,42 +187,47 @@ const ProductList = () => {
       {/* Custom cursor — rendered outside scroll flow */}
       <CustomCursor />
 
-      <div className="product-page">
-        {/* ── Hero ── */}
-        <section className="pt-20 min-h-[90vh] flex flex-col items-center justify-center text-center bg-gradient-to-b from-white to-yellow-50">
+      <div className="product-page mt-4">
+        {/* ── Header ── */}
+        <section className="pt-24 pb-4 px-4 text-center bg-[#f4f4f2]">
+          {/* Badge */}
           <motion.div
-            className="inline-block px-4 py-1 mb-12 border border-yellow-400 rounded-full text-sm text-yellow-500"
+            className="inline-flex items-center mt-10 gap-2 px-4 py-1.5 mb-8 bg-white border border-yellow-200 rounded-full text-xs font-medium text-gray-700 shadow-sm"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            Bizpole suite
+            <svg className="w-3.5 h-3.5 text-yellow-500" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l2.4 6.9L21 11l-6.6 2.1L12 20l-2.4-6.9L3 11l6.6-2.1L12 2z" />
+            </svg>
+            Powerful SaaS Solutions
           </motion.div>
 
           <motion.h1
-            className="text-5xl md:text-6xl font-semibold text-gray-900 mb-4"
+            className="text-3xl md:text-4xl font-bold text-gray-900 mb-5"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7 }}
           >
-            Introducing <br />
-            <span className="text-yellow-500">Bizpole Products</span>
+            Transform Your Business with Our{" "}
+            <span className="text-yellow-400">Products</span>
           </motion.h1>
 
           <motion.p
-            className="text-gray-700 text-lg max-w-2xl mx-auto mb-8"
+            className="text-gray-500 text-sm md:text-base max-w-2xl mx-auto"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4, duration: 0.7 }}
           >
-            A unified solution, designed particularly to manage, develop, and
-            enhance your eCommerce ecosystem.
+            Discover our suite of enterprise-grade SaaS products designed to
+            streamline operations, boost productivity, and drive growth. From
+            CRM to analytics, we've got you covered.
           </motion.p>
         </section>
 
         {/* ── Products ── */}
-        <section className="py-12 px-4 mx-auto bg-gradient-to-t from-white to-yellow-50">
-          <div className="max-w-6xl mx-auto">
+        <section className="pt-16 pb-28 px-4 mx-auto bg-[#f4f4f2]">
+          <div className="max-w-5xl mx-auto">
             {loading ? (
               <div className="flex justify-center items-center py-16">
                 <motion.div
@@ -239,7 +244,7 @@ const ProductList = () => {
               </div>
             ) : (
               <motion.div
-                className="space-y-16"
+                className="space-y-12"
                 initial="hidden"
                 animate="visible"
                 variants={{
@@ -248,51 +253,82 @@ const ProductList = () => {
                 }}
               >
                 <AnimatePresence>
-                  {products.map((product, idx) => (
-                    <motion.div
-                      key={product.id || idx}
-                      data-cursor-hover
-                      className={`flex flex-col ${idx % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"} gap-15 mb-30 items-center`}
-                      initial={{ opacity: 0, y: 40, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 40, scale: 0.98 }}
-                      transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-                    >
-                      {/* Product Image */}
-                      <div className="w-full md:w-1/2">
-                        {product.icon_url?.data && Array.isArray(product.icon_url.data) ? (
-                          <img
-                            src={`data:image/png;base64,${arrayBufferToBase64(product.icon_url.data)}`}
-                            alt={product.name || product.ProductName}
-                            className="w-full h-95 object-cover rounded-2xl shadow-lg"
-                          />
-                        ) : product.image ? (
-                          <img
-                            src={product.image}
-                            alt={product.name || product.ProductName}
-                            className="w-full h-80 object-cover rounded-2xl shadow-lg bg-gray-50"
-                          />
-                        ) : (
-                          <div className="w-full h-80 bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-2xl shadow-lg flex items-center justify-center">
-                            <span className="text-gray-400 text-lg">No image</span>
-                          </div>
-                        )}
-                      </div>
+                  {products.map((product, idx) => {
+                    const name = product.name || product.ProductName;
+                    const description =
+                      product.description || product.Description || "No description available.";
+                    const link =
+                      product.url || product.link || product.product_url || product.ProductUrl;
 
-                      {/* Product Content */}
-                      <div className="w-full md:w-1/2 space-y-4">
-                        <h3 className="text-3xl md:text-4xl font-semibold text-gray-900">
-                          {product.name || product.ProductName}
-                        </h3>
-                        <p className="text-gray-600 text-base leading-relaxed">
-                          {product.description || product.Description || "No description available."}
-                        </p>
-                        {product.price && (
-                          <div className="text-yellow-500 font-bold text-2xl">₹{product.price}</div>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
+                    return (
+                      <motion.div
+                        key={product.id || idx}
+                        data-cursor-hover
+                        className="flex flex-col md:flex-row bg-white rounded-2xl border border-gray-300 shadow-[0_10px_40px_rgba(0,0,0,0.06)] overflow-hidden hover:shadow-[0_16px_50px_rgba(0,0,0,0.1)] transition-shadow duration-300"
+                        initial={{ opacity: 0, y: 40, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 40, scale: 0.98 }}
+                        transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
+                      >
+                        {/* Product Image */}
+                        <div className="w-full md:w-2/5 bg-gray-50 flex items-center justify-center p-10 md:p-12 md:min-h-[20rem]">
+                          {product.icon_url?.data && Array.isArray(product.icon_url.data) ? (
+                            <img
+                              src={`data:image/png;base64,${arrayBufferToBase64(product.icon_url.data)}`}
+                              alt={name}
+                              className="max-w-full max-h-44 object-contain"
+                            />
+                          ) : product.image ? (
+                            <img
+                              src={product.image}
+                              alt={name}
+                              className="max-w-full max-h-44 object-contain"
+                            />
+                          ) : (
+                            <div className="w-full h-40 rounded-xl bg-gradient-to-br from-yellow-50 to-yellow-100 flex items-center justify-center">
+                              <span className="text-gray-400 text-lg">No image</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Product Content */}
+                        <div className="w-full md:w-3/5 p-8 md:p-12 flex flex-col justify-center">
+                          <h3 className="text-xl md:text-2xl font-semibold text-gray-900 mb-4">
+                            {name}
+                          </h3>
+
+                          {link && (
+                            <a
+                              href={link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-yellow-500 hover:text-yellow-600 text-sm underline break-all mb-6"
+                            >
+                              {link}
+                            </a>
+                          )}
+
+                          <div className="flex items-center gap-2 text-gray-500 text-xs font-semibold uppercase tracking-wide mb-3">
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                              <path d="M14 2v6h6" />
+                              <path d="M16 13H8M16 17H8M10 9H8" />
+                            </svg>
+                            Description
+                          </div>
+                          <p className="text-gray-500 text-sm md:text-base leading-relaxed">
+                            {description}
+                          </p>
+
+                          {product.price && (
+                            <div className="text-yellow-500 font-bold text-xl mt-6">
+                              ₹{product.price}
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </AnimatePresence>
               </motion.div>
             )}

@@ -6,6 +6,7 @@ import { getSecureItem } from "../../utils/secureStorage";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import SigninModal from "../Modals/SigninModal";
+import { fetchFranchiseeGstInfo, calcGstAmount, splitGst } from "../../utils/gstCalc";
 
 const GlobalCart = () => {
   const { cart, removeFromCart, clearCart } = useContext(CartContext);
@@ -41,24 +42,36 @@ const GlobalCart = () => {
       const companyId = selectedCompany?.CompanyID || null;
 
       const selectedServiceIds = Object.keys(cart).map(Number);
+      // GST eligibility/state is per-franchisee, fetch once for the whole cart.
+      const { gstEligible, state: franchiseeState } = await fetchFranchiseeGstInfo(franchiseeId);
       const serviceDetails = selectedServiceIds.map(sid => {
         const item = cart[sid] || {};
+        const professionalFee = Number(item.ProfessionalFee ?? 100);
+        const vendorFee = Number(item.VendorFee ?? 100);
+        const govtFee = Number(item.GovernmentFee ?? 100);
+        const contractorFee = Number(item.ContractFee ?? 100);
+        const discount = Number(item.Discount ?? 0);
+        const rounding = Number(item.Rounding ?? 0);
+        const gstAmount = calcGstAmount(professionalFee, vendorFee, gstEligible);
+        const { cgst, sgst, igst } = splitGst(gstAmount, franchiseeState, stateName);
+        const total = professionalFee + vendorFee + govtFee + contractorFee - discount + gstAmount;
+        const advanceAmount = Math.ceil(total * 0.3);
         return {
           ServiceID: sid,
           ItemName: item.ServiceName || item.Name,
-          ProfessionalFee: item.ProfessionalFee ?? 100,
-          VendorFee: item.VendorFee ?? 100,
-          GovtFee: item.GovtFee ?? 100,
-          ContractorFee: item.ContractorFee ?? 100,
-          GSTPercent: item.GSTPercent ?? 0,
-          GstAmount: item.GstAmount ?? 18,
-          CGST: item.CGST ?? 9,
-          SGST: item.SGST ?? 9,
-          IGST: item.IGST ?? 0,
-          Discount: item.Discount ?? 0,
-          Rounding: item.Rounding ?? 0,
-          Total: item.TotalFee ?? (typeof item === 'number' ? item : 418),
-          AdvanceAmount: item.AdvanceAmount ?? 126,
+          ProfessionalFee: professionalFee,
+          VendorFee: vendorFee,
+          GovtFee: govtFee,
+          ContractorFee: contractorFee,
+          GSTPercent: gstEligible ? 18 : 0,
+          GstAmount: gstAmount,
+          CGST: cgst,
+          SGST: sgst,
+          IGST: igst,
+          Discount: discount,
+          Rounding: rounding,
+          Total: total,
+          AdvanceAmount: advanceAmount,
           IsManual: 0,
           IsIndividual: 1
         };

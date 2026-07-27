@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, ArrowRight, Loader2, AlertCircle } from "lucide-react";
 import AssociateApi from "../../api/AssociateApi";
 import { setSecureItem } from "../../utils/secureStorage";
+import { notifyTokenSet } from "../../utils/authSession";
 import { useNavigate } from "react-router-dom";
 
 const PartnerLoginModal = ({ isOpen, onClose, onSwitchToSignup }) => {
@@ -83,6 +84,7 @@ const PartnerLoginModal = ({ isOpen, onClose, onSwitchToSignup }) => {
                         // Store token and user
                         if (response.token && response.user) {
                             localStorage.setItem('partnerToken', response.token); // Store partner token distinctly
+                            notifyTokenSet();
                             localStorage.setItem('EmployeeID', response.user.EmployeeID);
                             localStorage.setItem('FranchiseeID', response.user.FranchiseeID);
                             localStorage.setItem('AssociateID', response.user.id);

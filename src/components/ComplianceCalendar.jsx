@@ -7,18 +7,27 @@ const ComplianceCalendar = ({ compliances = [], onComplianceClick }) => {
   const [animatedValue, setAnimatedValue] = useState(0);
   const [popupCompliance, setPopupCompliance] = useState(null);
   const [fetchedCompliances, setFetchedCompliances] = useState([]);
+  const [companyId, setCompanyId] = useState(() => getSecureItem("selectedCompany")?.CompanyID || null);
+
+  // Re-fetch when company is switched from the dropdown
+  useEffect(() => {
+    const handler = () => {
+      const company = getSecureItem("selectedCompany");
+      setCompanyId(company?.CompanyID || null);
+    };
+    window.addEventListener("company-switched", handler);
+    return () => window.removeEventListener("company-switched", handler);
+  }, []);
 
   // Fetch compliances from API using secureStorage selectedCompany
   useEffect(() => {
-    const selectedCompany = getSecureItem("selectedCompany");
-    const companyId = selectedCompany?.CompanyID;
     if (!companyId) return;
     async function fetchData() {
       const data = await getCompanyCompliances(companyId);
       setFetchedCompliances(data);
     }
     fetchData();
-  }, []);
+  }, [companyId]);
 
   // Use fetched compliances if available
   const compliancesToShow = fetchedCompliances.length > 0 ? fetchedCompliances : compliances;

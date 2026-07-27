@@ -1,6 +1,6 @@
 import React from 'react';
-import { Calendar as CalendarIcon } from 'lucide-react';
-
+// import { Calendar as CalendarIcon } from 'lucide-react';
+// import { Calendar as CalendarIcon } from "lucide-react";
 const CalendarHeader = () => {
   return (
     <header className="bg-white border-b border-gray-200">
@@ -8,9 +8,6 @@ const CalendarHeader = () => {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center">
-              <div className="h-8 w-8 bg-yellow-500 rounded-lg flex items-center justify-center">
-                <CalendarIcon size={20} className="text-white" />
-              </div>
               <span className="ml-2 text-xl font-bold text-gray-800">Calendar</span>
             </div>
           </div>

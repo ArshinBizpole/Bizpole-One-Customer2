@@ -1,30 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FiFileText,
   FiChevronRight,
   FiPlus,
   FiMinus,
-  FiDownload,
-  FiEye,
-  FiCalendar,
-  FiDollarSign,
-  FiCheckCircle,
+  FiX,
   FiAlertCircle,
-  FiRefreshCw
+  FiDownload
 } from 'react-icons/fi';
-import { getCompanyInvoices } from '../api/Companyinvoice';
-import { getSecureItem } from '../utils/secureStorage';
+import { getCompanyInvoices, getCompanyOrders } from '../api/Companyinvoice';
 import CryptoJS from "crypto-js";
+import { ProfileCompanyContext } from './ProfileLayout';
 import { useNavigate } from 'react-router-dom';
 
 const InvoiceProfile = () => {
   const navigate = useNavigate();
+  const { selectedCompanyId } = useContext(ProfileCompanyContext);
   const [activeTab, setActiveTab] = useState('overview');
   const [expandedFaq, setExpandedFaq] = useState(null);
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [showFullInvoice, setShowFullInvoice] = useState(false);
   const [stats, setStats] = useState({
     totalInvoices: 0,
     totalAmount: 0,
@@ -33,54 +32,58 @@ const InvoiceProfile = () => {
     overdueInvoices: 0
   });
 
-  // Animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: {
-        type: "spring",
-        stiffness: 100
-      }
-    }
-  };
-
-  // Fetch invoices on component mount
   useEffect(() => {
-    fetchInvoices();
-  }, []);
+    if (selectedCompanyId) {
+      fetchInvoices(selectedCompanyId);
+    }
+  }, [selectedCompanyId]);
 
-  const fetchInvoices = async () => {
+  // Sum the real GST/Advance/Total figures straight off an order's ServiceDetails line items —
+  // Subtotal is derived later as Total minus this real GST amount (not computed independently),
+  // so Subtotal + GST always reconciles exactly to Total.
+  const aggregateOrderAmounts = (order) => {
+    const services = Array.isArray(order?.ServiceDetails) ? order.ServiceDetails : [];
+    return services.reduce(
+      (acc, s) => {
+        acc.gst += parseFloat(s.GstAmount) || 0;
+        acc.advance += parseFloat(s.AdvanceAmount) || 0;
+        acc.pending += parseFloat(s.PendingAmount) || 0;
+        acc.total += parseFloat(s.Total) || 0;
+        return acc;
+      },
+      { gst: 0, advance: 0, pending: 0, total: 0 }
+    );
+  };
+
+  const fetchInvoices = async (companyId) => {
     setLoading(true);
     setError(null);
     try {
-      const selectedCompany = getSecureItem("selectedCompany");
-      const companyId = selectedCompany?.CompanyID;
-      
-      if (!companyId) {
-        throw new Error("No company selected. Please select a company first.");
-      }
-
-      const response = await getCompanyInvoices({ 
-        companyId, 
-        limit: 50, 
-        page: 1 
-      });
+      const [response, ordersRes] = await Promise.all([
+        getCompanyInvoices({ companyId, limit: 50, page: 1 }),
+        getCompanyOrders({ companyId, limit: 50, page: 1 }),
+      ]);
 
       if (response.success && Array.isArray(response.data)) {
-        setInvoices(response.data);
-        calculateStats(response.data);
+        const ordersByOrderId = new Map(
+          (Array.isArray(ordersRes?.data) ? ordersRes.data : []).map((o) => [String(o.OrderID), o])
+        );
+        const enriched = response.data.map((inv) => {
+          const order = ordersByOrderId.get(String(inv.OrderID));
+          return order
+            ? {
+                ...inv,
+                amounts: aggregateOrderAmounts(order),
+                serviceDetails: order.ServiceDetails || [],
+                quoteCodeId: order.QuoteCodeId,
+                customerName: order.CustomerName,
+                state: order.StateService,
+                franchiseeId: order.FranchiseeID,
+              }
+            : inv;
+        });
+        setInvoices(enriched);
+        calculateStats(enriched);
       } else {
         setInvoices([]);
         calculateStats([]);
@@ -93,18 +96,6 @@ const InvoiceProfile = () => {
       setLoading(false);
     }
   };
-  // const handleOrderChange = async (orderId) => {
-  //   setSelectedOrderId(orderId);
-  //   setLoading(true);
-  //   try {
-  //     const fetchedInvoices = await getInvoicesForOrder(orderId);
-  //     setInvoices(fetchedInvoices);
-  //   } catch (err) {
-  //     setError(err.message);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
 
   const calculateStats = (invoiceData) => {
     const totalInvoices = invoiceData.length;
@@ -112,19 +103,21 @@ const InvoiceProfile = () => {
       const amount = parseFloat(inv.InvoiceValue || inv.OrderValue || inv.InvoiceTotal || 0);
       return sum + (isNaN(amount) ? 0 : amount);
     }, 0);
-    
-    const paidInvoices = invoiceData.filter(inv => 
-      inv.InvoiceStatus?.toLowerCase() === 'paid' || 
+
+    const paidInvoices = invoiceData.filter(inv =>
+      inv.InvoiceStatus?.toLowerCase() === 'paid' ||
       inv.Status?.toLowerCase() === 'paid'
     ).length;
-    
-    const pendingInvoices = invoiceData.filter(inv => 
-      inv.InvoiceStatus?.toLowerCase() === 'pending' || 
-      inv.Status?.toLowerCase() === 'pending'
+
+    const pendingInvoices = invoiceData.filter(inv =>
+      inv.InvoiceStatus?.toLowerCase() === 'pending' ||
+      inv.Status?.toLowerCase() === 'pending' ||
+      inv.InvoiceStatus?.toLowerCase() === 'upcoming' ||
+      inv.Status?.toLowerCase() === 'upcoming'
     ).length;
-    
-    const overdueInvoices = invoiceData.filter(inv => 
-      inv.InvoiceStatus?.toLowerCase() === 'overdue' || 
+
+    const overdueInvoices = invoiceData.filter(inv =>
+      inv.InvoiceStatus?.toLowerCase() === 'overdue' ||
       inv.Status?.toLowerCase() === 'overdue'
     ).length;
 
@@ -138,10 +131,15 @@ const InvoiceProfile = () => {
   };
 
   const handleViewInvoice = (invoice) => {
+    setSelectedInvoice(invoice);
+    setShowFullInvoice(false);
+  };
+
+  const handleOpenFullPreview = (invoice) => {
     try {
       const secret = import.meta.env.VITE_QUOTE_LINK_SECRET || "default_secret";
       const orderId = invoice.OrderID || invoice.id;
-      
+
       if (!orderId) {
         console.error("No Order ID found for invoice");
         return;
@@ -150,19 +148,13 @@ const InvoiceProfile = () => {
       const encryptedOrderId = encodeURIComponent(
         CryptoJS.AES.encrypt(String(orderId), secret).toString()
       );
-      
-      // Pass invoice data via state
+
       navigate(`/profile/invoice-preview/${encryptedOrderId}`, {
         state: { invoiceData: invoice }
       });
     } catch (error) {
       console.error("Error encrypting order ID:", error);
     }
-  };
-
-  const handleDownloadInvoice = (invoice) => {
-    // Implement download functionality
-    console.log("Download invoice:", invoice);
   };
 
   const faqs = [
@@ -188,7 +180,7 @@ const InvoiceProfile = () => {
     if (!amount && amount !== 0) return '₹0.00';
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount)) return '₹0.00';
-    
+
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
@@ -204,7 +196,7 @@ const InvoiceProfile = () => {
       if (isNaN(date.getTime())) return '-';
       return date.toLocaleDateString('en-IN', {
         day: 'numeric',
-        month: 'short',
+        month: 'long',
         year: 'numeric'
       });
     } catch {
@@ -212,24 +204,21 @@ const InvoiceProfile = () => {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'paid':
-        return 'bg-green-100 text-green-800 border border-green-200';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
-      case 'overdue':
-        return 'bg-red-100 text-red-800 border border-red-200';
-      case 'cancelled':
-        return 'bg-gray-100 text-gray-800 border border-gray-200';
-      default:
-        return 'bg-blue-100 text-blue-800 border border-blue-200';
-    }
+  const getStatusBadge = (status) => {
+    const normalized = status?.toLowerCase();
+    const styles = {
+      paid: 'bg-green-50 text-green-700',
+      pending: 'bg-yellow-50 text-yellow-700',
+      upcoming: 'bg-yellow-50 text-yellow-700',
+      overdue: 'bg-red-50 text-red-700',
+      cancelled: 'bg-gray-100 text-gray-600',
+    };
+    return styles[normalized] || 'bg-gray-100 text-gray-600';
   };
 
   const getNextInvoice = () => {
     if (!invoices.length) return null;
-    
+
     const now = new Date();
     const futureInvoices = invoices
       .filter(inv => {
@@ -237,377 +226,128 @@ const InvoiceProfile = () => {
         return invDate > now && inv.InvoiceStatus?.toLowerCase() !== 'paid';
       })
       .sort((a, b) => new Date(a.InvoiceDate) - new Date(b.InvoiceDate));
-    
+
     return futureInvoices[0] || invoices[0];
   };
 
   const nextInvoice = getNextInvoice();
 
+  // Total is GST-inclusive (that's what the API/InvoiceValue gives us). GST is the real
+  // GstAmount summed off QuoteServiceDetails (via invoice.amounts.gst) when available.
+  // Subtotal is the difference: Total - GST — never computed independently — so
+  // Subtotal + GST always reconciles exactly back to Total.
+  const getInvoiceBreakdown = (invoice) => {
+    const total = invoice?.amounts?.total
+      || parseFloat(invoice?.InvoiceValue || invoice?.OrderValue || invoice?.InvoiceTotal || 0) || 0;
+    const gst = invoice?.amounts?.gst || 0;
+    const subtotal = total - gst;
+    return { subtotal, gst, total };
+  };
+
+  const selectedInvoiceBreakdown = selectedInvoice ? getInvoiceBreakdown(selectedInvoice) : null;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-yellow-50 p-4 md:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8 flex justify-between items-center"
-        >
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-              Invoice Management
-            </h1>
-            <p className="text-gray-600">
-              Manage and view all invoices for your company
-            </p>
-          </div>
-          
-          {/* Refresh Button */}
-          <motion.button
-            whileHover={{ scale: 1.05, rotate: 180 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={fetchInvoices}
-            className="p-3 bg-white rounded-full shadow-lg hover:shadow-xl transition-all border-2 border-yellow-100"
-            disabled={loading}
-          >
-            <FiRefreshCw className={`w-5 h-5 text-yellow-600 ${loading ? 'animate-spin' : ''}`} />
-          </motion.button>
-        </motion.div>
+    <div>
+      <div className="mx-auto px-6 py-10">
+        {/* Heading */}
+        <h1 className="text-2xl font-semibold text-gray-900 mb-6">Invoice</h1>
 
         {/* Tabs */}
-        <div className="flex flex-wrap gap-4 mb-8">
+        <div className="flex items-center gap-6 border-b border-gray-200 mb-8">
           {[
-            { id: 'overview', label: 'Overview', icon: FiEye },
-            { id: 'invoices', label: 'Invoices', icon: FiFileText },
+            { id: 'overview', label: 'Overview' },
+            { id: 'invoices', label: 'Invoices' },
           ].map((tab) => (
-            <motion.button
+            <button
               key={tab.id}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
               onClick={() => setActiveTab(tab.id)}
-              className={`relative px-6 py-3 rounded-full text-sm font-medium transition-all duration-300 ${activeTab === tab.id
-                ? 'bg-yellow-400 text-white shadow-lg shadow-yellow-400/30'
-                : 'bg-white text-gray-600 hover:text-yellow-600 hover:bg-yellow-50 border-2 border-yellow-100'
+              className={`relative pb-3 text-sm font-medium transition-colors ${activeTab === tab.id ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'
                 }`}
             >
-              <tab.icon className="w-4 h-4" />
               {tab.label}
               {activeTab === tab.id && (
                 <motion.div
-                  layoutId="activeTabIndicator"
-                  className="absolute inset-0 rounded-full bg-yellow-400 -z-10"
-                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  layoutId="invoiceTabUnderline"
+                  className="absolute left-0 right-0 -bottom-px h-[2px] bg-yellow-400"
                 />
               )}
-            </motion.button>
+            </button>
           ))}
         </div>
 
         <AnimatePresence mode="wait">
-          {activeTab === 'invoices' && (
-            <motion.div
-              key="invoices"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              variants={containerVariants}
-
-            >
-              {/* Stats Overview */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                <motion.div
-                  variants={itemVariants}
-                  className="bg-white rounded-3xl p-6 border-2 border-yellow-100 shadow-lg"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Total Invoices</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.totalInvoices}</p>
-                    </div>
-                    <div className="p-3 bg-yellow-50 rounded-full">
-                      <FiFileText className="w-6 h-6 text-yellow-500" />
-                    </div>
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  variants={itemVariants}
-                  className="bg-white rounded-3xl p-6 border-2 border-yellow-100 shadow-lg"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Total Amount</p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {formatCurrency(stats.totalAmount)}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-green-50 rounded-full">
-                      <FiDollarSign className="w-6 h-6 text-green-500" />
-                    </div>
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  variants={itemVariants}
-                  className="bg-white rounded-3xl p-6 border-2 border-yellow-100 shadow-lg"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Paid Invoices</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.paidInvoices}</p>
-                    </div>
-                    <div className="p-3 bg-blue-50 rounded-full">
-                      <FiCheckCircle className="w-6 h-6 text-blue-500" />
-                    </div>
-                  </div>
-                </motion.div>
-
-                <motion.div 
-                  variants={itemVariants}
-                  className="bg-white rounded-3xl p-6 border-2 border-yellow-100 shadow-lg"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Pending/Overdue</p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {stats.pendingInvoices + stats.overdueInvoices}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-red-50 rounded-full">
-                      <FiAlertCircle className="w-6 h-6 text-red-500" />
-                    </div>
-                  </div>
-                </motion.div>
-              </div>
-
-              {/* Invoice Table */}
-              <motion.div
-                variants={itemVariants}
-                className="bg-white rounded-3xl shadow-xl border-2 border-yellow-100 overflow-hidden"
-              >
-                <div className="overflow-x-auto">
-                  {loading ? (
-                    <div className="p-12 text-center">
-                      <div className="inline-block w-12 h-12 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mb-4"></div>
-                      <p className="text-gray-600">Loading invoices...</p>
-                    </div>
-                  ) : error ? (
-                    <div className="p-12 text-center">
-                      <FiAlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-                      <p className="text-red-600 mb-4">{error}</p>
-                      <button
-                        onClick={fetchInvoices}
-                        className="px-6 py-3 bg-gradient-to-r from-yellow-400 to-yellow-500 text-white rounded-full font-medium shadow-lg hover:shadow-xl transition-all"
-                      >
-                        Retry
-                      </button>
-                    </div>
-                  ) : invoices.length === 0 ? (
-                    <div className="p-12 text-center">
-                      <FiFileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500 mb-2">No invoices found</p>
-                      <p className="text-gray-400 text-sm">There are no invoices for this company yet.</p>
-                    </div>
-                  ) : (
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b-2 border-yellow-50 bg-yellow-50/50">
-                          <th className="text-left py-5 px-6 text-sm font-semibold text-gray-700">Invoice Code</th>
-                          <th className="text-left py-5 px-6 text-sm font-semibold text-gray-700">Invoice Date</th>
-                          <th className="text-left py-5 px-6 text-sm font-semibold text-gray-700">Company Name</th>
-                          <th className="text-left py-5 px-6 text-sm font-semibold text-gray-700">Customer</th>
-                          <th className="text-left py-5 px-6 text-sm font-semibold text-gray-700">Status</th>
-                          <th className="text-left py-5 px-6 text-sm font-semibold text-gray-700">Total Amount</th>
-                          <th className="text-right py-5 px-6 text-sm font-semibold text-gray-700">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {invoices.map((invoice, index) => (
-                          <motion.tr
-                            key={invoice.InvoiceID || invoice.id || index}
-                            variants={itemVariants}
-                            className="border-b border-gray-100 hover:bg-yellow-50/30 transition-colors"
-                          >
-                            <td className="py-5 px-6">
-                              <span className="text-sm font-medium text-gray-900">
-                                {invoice.InvoiceCode || invoice.invoiceCode || 'N/A'}
-                              </span>
-                            </td>
-                            <td className="py-5 px-6">
-                              <div className="flex items-center gap-3">
-                                <div className="p-2 bg-yellow-100 rounded-full">
-                                  <FiCalendar className="w-4 h-4 text-yellow-600" />
-                                </div>
-                                <span className="text-sm font-medium text-gray-900">
-                                  {formatDate(invoice.InvoiceDate || invoice.invoiceDate)}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="py-5 px-6">
-                              <span className="text-sm text-gray-700">
-                                {invoice.CompanyName || invoice.companyName || '-'}
-                              </span>
-                            </td>
-                            <td className="py-5 px-6">
-                              <span className="text-sm text-gray-700">
-                                {invoice.PrimaryCustomer || invoice.customerName || '-'}
-                              </span>
-                            </td>
-                            <td className="py-5 px-6">
-                              <span className={`inline-flex items-center px-4 py-2 rounded-full text-xs font-semibold ${getStatusColor(invoice.InvoiceStatus || invoice.Status)}`}>
-                                {invoice.InvoiceStatus || invoice.Status || 'Unknown'}
-                              </span>
-                            </td>
-                            <td className="py-5 px-6">
-                              <span className="text-sm font-semibold text-gray-900">
-                                {formatCurrency(invoice.InvoiceValue || invoice.OrderValue || invoice.InvoiceTotal || invoice.amount)}
-                              </span>
-                            </td>
-                            <td className="py-5 px-6">
-                              <div className="flex items-center justify-end gap-2">
-                                <button
-                                  onClick={() => handleViewInvoice(invoice)}
-                                  className="p-2 hover:bg-yellow-100 rounded-full transition-colors group"
-                                  title="View Invoice"
-                                >
-                                  <FiEye className="w-4 h-4 text-gray-600 group-hover:text-yellow-600" />
-                                </button>
-                                <button 
-                                  onClick={() => handleDownloadInvoice(invoice)}
-                                  className="p-2 hover:bg-yellow-100 rounded-full transition-colors group"
-                                  title="Download Invoice"
-                                >
-                                  <FiDownload className="w-4 h-4 text-gray-600 group-hover:text-yellow-600" />
-                                </button>
-                                <button 
-                                  onClick={() => handleViewInvoice(invoice)}
-                                  className="p-2 hover:bg-yellow-100 rounded-full transition-colors group"
-                                  title="View Details"
-                                >
-                                  <FiChevronRight className="w-4 h-4 text-gray-600 group-hover:text-yellow-600" />
-                                </button>
-                              </div>
-                            </td>
-                          </motion.tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-
           {activeTab === 'overview' && (
             <motion.div
               key="overview"
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
               className="grid grid-cols-1 lg:grid-cols-2 gap-6"
             >
-              {/* Next Invoice Card */}
-              <motion.div
-                whileHover={{ scale: 1.02 }}
-                variants={itemVariants}
-                className="bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-3xl shadow-xl p-8 text-white"
-              >
+              {/* Next invoice card */}
+              <div className="border border-gray-200 rounded-xl p-6">
                 {nextInvoice ? (
                   <>
-                    <div className="flex justify-between items-start mb-6">
-                      <div>
-                        <h3 className="text-sm font-medium text-white/90 mb-2">Next Invoice</h3>
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-4xl font-bold">
-                            {formatCurrency(nextInvoice.InvoiceValue || nextInvoice.OrderValue || nextInvoice.InvoiceTotal)}
-                          </span>
-                          <span className="text-sm text-white/80">
-                            due {formatDate(nextInvoice.InvoiceDate || nextInvoice.OrderDate)}
-                          </span>
-                        </div>
-                        <p className="text-sm text-white/70 mt-2">
-                          {nextInvoice.InvoiceCode || nextInvoice.invoiceCode || 'Invoice'}
-                        </p>
-                      </div>
-                      <div className="p-3 bg-white/20 rounded-full">
-                        <FiCalendar className="w-6 h-6" />
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between pt-6 border-t border-white/20">
-                      <span className="text-sm">Preview invoice details</span>
-                      <button 
-                        onClick={() => handleViewInvoice(nextInvoice)}
-                        className="flex items-center gap-2 px-4 py-2 bg-white text-yellow-600 rounded-full text-sm font-medium hover:bg-white/90 transition-colors"
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm text-gray-500">Next monthly invoice</h3>
+                      <button
+                        onClick={() => handleOpenFullPreview(nextInvoice)}
+                        className="text-xs font-medium text-gray-700 border border-gray-300 rounded-md px-3 py-1.5 hover:bg-gray-50 transition-colors"
                       >
-                        Preview <FiChevronRight className="w-4 h-4" />
+                        Preview
                       </button>
                     </div>
+                    <div className="flex items-baseline gap-2 mb-4">
+                      <span className="text-3xl font-semibold text-gray-900">
+                        {formatCurrency(nextInvoice.InvoiceValue || nextInvoice.OrderValue || nextInvoice.InvoiceTotal)}
+                      </span>
+                      <span className="text-sm text-gray-400">
+                        due {formatDate(nextInvoice.InvoiceDate || nextInvoice.OrderDate)}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleOpenFullPreview(nextInvoice)}
+                      className="w-full flex items-center justify-between text-sm text-gray-500 pt-3 border-t border-gray-100 hover:text-gray-700 transition-colors"
+                    >
+                      <span>
+                        {formatCurrency(nextInvoice.InvoiceValue || nextInvoice.OrderValue || nextInvoice.InvoiceTotal)} for 1 monthly seat
+                      </span>
+                      <FiChevronRight className="w-4 h-4" />
+                    </button>
                   </>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full min-h-[200px]">
-                    <FiFileText className="w-12 h-12 text-white/60 mb-3" />
-                    <span className="text-white/80 text-lg">No upcoming invoices</span>
-                    <p className="text-white/60 text-sm mt-2">All invoices are paid and up to date</p>
+                  <div className="flex flex-col items-center justify-center h-full min-h-[160px] text-center">
+                    <FiFileText className="w-8 h-8 text-gray-300 mb-3" />
+                    <span className="text-gray-500 text-sm">No upcoming invoices</span>
                   </div>
                 )}
-              </motion.div>
+              </div>
 
-              {/* Plan Card */}
-              <motion.div
-                whileHover={{ scale: 1.02 }}
-                variants={itemVariants}
-                className="bg-white rounded-3xl shadow-xl border-2 border-yellow-100 p-8"
-              >
-                <div className="flex items-start gap-4 mb-8">
-                  <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-xl">👑</span>
+              {/* Plan card */}
+              <div className="border border-gray-200 rounded-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 bg-yellow-400 rounded-sm inline-block" />
+                    <h3 className="text-sm font-medium text-gray-900">You're on the Plus plan</h3>
                   </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-gray-900 mb-1">You're on the Plus Plan</h3>
-                    <p className="text-sm text-gray-600">Premium features with priority support</p>
-                  </div>
-                  <button className="px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-full border-2 border-yellow-300 transition-colors">
-                    View Plans
+                  <button className="text-xs font-medium text-gray-500 hover:text-gray-700 underline">
+                    View plans
                   </button>
                 </div>
-
-                {/* Quick Stats */}
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div className="bg-gray-50 p-4 rounded-xl">
-                    <p className="text-xs text-gray-500 mb-1">Monthly Billing</p>
-                    <p className="text-lg font-bold text-gray-900">{formatCurrency(stats.totalAmount / 12)}</p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-xl">
-                    <p className="text-xs text-gray-500 mb-1">Active Invoices</p>
-                    <p className="text-lg font-bold text-gray-900">{stats.pendingInvoices}</p>
-                  </div>
-                </div>
-
-                {/* FAQ Section */}
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-gray-900 mb-4">Frequently Asked Questions</h4>
-                  {faqs.map((faq, index) => (
-                    <motion.div
-                      key={index}
-                      variants={itemVariants}
-                      className="border-2 border-yellow-100 rounded-2xl overflow-hidden hover:border-yellow-200 transition-colors"
-                    >
+                <div className="divide-y divide-gray-100">
+                  {faqs.slice(0, 2).map((faq, index) => (
+                    <div key={index}>
                       <button
                         onClick={() => toggleFaq(index)}
-                        className="w-full flex items-center justify-between p-4 text-left hover:bg-yellow-50/30 transition-colors"
+                        className="w-full flex items-center justify-between py-3 text-left"
                       >
-                        <span className="text-sm font-medium text-gray-900">{faq.question}</span>
-                        <motion.div
-                          animate={{ rotate: expandedFaq === index ? 180 : 0 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          {expandedFaq === index ? (
-                            <FiMinus className="text-yellow-500" />
-                          ) : (
-                            <FiPlus className="text-yellow-500" />
-                          )}
-                        </motion.div>
+                        <span className="text-sm text-gray-700">{faq.question}</span>
+                        {expandedFaq === index ? (
+                          <FiMinus className="w-4 h-4 text-gray-400" />
+                        ) : (
+                          <FiPlus className="w-4 h-4 text-gray-400" />
+                        )}
                       </button>
                       <AnimatePresence>
                         {expandedFaq === index && (
@@ -618,33 +358,243 @@ const InvoiceProfile = () => {
                             transition={{ duration: 0.2 }}
                             className="overflow-hidden"
                           >
-                            <div className="px-4 pb-4 pt-0 text-sm text-gray-600">
-                              {faq.answer}
-                            </div>
+                            <p className="text-sm text-gray-500 pb-3">{faq.answer}</p>
                           </motion.div>
                         )}
                       </AnimatePresence>
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
-              </motion.div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'invoices' && (
+            <motion.div
+              key="invoices"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="flex items-start gap-6" style={{ alignItems: 'flex-start' }}
+            >
+              {/* Table */}
+              <div className={`border border-gray-200 rounded-xl overflow-hidden transition-all ${selectedInvoice ? 'w-full lg:flex-1' : 'w-full'}`}>
+                {loading ? (
+                  <div className="p-12 text-center">
+                    <div className="inline-block w-8 h-8 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin mb-3"></div>
+                    <p className="text-sm text-gray-500">Loading invoices...</p>
+                  </div>
+                ) : error ? (
+                  <div className="p-12 text-center">
+                    <FiAlertCircle className="w-8 h-8 text-red-400 mx-auto mb-3" />
+                    <p className="text-sm text-red-600 mb-3">{error}</p>
+                    <button
+                      onClick={fetchInvoices}
+                      className="text-xs font-medium text-gray-700 border border-gray-300 rounded-md px-3 py-1.5 hover:bg-gray-50"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : invoices.length === 0 ? (
+                  <div className="p-12 text-center">
+                    <FiFileText className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                    <p className="text-sm text-gray-500">No invoices found</p>
+                  </div>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-5 text-xs font-medium text-gray-500">Due date</th>
+                        <th className="text-left py-3 px-5 text-xs font-medium text-gray-500">Description</th>
+                        <th className="text-left py-3 px-5 text-xs font-medium text-gray-500">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoices.map((invoice, index) => {
+                        const isSelected = selectedInvoice === invoice;
+                        const status = invoice.InvoiceStatus || invoice.Status || 'Unknown';
+                        return (
+                          <tr
+                            key={invoice.InvoiceID || invoice.id || index}
+                            onClick={() => handleViewInvoice(invoice)}
+                            className={`border-b border-gray-100 last:border-0 cursor-pointer transition-colors ${isSelected ? 'bg-yellow-50/60' : 'hover:bg-gray-50'
+                              }`}
+                          >
+                            <td className={`py-3.5 px-5 ${status.toLowerCase() === 'upcoming' || status.toLowerCase() === 'pending' ? 'text-yellow-600 font-medium' : 'text-gray-700'}`}>
+                              {formatDate(invoice.InvoiceDate || invoice.invoiceDate)}
+                            </td>
+                            <td className="py-3.5 px-5">
+                              <div className="flex items-center gap-2 text-gray-700">
+                                <FiFileText className="w-4 h-4 text-gray-400" />
+                                {invoice.InvoiceCode || invoice.invoiceCode || 'Monthly invoice'}
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-5">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadge(status)}`}>
+                                {status}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {/* Detail panel */}
+              <AnimatePresence>
+                {selectedInvoice && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ duration: 0.2 }}
+                    className="hidden lg:flex flex-col w-[320px] flex-shrink-0 border border-gray-200 rounded-xl p-6 min-h-[600px]"
+                  >
+                    <div className="flex items-start justify-between mb-5 pb-5 border-b border-gray-200">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-medium text-gray-900">
+                            Monthly invoice
+                          </h3>
+                          {showFullInvoice && (
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(selectedInvoice.InvoiceStatus || selectedInvoice.Status)}`}>
+                              {selectedInvoice.InvoiceStatus || selectedInvoice.Status || 'Unknown'}
+                            </span>
+                          )}
+                        </div>
+                        {showFullInvoice && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            Invoice date: {formatDate(selectedInvoice.InvoiceDate || selectedInvoice.OrderDate)}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => setSelectedInvoice(null)}
+                        className="p-1 text-gray-400 hover:text-gray-600"
+                      >
+                        <FiX className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mb-5 pb-5 border-b border-gray-200">
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">Due date</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {formatDate(selectedInvoice.InvoiceDate || selectedInvoice.OrderDate)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">Status</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {selectedInvoice.InvoiceStatus || selectedInvoice.Status || 'Unknown'}
+                        </p>
+                      </div>
+                      {showFullInvoice && (
+                        <>
+                          <div>
+                            <p className="text-xs text-gray-400 mb-1">Invoice number</p>
+                            <p className="text-sm font-medium text-gray-900">
+                              {selectedInvoice.InvoiceNumber || selectedInvoice.InvoiceCode || '-'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-400 mb-1">Payment method</p>
+                            <p className="text-sm font-medium text-gray-900">
+                              {selectedInvoice.PaymentMethod || '-'}
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="mb-5 pb-5 border-b border-gray-200">
+                      <p className="text-sm font-medium text-gray-900 mb-1">
+                        {showFullInvoice ? 'Renewing monthly seats' : 'Renewing monthly'}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        Assigned monthly {showFullInvoice ? 'seats that renewed' : 'that will renew'} for {formatDate(selectedInvoice.InvoiceDate || selectedInvoice.OrderDate)}
+                      </p>
+                    </div>
+
+                    {!showFullInvoice && (
+                      <div className="space-y-2 mb-5 pb-5 border-b border-gray-200 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600">Subtotal</span>
+                          <span className="text-gray-900">
+                            {formatCurrency(selectedInvoiceBreakdown.subtotal)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600">GST Amount</span>
+                          <span className="text-gray-900">{formatCurrency(selectedInvoiceBreakdown.gst)}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {!showFullInvoice ? (
+                      <>
+                        <div className="flex items-center justify-between mb-5">
+                          <span className="text-sm font-medium text-gray-900">Total (incl. GST)</span>
+                          <span className="text-sm font-semibold text-gray-900">
+                            {formatCurrency(selectedInvoiceBreakdown.total)}
+                          </span>
+                        </div>
+                        <div className="flex items-start gap-2 p-3 rounded-lg bg-[#E4ECFF]">
+                          <FiAlertCircle className="w-4 h-4 text-[#1E2746] mt-0.5 flex-shrink-0" />
+                          <p className="text-xs text-[#1E2746]">
+                            Upgrade to an annual plan for a{' '}
+                            <span className="underline cursor-pointer">20% discount</span>
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="space-y-2 mb-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Subtotal</span>
+                          <span className="text-gray-900">
+                            {formatCurrency(selectedInvoiceBreakdown.subtotal)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">GST Amount</span>
+                          <span className="text-gray-900">{formatCurrency(selectedInvoiceBreakdown.gst)}</span>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                          <span className="text-sm font-medium text-gray-900">Total</span>
+                          <span className="text-sm font-semibold text-gray-900">
+                            {formatCurrency(selectedInvoiceBreakdown.total)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex-1"  />
+
+                    {!showFullInvoice ? (
+                      <button
+                        onClick={() => setShowFullInvoice(true)}
+                        className="w-full border border-gray-300 rounded-md py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors mt-6"
+                      >
+                        Manage
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleOpenFullPreview(selectedInvoice)}
+                        className="w-full flex items-center justify-center gap-2 border border-gray-300 rounded-md py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors mt-6"
+                      >
+                        <FiDownload className="w-4 h-4" />
+                        Download PDF
+                      </button>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Download All Button */}
-        {activeTab === 'invoices' && invoices.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-8 text-center"
-          >
-            <button className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-yellow-400 to-yellow-500 text-white rounded-full font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all">
-              <FiDownload className="w-5 h-5" />
-              Download All Invoices
-            </button>
-          </motion.div>
-        )}
       </div>
     </div>
   );

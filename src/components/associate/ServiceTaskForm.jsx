@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Upload, Info, Loader2, CheckCircle2, AlertCircle, Layout, Eye } from 'lucide-react';
+import { X, Upload, Loader2, CheckCircle2, AlertCircle, Eye } from 'lucide-react';
 import { serviceFormSave, updateRejectedFields } from '../../api/Services/ServiceDetails';
 import { uploadFile } from '../../api/StorageApi';
 
@@ -13,6 +13,12 @@ const ServiceTaskForm = ({ task, serviceDetails, onClose, onSuccess, responseFie
 
     const item = task.originalData;
     const sections = item.Sections || [];
+
+    // A field/task can come back flagged as 1, "1" or true depending on the source — treat them all as set
+    const isRejectedFlag = (v) => v === 1 || v === '1' || v === true;
+    const isVerifiedFlag = (v) => v === 1 || v === '1' || v === true;
+    // The task row itself may already carry the "Not Approved" verdict even when no per-field flag is present
+    const taskRejected = String(task?.status || '').toLowerCase() === 'not approved';
 
     // ── Helper to get previous field data ──
     const getFieldPrevData = (fieldID, fieldName) => {
@@ -51,23 +57,30 @@ const ServiceTaskForm = ({ task, serviceDetails, onClose, onSuccess, responseFie
 
     const isFieldEditable = (fieldID, fieldName) => {
         const prevData = getFieldPrevData(fieldID, fieldName);
-        // If never submitted, it's editable. If submitted, only editable if rejected.
+        // If never submitted, it's editable. If submitted, only editable if it (or the whole task) was rejected.
         if (!prevData) return true;
-        return prevData.reject === 1;
+        return isRejectedFlag(prevData.reject) || taskRejected;
     };
 
     const hasRejectedFields = sections.some(section =>
         section.Fields?.some(field => {
             const prevData = getFieldPrevData(field.FieldID, field.FieldName);
-            return prevData && prevData.reject === 1;
+            return prevData && isRejectedFlag(prevData.reject);
         })
     );
+
+    // Drive the rejection banner off both the per-field flag and the task-level verdict
+    const showRejectionNotice = hasRejectedFields || taskRejected;
 
     const hasPreviousSubmission = sections.some(section =>
         section.Fields?.some(field => getFieldPrevData(field.FieldID, field.FieldName))
     );
 
-    const showSubmit = !hasPreviousSubmission || hasRejectedFields;
+    const hasEditableFields = sections.some(section =>
+        section.Fields?.some(field => isFieldEditable(field.FieldID, field.FieldName))
+    );
+
+    const showSubmit = !hasPreviousSubmission || showRejectionNotice || hasEditableFields;
 
     const handleFieldChange = (sectionID, fieldID, fieldName, val) => {
         if (!isFieldEditable(fieldID, fieldName)) return;
@@ -212,155 +225,167 @@ const ServiceTaskForm = ({ task, serviceDetails, onClose, onSuccess, responseFie
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={onClose}
-                className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/40"
             />
 
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="relative w-full max-w-2xl bg-white rounded-[2rem] shadow-2xl overflow-hidden"
+                className="relative w-full max-w-2xl bg-white rounded-lg shadow-xl border border-gray-100 overflow-hidden"
             >
                 {/* Header */}
-                <div className="px-10 py-8 border-b border-slate-50">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h2 className="text-2xl font-black text-slate-800 tracking-tight">{task.title}</h2>
-                            <div className="h-1 w-12 bg-amber-400 rounded-full mt-2" />
-                        </div>
-                        <button
-                            onClick={onClose}
-                            className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
+                <div className="px-8 pt-6 pb-4 border-b border-gray-200 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-lg font-semibold text-gray-900">{task.title}</h2>
+                        {showRejectionNotice && (
+                            <span className="text-xs font-medium text-red-500 bg-red-100 px-3 py-1 rounded-full">
+                                Not Approved
+                            </span>
+                        )}
                     </div>
+                    <button
+                        onClick={onClose}
+                        className="text-gray-400 hover:text-gray-600"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
                 </div>
 
                 {/* Form Content */}
-                <form onSubmit={handleSubmit} className="px-10 py-8 max-h-[70vh] overflow-y-auto no-scrollbar">
+                <form onSubmit={handleSubmit} className="px-8 py-6 max-h-[70vh] overflow-y-auto no-scrollbar">
                     {status === 'success' ? (
-                        <div className="py-20 text-center space-y-4">
-                            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto">
-                                <CheckCircle2 className="w-10 h-10" />
+                        <div className="py-16 text-center space-y-4">
+                            <div className="w-16 h-16 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto">
+                                <CheckCircle2 className="w-8 h-8" />
                             </div>
-                            <h3 className="text-xl font-bold text-slate-800">Form Submitted Successfully!</h3>
-                            <p className="text-slate-500">Your information has been saved and is being reviewed.</p>
+                            <h3 className="text-lg font-semibold text-gray-800">Form Submitted Successfully!</h3>
+                            <p className="text-gray-500 text-sm">Your information has been saved and is being reviewed.</p>
                         </div>
                     ) : (
-                        <div className="space-y-10">
-                            {sections.map((section) => (
-                                <div key={section.SectionID} className="space-y-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-                                        {section.Fields.map((field) => {
-                                            const fieldKey = `${section.SectionID}_${field.FieldID}`;
-                                            const hasError = !!errors[fieldKey];
-                                            const type = (field.FieldType || 'Text').toLowerCase();
-                                            const editable = isFieldEditable(field.FieldID, field.FieldName);
-                                            const prevData = getFieldPrevData(field.FieldID, field.FieldName);
+                        <>
+                            {showRejectionNotice && (
+                                <div className="mb-6 text-sm text-gray-700 leading-relaxed">
+                                    Important: The information you submitted could not be verified. Kindly provide the information as outlined below.
+                                </div>
+                            )}
 
-                                            return (
-                                                <div key={field.FieldID} className="space-y-2 group">
-                                                    <div className="flex items-center justify-between">
-                                                        <label className="text-[13px] font-bold text-slate-700 tracking-wide flex items-center gap-1.5">
-                                                            {field.FieldName}
-                                                            {prevData && prevData.reject === 1 && (
-                                                                <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-rose-50 text-rose-500 text-[10px] rounded-md font-bold uppercase tracking-tighter">
-                                                                    <AlertCircle className="w-2.5 h-2.5" /> REJECTED
-                                                                </span>
-                                                            )}
-                                                            {prevData && prevData.verify === 1 && (
-                                                                <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-500 text-[10px] rounded-md font-bold uppercase tracking-tighter">
-                                                                    <CheckCircle2 className="w-2.5 h-2.5" /> VERIFIED
-                                                                </span>
-                                                            )}
-                                                        </label>
-                                                        <Info className="w-3.5 h-3.5 text-rose-300 group-hover:text-rose-400 cursor-help" />
-                                                    </div>
-
-                                                    {type === 'file' ? (
-                                                        <div className="relative">
-                                                            <label
-                                                                className={`flex items-center gap-3 px-5 py-3.5 bg-amber-400 text-slate-900 rounded-xl font-black text-[12px] cursor-pointer hover:bg-amber-500 transition-all shadow-sm hover:shadow active:scale-[0.98] ${hasError ? 'ring-2 ring-rose-300' : ''} ${!editable ? 'opacity-50 cursor-not-allowed bg-slate-100 text-slate-400' : ''}`}
-                                                            >
-                                                                <Upload className="w-4 h-4" />
-                                                                <span className="truncate max-w-[180px]">
-                                                                    {formData[fieldKey] ? (
-                                                                        typeof formData[fieldKey] === 'string' ?
-                                                                            (formData[fieldKey].split('/').pop() || 'View File') :
-                                                                            (formData[fieldKey].name || 'File Selected')
-                                                                    ) : 'Upload Files'}
-                                                                </span>
-                                                                <input
-                                                                    type="file"
-                                                                    className="hidden"
-                                                                    disabled={!editable}
-                                                                    onChange={(e) => handleFieldChange(section.SectionID, field.FieldID, field.FieldName, e.target.files[0])}
-                                                                />
+                            <div className="space-y-8">
+                                {sections.map((section) => (
+                                    <div key={section.SectionID}>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+                                            {section.Fields.map((field) => {
+                                                const fieldKey = `${section.SectionID}_${field.FieldID}`;
+                                                const hasError = !!errors[fieldKey];
+                                                const type = (field.FieldType || 'Text').toLowerCase();
+                                                const editable = isFieldEditable(field.FieldID, field.FieldName);
+                                                const prevData = getFieldPrevData(field.FieldID, field.FieldName);
+                                                return (
+                                                    <div key={field.FieldID}>
+                                                        <div className="flex items-center justify-between mb-1.5">
+                                                            <label className="text-sm text-gray-700 flex items-center gap-1.5">
+                                                                {field.FieldName}
+                                                                {prevData && isRejectedFlag(prevData.reject) && (
+                                                                    <span className="text-[10px] font-medium text-red-500 bg-red-100 px-2 py-0.5 rounded-full">
+                                                                        Rejected
+                                                                    </span>
+                                                                )}
+                                                                {prevData && isVerifiedFlag(prevData.verify) && (
+                                                                    <span className="text-[10px] font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
+                                                                        Verified
+                                                                    </span>
+                                                                )}
                                                             </label>
-                                                            {!editable && formData[fieldKey] && (
-                                                                <div className="flex items-center justify-between mt-2 pl-1">
+                                                            <span className="w-4 h-4 rounded-full border border-red-300 text-red-400 text-[10px] flex items-center justify-center">
+                                                                i
+                                                            </span>
+                                                        </div>
+                                                        {type === 'file' ? (
+                                                            <div>
+                                                                {formData[fieldKey] ? (
+                                                                    <div className={`flex items-center gap-2 border rounded-lg px-4 py-2.5 text-sm ${!editable ? 'bg-gray-100 border-gray-200 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
+                                                                        <Upload className="w-3.5 h-3.5 flex-shrink-0" />
+                                                                        <span className="truncate max-w-[220px]">
+                                                                            {typeof formData[fieldKey] === 'string' ?
+                                                                                (formData[fieldKey].split('/').pop() || 'View File') :
+                                                                                (formData[fieldKey].name || 'File Selected')}
+                                                                        </span>
+                                                                        {editable && (
+                                                                            <label className="ml-auto text-xs font-medium text-yellow-600 hover:text-yellow-700 cursor-pointer flex-shrink-0">
+                                                                                Change
+                                                                                <input
+                                                                                    type="file"
+                                                                                    className="hidden"
+                                                                                    onChange={(e) => handleFieldChange(section.SectionID, field.FieldID, field.FieldName, e.target.files[0])}
+                                                                                />
+                                                                            </label>
+                                                                        )}
+                                                                    </div>
+                                                                ) : (
+                                                                    <label
+                                                                        className={`inline-flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-gray-800 text-sm font-medium px-4 py-2.5 rounded-lg cursor-pointer w-fit ${hasError ? 'ring-2 ring-red-300' : ''} ${!editable ? 'opacity-50 cursor-not-allowed bg-gray-200 text-gray-400' : ''}`}
+                                                                    >
+                                                                        <Upload className="w-3.5 h-3.5" />
+                                                                        Upload Files
+                                                                        <input
+                                                                            type="file"
+                                                                            className="hidden"
+                                                                            disabled={!editable}
+                                                                            onChange={(e) => handleFieldChange(section.SectionID, field.FieldID, field.FieldName, e.target.files[0])}
+                                                                        />
+                                                                    </label>
+                                                                )}
+                                                                {formData[fieldKey] && (
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => window.open(formData[fieldKey], '_blank')}
-                                                                        className="text-[10px] font-bold text-blue-500 hover:text-blue-600 transition-colors flex items-center gap-1.5"
+                                                                        className="mt-2 text-xs font-medium text-blue-500 hover:text-blue-600 flex items-center gap-1.5"
                                                                     >
                                                                         <Eye className="w-3.5 h-3.5" /> View Previous File
                                                                     </button>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <div className="relative">
+                                                                )}
+                                                            </div>
+                                                        ) : (
                                                             <input
                                                                 type={type === 'number' ? 'number' : type === 'date' ? 'date' : 'text'}
                                                                 value={formData[fieldKey] || ''}
                                                                 disabled={!editable}
                                                                 onChange={(e) => handleFieldChange(section.SectionID, field.FieldID, field.FieldName, e.target.value)}
-                                                                className={`w-full px-5 py-3.5 bg-white border-2 rounded-2xl text-[13px] font-medium text-slate-700 transition-all outline-none focus:border-amber-400 ${hasError ? 'border-rose-100 bg-rose-50/20' : 'border-slate-100 bg-slate-50/30 focus:bg-white'} ${!editable ? 'bg-slate-50/50 cursor-not-allowed text-slate-400' : ''}`}
-                                                                placeholder="Select an option..."
+                                                                className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 ${hasError ? 'border-red-300 bg-red-50/20' : 'border-yellow-400 focus:ring-yellow-400'} ${!editable ? 'bg-gray-50 cursor-not-allowed text-gray-400' : ''}`}
                                                             />
-                                                            {type === 'select' && (
-                                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                                                    <Layout className="w-4 h-4 text-slate-300" />
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
+                                                        )}
 
-                                                    <div className="flex items-center justify-between">
-                                                        <p className={`text-[11px] font-bold uppercase tracking-wider ${hasError ? 'text-rose-500' : 'text-slate-300'}`}>
-                                                            {hasError ? errors[fieldKey] : (field.IsMandatory === 1 ? 'Required' : 'Optional')}
+                                                        <p className={`text-xs mt-1.5 ${hasError ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
+                                                            {hasError ? errors[fieldKey] : (field.IsMandatory === 1 ? 'Required' : '')}
                                                         </p>
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
+                                                );
+                                            })}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
+                        </>
+                    )}
+
+                    {status !== 'success' && showSubmit && (
+                        <div className="flex items-center justify-end gap-3 mt-8">
+                            {status === 'error' && (
+                                <p className="flex items-center gap-1.5 text-xs font-medium text-red-500 mr-auto">
+                                    <AlertCircle className="w-4 h-4" /> Failed to save
+                                </p>
+                            )}
+                            <button
+                                type="submit"
+                                onClick={handleSubmit}
+                                disabled={loading}
+                                className="bg-yellow-400 hover:bg-yellow-500 disabled:bg-gray-200 text-white text-sm font-semibold px-6 py-2 rounded-lg shadow-sm flex items-center gap-2"
+                            >
+                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'SUBMIT'}
+                            </button>
                         </div>
                     )}
                 </form>
-
-                {/* Footer */}
-                {status !== 'success' && showSubmit && (
-                    <div className="px-10 py-8 bg-slate-50/50 flex items-center justify-end gap-4">
-                        {status === 'error' && (
-                            <p className="flex items-center gap-1.5 text-xs font-bold text-rose-500 mr-auto">
-                                <AlertCircle className="w-4 h-4" /> Failed to save
-                            </p>
-                        )}
-                        <button
-                            type="submit"
-                            onClick={handleSubmit}
-                            disabled={loading}
-                            className="px-10 py-3.5 bg-amber-400 hover:bg-amber-500 disabled:bg-slate-200 text-slate-900 font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-amber-400/20 active:scale-95 flex items-center gap-2"
-                        >
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Submit'}
-                        </button>
-                    </div>
-                )}
             </motion.div>
         </div>
     );

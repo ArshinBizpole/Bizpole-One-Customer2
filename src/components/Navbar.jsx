@@ -9,7 +9,6 @@ export default function Navbar() {
   const location = useLocation();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
   const [showSignin, setShowSignin] = useState(false);
   const [hasToken, setHasToken] = useState(false);
 
@@ -27,15 +26,6 @@ export default function Navbar() {
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
-
-  // Scroll effect
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 40);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   // Token check
   useEffect(() => {
@@ -60,14 +50,7 @@ export default function Navbar() {
   return (
     <>
       {/* NAVBAR */}
-      <nav
-        className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-7xl transition-all duration-500 rounded-4xl
-        ${
-          isScrolled
-            ? "bg-white/80 backdrop-blur-xl shadow-lg border border-gray-200"
-            : "bg-white/30 backdrop-blur-md border border-white/20"
-        }`}
-      >
+      <nav className="relative z-50 w-full bg-white border-b border-gray-200 shadow-sm">
         <div className="px-6 py-3 flex items-center justify-between">
           {/* LOGO */}
           <div

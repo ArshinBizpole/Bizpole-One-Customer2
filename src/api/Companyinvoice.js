@@ -35,3 +35,15 @@ export const getCompanyInvoices = async ({ companyId, limit = 10, page = 1 }) =>
 	}
 	return await getInvoiceDetails(orderIds);
 };
+
+// Fetch franchisee details (display name, address, CIN/PAN/GST) by FranchiseeID.
+// Public endpoint, no auth required.
+export const getFranchiseeById = async (franchiseeId) => {
+	try {
+		const res = await axios.get(`/franchisee/${franchiseeId}`);
+		return res.data?.data ?? null;
+	} catch (error) {
+		console.error("Error fetching franchisee details:", error);
+		return null;
+	}
+};

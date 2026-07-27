@@ -46,6 +46,7 @@ const ServiceTaskListing = ({
       const fields = sections.flatMap((s) => s.Fields || []);
 
       let allSubmitted = fields.length > 0;
+      let allVerified = fields.length > 0;
       let anyRejected = false;
       let anySubmitted = false;
 
@@ -54,15 +55,17 @@ const ServiceTaskListing = ({
         if (prevData) {
           anySubmitted = true;
           if (prevData.reject === 1) anyRejected = true;
+          if (prevData.verify !== 1) allVerified = false;
         } else {
           allSubmitted = false;
+          allVerified = false;
         }
       });
 
       let calculatedStatus = item.Status || "In review";
       if (anyRejected) {
         calculatedStatus = "Not Approved";
-      } else if (allSubmitted && !anyRejected) {
+      } else if (allSubmitted && allVerified) {
         calculatedStatus = "Approved";
       } else if (anySubmitted) {
         calculatedStatus = "In review";
@@ -91,7 +94,7 @@ const ServiceTaskListing = ({
               })
             : "Pending",
         progress:
-          calculatedStatus === "Approved" ? 100 : anySubmitted ? 70 : 40,
+          calculatedStatus === "Approved" ? 100 : calculatedStatus === "In review" ? 70 : anySubmitted ? 50 : 40,
         assignee: {
           name: item.EmployeeAssignment?.EmployeeName || "Aaron More",
           image:

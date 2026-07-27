@@ -5,6 +5,7 @@ import { ArrowRight, ChevronDown } from "lucide-react";
 import { assignCustomer, createCustomer } from "../api/CustomerApi";
 import { getAllStates } from "../api/States";
 import { setSecureItem } from "../utils/secureStorage";
+import { notifyTokenSet } from "../utils/authSession";
 
 // ── Brand decorations ─────────────────────────────────────────────────────────
 function FloatingOrb({ style, delay = 0 }) {
@@ -133,7 +134,7 @@ const Tellabout = () => {
       const company = { ...updatedFormData.Companies[0], BusinessName:updatedFormData.Companies[0].BusinessName, CompanyEmail:updatedFormData.Companies[0].CompanyEmail, CompanyMobile:updatedFormData.Companies[0].CompanyMobile, Country:"India", State:updatedFormData.State, City:"null", District:updatedFormData.District, Agents:agentId?[{EmployeeID:agentId}]:[], CompanyPAN:updatedFormData.Companies[0].CompanyPAN, GSTNumber:updatedFormData.Companies[0].GSTNumber, CIN:updatedFormData.Companies[0].CIN, ConstitutionCategory:updatedFormData.Companies[0].ConstitutionCategory, Sector:updatedFormData.Companies[0].Sector, BusinessNature:updatedFormData.Companies[0].BusinessNature, Website:updatedFormData.Companies[0].Website, AssociateID:AID, isAssociate:isAss, PinCode:updatedFormData.PinCode, PrimaryCompany:1 };
       const payload = { ...updatedFormData, Companies:[company], isAssociate:isAss, AssociateID:AID };
       const res = await createCustomer(payload);
-      if (res?.data?.token) { localStorage.setItem('token', res.data.token); setSecureItem('user', JSON.stringify(res.data.user)); }
+      if (res?.data?.token) { localStorage.setItem('token', res.data.token); notifyTokenSet(); setSecureItem('user', JSON.stringify(res.data.user)); }
       if (location?.state) { setSecureItem('location', JSON.stringify(location.state)); }
       const typeId = location?.state?.type || null;
       navigate("/startbusiness/subscriptions", { state:{ type:typeId } });
@@ -174,9 +175,9 @@ const Tellabout = () => {
 
         /* Input */
         .ta-input, .ta-select {
-          width:100%; padding:11px 16px;
-          border:1.5px solid rgba(0,0,0,0.1); border-radius:14px;
-          font-size:14px; font-family:'DM Sans',sans-serif; font-weight:400;
+          width:100%; padding:8px 13px;
+          border:1.5px solid rgba(0,0,0,0.1); border-radius:11px;
+          font-size:13px; font-family:'DM Sans',sans-serif; font-weight:400;
           background:#fff; color:#1a1a1a; outline:none;
           transition:border-color .2s,box-shadow .2s;
           appearance:none; -webkit-appearance:none;
@@ -188,13 +189,13 @@ const Tellabout = () => {
         .ta-input::placeholder { color:#b0b0b0; }
         .ta-input[readonly] { background:#fafafa; color:#9ca3af; cursor:not-allowed; }
 
-        .ta-label { font-size:11px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:rgba(26,26,26,0.4); margin-bottom:5px; display:block; }
+        .ta-label { font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:rgba(26,26,26,0.4); margin-bottom:3px; display:block; }
 
         /* Country dropdown */
         .ta-cc-btn {
-          width:100%; padding:11px 14px; border:1.5px solid rgba(0,0,0,0.1); border-radius:14px;
+          width:100%; padding:8px 12px; border:1.5px solid rgba(0,0,0,0.1); border-radius:11px;
           background:#fff; display:flex; align-items:center; justify-content:space-between;
-          font-size:14px; font-family:'DM Sans',sans-serif; cursor:pointer;
+          font-size:13px; font-family:'DM Sans',sans-serif; cursor:pointer;
           transition:border-color .2s, box-shadow .2s;
         }
         .ta-cc-btn:focus, .ta-cc-btn.open { border-color:#F5C518; box-shadow:0 0 0 3px rgba(245,197,24,0.15); }
@@ -203,30 +204,30 @@ const Tellabout = () => {
           background:#fff; border:1.5px solid rgba(245,197,24,0.4); border-radius:16px;
           box-shadow:0 12px 40px rgba(0,0,0,0.12); overflow:hidden;
         }
-        .ta-cc-search { padding:10px 14px; border-bottom:1px solid rgba(0,0,0,0.07); }
-        .ta-cc-search input { width:100%; outline:none; border:none; font-size:13px; font-family:'DM Sans',sans-serif; background:transparent; color:#1a1a1a; }
-        .ta-cc-list { max-height:200px; overflow-y:auto; }
-        .ta-cc-item { display:flex; align-items:center; gap:10px; padding:9px 14px; cursor:pointer; font-size:13px; transition:background .15s; }
+        .ta-cc-search { padding:8px 12px; border-bottom:1px solid rgba(0,0,0,0.07); }
+        .ta-cc-search input { width:100%; outline:none; border:none; font-size:12px; font-family:'DM Sans',sans-serif; background:transparent; color:#1a1a1a; }
+        .ta-cc-list { max-height:170px; overflow-y:auto; }
+        .ta-cc-item { display:flex; align-items:center; gap:8px; padding:7px 12px; cursor:pointer; font-size:12px; transition:background .15s; }
         .ta-cc-item:hover { background:#fef9e7; }
 
         /* Submit */
         .ta-submit {
           display:inline-flex; align-items:center; gap:8px;
           background:#F5C518; color:#1a1a1a;
-          font-family:'DM Sans',sans-serif; font-weight:700; font-size:14px;
-          border:none; border-radius:100px; padding:13px 32px; cursor:pointer;
+          font-family:'DM Sans',sans-serif; font-weight:700; font-size:13px;
+          border:none; border-radius:100px; padding:10px 26px; cursor:pointer;
           box-shadow:0 6px 20px rgba(245,197,24,0.4);
           transition:all .25s;
         }
         .ta-submit:hover { background:#1a1a1a; color:#F5C518; transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,0,0,0.18); }
 
         /* Status messages */
-        .ta-status-loading { display:flex; align-items:center; gap:8px; font-size:13px; color:#92620a; background:#fef9e7; border:1px solid rgba(245,197,24,0.3); border-radius:12px; padding:10px 14px; }
-        .ta-status-error { font-size:13px; color:#dc2626; background:#fef2f2; border:1px solid rgba(220,38,38,0.2); border-radius:12px; padding:10px 14px; }
+        .ta-status-loading { display:flex; align-items:center; gap:8px; font-size:12px; color:#92620a; background:#fef9e7; border:1px solid rgba(245,197,24,0.3); border-radius:10px; padding:8px 12px; }
+        .ta-status-error { font-size:12px; color:#dc2626; background:#fef2f2; border:1px solid rgba(220,38,38,0.2); border-radius:10px; padding:8px 12px; }
 
         /* Right stat pill */
-        .ta-stat { background:rgba(255,255,255,0.22); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,0.35); border-radius:12px; padding:10px 14px; flex:1; }
-        .ta-stat-num { font-family:'Syne',sans-serif; font-weight:800; font-size:18px; color:#1a1a1a; letter-spacing:-0.02em; }
+        .ta-stat { background:rgba(255,255,255,0.22); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,0.35); border-radius:10px; padding:8px 12px; flex:1; }
+        .ta-stat-num { font-family:'Syne',sans-serif; font-weight:800; font-size:16px; color:#1a1a1a; letter-spacing:-0.02em; }
         .ta-stat-lbl { font-size:10px; color:rgba(26,26,26,0.55); margin-top:2px; }
 
         /* Scrollbar */
@@ -235,7 +236,7 @@ const Tellabout = () => {
       `}</style>
 
       <motion.div
-        className="ta-root w-full min-h-screen flex items-center justify-center px-4 py-10"
+        className="ta-root w-full min-h-screen flex items-center justify-center px-4 py-6"
         style={{ background: "linear-gradient(135deg, #fef9e7 0%, #f7f5f0 100%)" }}
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
@@ -243,9 +244,9 @@ const Tellabout = () => {
         transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
       >
         <div style={{
-          width: "100%", maxWidth: 1000, borderRadius: 28, overflow: "hidden",
-          boxShadow: "0 32px 80px rgba(245,197,24,0.2), 0 8px 32px rgba(0,0,0,0.1)",
-          display: "flex", flexDirection: "row", minHeight: 640,
+          width: "100%", maxWidth: 860, borderRadius: 22, overflow: "hidden",
+          boxShadow: "0 24px 64px rgba(245,197,24,0.2), 0 6px 24px rgba(0,0,0,0.1)",
+          display: "flex", flexDirection: "row", minHeight: 540,
         }}
           className="flex-col lg:flex-row"
         >
@@ -254,11 +255,11 @@ const Tellabout = () => {
           <div
             className="ta-shimmer"
             style={{
-              width: "38%", minWidth: 260,
+              width: "38%", minWidth: 240,
               background: "linear-gradient(145deg,#F5C518 0%,#f0b800 45%,#e6a500 100%)",
               position: "relative", overflow: "hidden",
               display: "flex", flexDirection: "column", justifyContent: "space-between",
-              padding: "36px 32px",
+              padding: "26px 24px",
               flexShrink: 0,
             }}
           >
@@ -292,19 +293,19 @@ const Tellabout = () => {
             <motion.div
               initial={{ opacity:0,y:24 }} animate={{ opacity:1,y:0 }}
               transition={{ delay:0.38,duration:0.7,ease:[0.16,1,0.3,1] }}
-              style={{ position:"relative",zIndex:4,display:"flex",flexDirection:"column",gap:20 }}
+              style={{ position:"relative",zIndex:4,display:"flex",flexDirection:"column",gap:14 }}
             >
-              <div style={{ position:"relative",width:78,height:78 }}>
+              <div style={{ position:"relative",width:60,height:60 }}>
                 <div className="ta-pulse"/>
                 <div className="ta-pulse ta-pulse2"/>
                
               </div>
 
               <div>
-                <h2 className="ta-display" style={{ color:"#1a1a1a",fontSize:"clamp(1.5rem,2.2vw,2rem)",marginBottom:10 }}>
+                <h2 className="ta-display" style={{ color:"#1a1a1a",fontSize:"clamp(1.3rem,2vw,1.7rem)",marginBottom:8 }}>
                   Tell us about<br />yourself.
                 </h2>
-                <p style={{ color:"rgba(26,26,26,0.58)",fontSize:13,lineHeight:1.7,fontWeight:300,maxWidth:220 }}>
+                <p style={{ color:"rgba(26,26,26,0.58)",fontSize:12,lineHeight:1.6,fontWeight:300,maxWidth:210 }}>
                   Just a few details and we'll have everything set up for your business journey.
                 </p>
               </div>
@@ -329,18 +330,18 @@ const Tellabout = () => {
             flex:1, background:"#fff",
             backgroundImage:"url('/Images/hero-bg.webp')", backgroundSize:"cover", backgroundPosition:"center",
             position:"relative", display:"flex", flexDirection:"column",
-            justifyContent:"center", padding:"36px 40px", overflowY:"auto",
+            justifyContent:"center", padding:"26px 30px", overflowY:"auto",
           }}>
             <div style={{ position:"absolute",inset:0,background:"rgba(255,255,255,0.93)",pointerEvents:"none" }} />
 
             <div style={{ position:"relative",zIndex:1 }}>
               {/* Header */}
-              <motion.div initial={{ opacity:0,y:16 }} animate={{ opacity:1,y:0 }} transition={{ delay:0.25 }} style={{ marginBottom:28 }}>
+              <motion.div initial={{ opacity:0,y:16 }} animate={{ opacity:1,y:0 }} transition={{ delay:0.25 }} style={{ marginBottom:18 }}>
                 <span style={{ display:"inline-flex",alignItems:"center",gap:6,fontSize:11,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(26,26,26,0.4)",border:"1px solid rgba(26,26,26,0.1)",borderRadius:100,padding:"4px 12px",marginBottom:10 }}>
                   <motion.span style={{ width:5,height:5,borderRadius:"50%",background:"#F5C518",display:"inline-block" }} animate={{ scale:[1,1.5,1] }} transition={{ duration:1.8,repeat:Infinity }} />
                   Step 3 of 4
                 </span>
-                <h1 className="ta-display" style={{ color:"#1a1a1a",fontSize:"clamp(1.6rem,2.6vw,2.2rem)",marginBottom:6 }}>
+                <h1 className="ta-display" style={{ color:"#1a1a1a",fontSize:"clamp(1.35rem,2.2vw,1.8rem)",marginBottom:5 }}>
                   Tell Us{" "}
                   <span style={{ position:"relative",display:"inline-block" }}>
                     <span style={{ position:"relative",zIndex:1 }}>About You</span>
@@ -349,12 +350,12 @@ const Tellabout = () => {
                     />
                   </span>
                 </h1>
-                <p style={{ color:"#9ca3af",fontSize:13.5,fontWeight:300,lineHeight:1.6 }}>Fill in your details to get started on your business journey.</p>
+                <p style={{ color:"#9ca3af",fontSize:12.5,fontWeight:300,lineHeight:1.5 }}>Fill in your details to get started on your business journey.</p>
               </motion.div>
 
               {/* Form */}
               <form onSubmit={handleSubmit}>
-                <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 16px" }}>
+                <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px 14px" }}>
 
                   {/* First Name */}
                   <motion.div initial={{ opacity:0,y:12 }} animate={{ opacity:1,y:0 }} transition={{ delay:0.3 }}>
@@ -490,6 +491,7 @@ const Tellabout = () => {
 
                 {/* Assignment status */}
                 <AnimatePresence>
+                  
                   {assignLoading && (
                     <motion.div className="ta-status-loading" style={{ marginTop:14 }}
                       initial={{ opacity:0,y:6 }} animate={{ opacity:1,y:0 }} exit={{ opacity:0 }}
@@ -509,7 +511,7 @@ const Tellabout = () => {
                 </AnimatePresence>
 
                 {/* Submit */}
-                <motion.div style={{ marginTop:24, display:"flex", justifyContent:"flex-end" }}
+                <motion.div style={{ marginTop:16, display:"flex", justifyContent:"flex-end" }}
                   initial={{ opacity:0,y:10 }} animate={{ opacity:1,y:0 }} transition={{ delay:0.7 }}
                 >
                   <motion.button type="submit" className="ta-submit" whileHover={{ scale:1.04 }} whileTap={{ scale:0.97 }}>

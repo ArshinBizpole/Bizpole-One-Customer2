@@ -1,52 +1,90 @@
-import { useState } from "react";
+import { useState, useEffect, useContext } from "react";
+import { getCompanyCompliances, updateComplianceStatus } from "../../api/CompanyApi";
+import { ProfileCompanyContext } from "../../pages/ProfileLayout";
+import { toast } from "react-toastify";
+
+const STATUS_OPTIONS = ["Complete", "Pending", "Not Applicable"];
 
 const RegistrationStatusForm = ({ onNext, onBack }) => {
-  const questions = [
-    "DO YOU HAVE IE CODE ?",
-    "DO YOU HAVE FSSAI?",
-    "DO YOU HAVE ESI REGISTRATION?",
-    "DO YOU HAVE EPF REGISTRATION?",
-    "DO YOU FILE TDS RETURNS?",
-  ];
-  // Keys for the payload object
-  const statusKeys = [
-    "IECode",
-    "FSSAI",
-    "ESIRegistration",
-    "EPFRegistration",
-    "TDSReturns",
-  ];
-  const [answers, setAnswers] = useState(Array(questions.length).fill(""));
+  const { selectedCompanyId } = useContext(ProfileCompanyContext);
+
+  const [items, setItems] = useState([]);
+  const [answers, setAnswers] = useState({});   // { [id]: status }
+  const [progress, setProgress] = useState(0);
+  const [fetching, setFetching] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleChange = (idx, value) => {
-    setAnswers((prev) => {
-      const updated = [...prev];
-      updated[idx] = value;
-      return updated;
+  useEffect(() => {
+    // Clear stale data from previous company immediately
+    setItems([]);
+    setAnswers({});
+    setProgress(0);
+    setError("");
+
+    if (!selectedCompanyId) return;
+
+    const load = async () => {
+      setFetching(true);
+      try {
+        const res = await getCompanyCompliances(selectedCompanyId);
+        if (res.success) {
+          setItems(res.data.items);
+          setProgress(res.data.progress);
+          const initial = {};
+          res.data.items.forEach((item) => {
+            initial[item.id] = item.status || "";
+          });
+          setAnswers(initial);
+        }
+      } catch (err) {
+        console.error(err);
+        setError("Failed to load compliance data.");
+      } finally {
+        setFetching(false);
+      }
+    };
+    load();
+  }, [selectedCompanyId]);
+
+  const handleChange = (id, value) => {
+    setAnswers((prev) => ({ ...prev, [id]: value }));
+
+    // Recalculate progress optimistically
+    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, status: value } : item)));
+    setProgress(() => {
+      const updated = items.map((item) =>
+        item.id === id ? { ...item, status: value } : item,
+      );
+      const completed = updated.filter((i) => i.status === "Complete").length;
+      return updated.length > 0 ? Math.round((completed / updated.length) * 100) : 0;
     });
   };
 
   const handleNext = async (e) => {
     e.preventDefault();
 
-    // Check if all questions are answered
-    const unanswered = answers.some((answer) => answer === "");
+    const unanswered = items.some((item) => !answers[item.id]);
     if (unanswered) {
       setError("Please answer all questions before proceeding.");
       return;
     }
-
-    // Map answers to object with required keys
-    const registrationStatusObj = statusKeys.reduce((acc, key, idx) => {
-      acc[key] = answers[idx];
-      return acc;
-    }, {});
-    console.log("🚀 Registration status prepared:", registrationStatusObj);
-    // Pass registrationStatusObj to next step
-    if (onNext) onNext(registrationStatusObj);
-  }
+    setError("");
+    setLoading(true);
+    try {
+      await Promise.all(
+        items.map((item) => updateComplianceStatus(item.id, answers[item.id])),
+      );
+      toast.success("Registration status saved");
+      if (onNext) onNext(answers);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save. Please try again.");
+      setError("Failed to save. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-[#f5f5f5]">
@@ -55,25 +93,56 @@ const RegistrationStatusForm = ({ onNext, onBack }) => {
         <h1 className="text-3xl font-bold text-center mb-12">
           Registration Status (For Compliance Calendar)
         </h1>
-        <div className="max-w-3xl mx-auto space-y-6 md:space-y-8">
-          {questions.map((label, index) => (
-            <div key={index}>
-              <label className="block mb-2 text-lg font-semibold">{label}</label>
-              <select
-                className="w-full border-2 border-yellow-400 rounded-full px-4 py-3 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                value={answers[index]}
-                onChange={(e) => handleChange(index, e.target.value)}
-                disabled={loading}
-                required
-              >
-                <option value="">Select</option>
-                <option value="yes">Yes</option>
-                <option value="no">No</option>
-                <option value="na">NA</option>
-              </select>
+
+        {fetching ? (
+          <div className="text-center text-gray-400 py-10">Loading...</div>
+        ) : (
+          <>
+            <div className="max-w-3xl mx-auto space-y-6 md:space-y-8">
+              {items.map((item) => (
+                <div key={item.id}>
+                  <label className="block mb-2 text-lg font-semibold">
+                    {item.name ? `DO YOU HAVE ${item.name.toUpperCase()}?` : ""}
+                    {item.description && (
+                      <span className="block text-sm font-normal text-gray-500 mt-0.5">
+                        {item.description}
+                      </span>
+                    )}
+                  </label>
+                  <select
+                    className="w-full border-2 border-yellow-400 rounded-full px-4 py-3 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    value={answers[item.id] || ""}
+                    onChange={(e) => handleChange(item.id, e.target.value)}
+                    disabled={loading}
+                    required
+                  >
+                    <option value="">Select</option>
+                    {STATUS_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+
+            {items.length > 0 && (
+              <div className="max-w-3xl mx-auto mt-8">
+                <div className="flex justify-between text-sm text-gray-500 mb-1">
+                  <span>Compliance Progress</span>
+                  <span>{progress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div
+                    className="bg-yellow-400 h-2.5 rounded-full transition-all duration-500"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
         {/* Buttons */}
         <div className="flex flex-col md:flex-row items-center justify-between mt-8 md:mt-12 max-w-3xl mx-auto gap-6 md:gap-0">
@@ -84,8 +153,19 @@ const RegistrationStatusForm = ({ onNext, onBack }) => {
             type="button"
             disabled={loading}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={3}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
 
@@ -98,7 +178,7 @@ const RegistrationStatusForm = ({ onNext, onBack }) => {
               className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-8 py-3 rounded-full flex items-center gap-2 transition focus:outline-none focus:ring-2 focus:ring-yellow-500"
               onClick={handleNext}
               title="Next"
-              disabled={loading}
+              disabled={loading || fetching}
             >
               {loading ? "Saving..." : "Next »"}
             </button>

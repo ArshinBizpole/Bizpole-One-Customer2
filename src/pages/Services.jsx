@@ -1,14 +1,17 @@
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { useEffect, useState, useContext } from "react";
 import { CartContext } from "../context/CartContext";
 import { useNavigate } from "react-router-dom";
 import { upsertQuote } from "../api/Quote";
 import { getSecureItem } from "../utils/secureStorage";
+import CryptoJS from "crypto-js";
 import ServicesApi from "../api/ServicesApi";
 import axios from "../api/axiosInstance";
+import { fetchFranchiseeGstInfo, calcGstAmount, splitGst } from "../utils/gstCalc";
 import { motion, AnimatePresence } from "framer-motion";
 import SigninModal from "../components/Modals/SigninModal";
-
+import { Building2, FileText, Scale, CheckCircle2, Wallet, Globe2, Tag, Sparkles, Briefcase, Receipt, FileCheck2, DollarSign, ShoppingCart, MapPin, ArrowRight, X, Loader2 } from "lucide-react";
 // Icons
 const IconSearch = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -58,23 +61,46 @@ const IconGrid = () => (
   </svg>
 );
 
-// Category icon map
-const getCategoryIcon = (name = "") => {
-  const lower = name.toLowerCase();
-  if (lower.includes("incorporat")) return "🏢";
-  if (lower.includes("tax")) return "📋";
-  if (lower.includes("legal")) return "⚖️";
-  if (lower.includes("compliance")) return "✅";
-  if (lower.includes("finance")) return "💰";
-  if (lower.includes("trade")) return "🌐";
-  return " ";
+const CATEGORY_ICON_MAP = {
+  "IPR": Scale,
+  "Business Registrations": Building2,
+  "Compliance Services": CheckCircle2,
+  "677": Tag,
+  "drop shopping": Globe2,
+  "GST TEST CAT": FileText,
+  "mail": FileText,
+  "pf": Wallet,
+  "Project Report": FileText,
+};
+
+const CATEGORY_KEYWORD_MAP = [
+  { match: /incorporation/i, icon: Briefcase },
+  { match: /taxation|tax/i, icon: Receipt },
+  { match: /legal/i, icon: Scale },
+  { match: /compliance/i, icon: FileCheck2 },
+  { match: /finance/i, icon: DollarSign },
+  { match: /trade/i, icon: Globe2 },
+];
+
+const getCategoryIcon = (categoryName) => {
+  if (CATEGORY_ICON_MAP[categoryName]) return CATEGORY_ICON_MAP[categoryName];
+  const found = CATEGORY_KEYWORD_MAP.find(({ match }) => match.test(categoryName || ""));
+  return found ? found.icon : Tag;
 };
 
 import { getAllStates } from "../api/States";
 
-const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price, onSelectState, stateId, setShowSigninModal }) => {
+const buildQuotePreviewUrl = (quoteId) => {
+  const secret = import.meta.env.VITE_QUOTE_LINK_SECRET || "q3!9fKs7@pLzXr84$nmYtB!cVZdQ3";
+  const encrypted = CryptoJS.AES.encrypt(String(quoteId), secret).toString();
+  return `${import.meta.env.VITE_CLIENT_BASE_URL}/quotes/saved-preview/${encodeURIComponent(encrypted)}`;
+};
+
+const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price, onSelectState, stateId, setShowSigninModal, navigate }) => {
   const features = service.Features || [];
   const categoryName = service.Category?.CategoryName || service.CategoryName;
+  // API descriptions sometimes come wrapped in literal quote characters — strip them for display
+  const description = (service.description || service.Description || "").trim().replace(/^["']+|["']+$/g, "").trim();
   return (
     <motion.div
       layout
@@ -83,14 +109,14 @@ const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price, onSele
       exit={{ opacity: 0, y: -20 }}
       whileHover={{ y: -2 }}
       transition={{ duration: 0.3 }}
-      className={`bg-white rounded-2xl border-2 transition-all duration-300 overflow-hidden flex flex-col ${isSelected
-        ? "border-[#F3C625] shadow-[0_0_0_3px_rgba(243,198,37,0.15)]"
-        : "border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200"
+      className={`relative rounded-2xl border-2 transition-all duration-300 overflow-hidden flex flex-col ${isSelected
+        ? "border-[#F3C625] bg-[#FFFCF0]"
+        : "bg-white border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200"
         }`}
     >
       {/* Popular Badge */}
       {service.IsPopular && (
-        <div className="bg-[#F3C625] text-white text-xs font-bold px-3 py-1 flex items-center gap-1 justify-end">
+        <div className="absolute top-4 right-4 bg-white shadow-sm text-gray-700 text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 border border-gray-100 z-10">
           <IconStar /> POPULAR
         </div>
       )}
@@ -98,20 +124,20 @@ const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price, onSele
       <div className="p-5 flex-1 flex flex-col">
         {/* Header */}
         <div className="flex items-start gap-3 mb-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-xl flex-shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-[#F3C625] flex items-center justify-center text-xl flex-shrink-0">
             {service.Icon || "⚡"}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
               <h3 className="font-bold text-gray-900 text-base leading-tight">{service.ServiceName}</h3>
               {isSelected && (
-                <div className="w-5 h-5 bg-[#F3C625] rounded-full flex items-center justify-center flex-shrink-0">
+                <div className="w-6 h-6 bg-[#F3C625] rounded-full flex items-center justify-center flex-shrink-0">
                   <IconCheck />
                 </div>
               )}
             </div>
             {categoryName && (
-              <span className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase">
+              <span className="inline-block mt-1 text-[10px] font-semibold text-gray-500 uppercase bg-gray-100 px-2 py-0.5 rounded-full">
                 {categoryName}
               </span>
             )}
@@ -120,15 +146,15 @@ const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price, onSele
 
         {/* Description */}
         <p className="text-gray-500 text-sm leading-relaxed mb-4 line-clamp-2">
-          {service.Description || "Professional service tailored to meet your specific requirements."}
+          {description || "Professional service tailored to meet your specific requirements."}
         </p>
 
         {/* Features */}
         {features.length > 0 && (
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mb-4">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-4">
             {features.slice(0, 4).map((feat, i) => (
               <div key={i} className="flex items-center gap-1.5 text-xs text-gray-600">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#F3C625] flex-shrink-0" />
+                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isSelected ? "bg-[#F3C625]" : "bg-gray-300"}`} />
                 <span className="truncate">{feat}</span>
               </div>
             ))}
@@ -138,167 +164,210 @@ const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price, onSele
         {/* Know More */}
         <button
           onClick={() => onLearnMore(service.ServiceID)}
-          className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#F3C625] transition-colors mb-4 group border border-gray-200 hover:border-[#F3C625] rounded-lg px-3 py-1 self-start"
+          className="flex items-center justify-center gap-1.5 text-xs text-gray-500 hover:text-[#F3C625] transition-colors mb-4 border border-gray-200 hover:border-[#F3C625] rounded-xl px-3 py-2.5 w-full bg-white"
         >
           <svg className="w-4 h-4 text-gray-400 group-hover:text-[#F3C625]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="9" strokeWidth="2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01" />
           </svg>
           Know More
-          <span className="group-hover:translate-x-0.5 transition-transform inline-block">→</span>
+          <span className="inline-block">→</span>
         </button>
 
         {/* Footer Actions */}
         <div className="flex items-center gap-2 mt-auto pt-3 border-t border-gray-100">
           {!stateId ? (
-            <button
-              className="flex items-center gap-1.5 text-xs text-gray-500 border border-gray-200 hover:text-[#F3C625] hover:border-[#F3C625] transition-colors flex-1 rounded-lg px-3 py-1"
-              onClick={onSelectState}
-            >
-              <div className="w-5 h-5 rounded-full bg-amber-50 flex items-center justify-center">
-                <IconLocation />
-              </div>
-              <span className="font-medium">Select Your State</span>
-              <span className="text-gray-400 text-[10px]">To view pricing</span>
-            </button>
-          ) : price ? (
-            <div className="flex-1 flex flex-col  justify-left text-xs">
-              <div className="flex  justify-left text-2xl font-bold text-green-700 mb-2">
-                <span className="mr-1">₹</span>
-                {price.TotalFee}
-              </div>
-              <span className="text-xs text-gray-400 mb-1">Total Fee (All Inclusive)</span>
+            <div className="flex-1 flex items-center gap-2">
               <button
-                className="mt-1 text-xs text-black-500 underline text-left"
                 onClick={onSelectState}
-              >Change State</button>
+                className="flex-1 flex items-center gap-2 text-xs bg-[#FDF4D6] hover:bg-[#fbecc0] transition-colors rounded-xl px-3 py-2.5 min-w-0"
+              >
+                <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                  <IconLocation />
+                </div>
+                <div className="flex flex-col items-start min-w-0 leading-tight">
+                  <span className="font-bold text-gray-900 text-xs truncate">Select Your State</span>
+                  <span className="text-gray-400 text-[10px]">To view pricing</span>
+                </div>
+              </button>
+
+              <motion.button
+                onClick={onSelectState}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="flex-shrink-0 px-4 py-2.5 rounded-xl shadow-md hover:shadow-xl font-semibold text-sm bg-[#F3C625] text-white hover:bg-[#e0b420]"
+              >
+                Select
+              </motion.button>
             </div>
           ) : (
-            <button
-              className="flex-1 flex items-center justify-center text-xs font-semibold rounded-lg px-3 py-2 border border-yellow-400 text-black hover:bg-yellow-500 transition-colors"
-              style={{ minHeight: 36 }}
-              type="button"
-              onClick={async (e) => {
-                e.stopPropagation();
-                const token = localStorage.getItem('token');
-                if (!token) {
-                  setShowSigninModal(true);
-                  return;
-                }
-                try {
-                  const user = getSecureItem("user");
-                  const selectedCompany = getSecureItem("selectedCompany");
-                  const franchiseeId = user?.FranchiseeId || user?.FranchiseeID || 1;
-                  const employeeId = user?.EmployeeID || 9;
-                  const employeeName = user?.FirstName || "admin";
-                  const customerId = user?.CustomerID || 2;
-                  const customerName = user?.FirstName ? `${user.FirstName} ${user.LastName || ''}`.trim() : "John Doe";
-                  const stateName = selectedCompany?.State || "";
-                  const companyName = selectedCompany?.CompanyName || "";
-                  const companyId = selectedCompany?.CompanyID || null;
-                  // Use price if available, else default
-                  const priceObj = price || {
-                    ProfessionalFee: 0,
-                    VendorFee: 0,
-                    GovtFee: 0,
-                    ContractorFee: 0,
-                    GSTPercent: 0,
-                    GstAmount: 0,
-                    CGST: 0,
-                    SGST: 0,
-                    IGST: 0,
-                    Discount: 0,
-                    Rounding: 0,
-                    TotalFee: 0,
-                    AdvanceAmount: 0
-                  };
-                  const serviceDetails = [
-                    {
-                      ServiceID: service?.ServiceID,
-                      ItemName: service?.ServiceName,
-                      ProfessionalFee: priceObj.ProfessionalFee ?? 100,
-                      VendorFee: priceObj.VendorFee ?? 100,
-                      GovtFee: priceObj.GovtFee ?? 100,
-                      ContractorFee: priceObj.ContractorFee ?? 100,
-                      GSTPercent: priceObj.GSTPercent ?? 0,
-                      GstAmount: priceObj.GstAmount ?? 18,
-                      CGST: priceObj.CGST ?? 9,
-                      SGST: priceObj.SGST ?? 9,
-                      IGST: priceObj.IGST ?? 0,
-                      Discount: priceObj.Discount ?? 0,
-                      Rounding: priceObj.Rounding ?? 0,
-                      Total: priceObj.TotalFee ?? (typeof priceObj === 'number' ? priceObj : 418),
-                      AdvanceAmount: priceObj.AdvanceAmount ?? 126,
-                      IsManual: 0,
-                      IsIndividual: 1
+            <div className="flex-1 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                {price ? (
+                  <div className="flex flex-col justify-left text-xs">
+                    <div className="flex justify-left text-lg font-bold text-green-700 mb-1">
+                      <span className="mr-1">₹</span>
+                      {price.TotalFee}
+                    </div>
+                    <span className="text-xs text-gray-400">Total Fee (All Inclusive)</span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-red-400 font-medium">
+                    Not available in this state
+                  </span>
+                )}
+                <button
+                  className="text-xs text-black underline flex-shrink-0"
+                  onClick={onSelectState}
+                >
+                  Change State
+                </button>
+              </div>
+
+              {/* Request Quote + Select together */}
+              <div className="flex items-center gap-2">
+                <button
+                  className={`flex-1 flex items-center justify-center text-xs font-semibold rounded-lg px-3 py-2 border transition-colors ${!stateId || !price
+                    ? "border-gray-200 text-gray-400 bg-gray-100 cursor-not-allowed"
+                    : "border-yellow-400 text-black hover:bg-yellow-500"
+                    }`}
+                  style={{ minHeight: 36 }}
+                  type="button"
+                  disabled={!stateId || !price}
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (!stateId || !price) return;
+                    const token = localStorage.getItem('token');
+                    if (!token) {
+                      setShowSigninModal(true);
+                      return;
                     }
-                  ];
-                  const payload = {
-                    IsIndividual: 1,
-                    IsMonthly: 0,
+                    try {
+                      const user = getSecureItem("user");
+                      const selectedCompany = getSecureItem("selectedCompany");
+                      const franchiseeId = user?.FranchiseeId || user?.FranchiseeID || 1;
+                      const employeeId = user?.EmployeeID || 9;
+                      const employeeName = user?.FirstName || "admin";
+                      const customerId = user?.CustomerID || 2;
+                      const customerName = user?.FirstName ? `${user.FirstName} ${user.LastName || ''}`.trim() : "John Doe";
+                      const stateName = selectedCompany?.State || "";
+                      const companyName = selectedCompany?.CompanyName || "";
+                      const companyId = selectedCompany?.CompanyID || null;
+                      const priceObj = price || {
+                        ProfessionalFee: 0,
+                        VendorFee: 0,
+                        GovtFee: 0,
+                        ContractorFee: 0,
+                        GSTPercent: 0,
+                        GstAmount: 0,
+                        CGST: 0,
+                        SGST: 0,
+                        IGST: 0,
+                        Discount: 0,
+                        Rounding: 0,
+                        TotalFee: 0,
+                        AdvanceAmount: 0
+                      };
+                      const professionalFee = Number(priceObj.ProfessionalFee ?? 0);
+                      const vendorFee = Number(priceObj.VendorFee ?? 0);
+                      const govtFee = Number(priceObj.GovernmentFee ?? 0);
+                      const contractorFee = Number(priceObj.ContractFee ?? 0);
+                      const discount = Number(priceObj.Discount ?? 0);
+                      const rounding = Number(priceObj.Rounding ?? 0);
 
-                    FranchiseeID: franchiseeId,
-                    SelectedCompany: {
-                      CompanyID: companyId,
-                      CompanyName: companyName,
-                      State: stateName
-                    },
-                    SelectedCustomer: {
-                      CustomerID: customerId,
-                      CustomerName: customerName
-                    },
-                    QuoteCRE: {
-                      EmployeeID: employeeId,
-                      EmployeeName: employeeName
-                    },
-                    SourceOfSale: "Website",
-                    StateService: stateName,
-                    Remarks: "",
-                    QuoteStatus: "Draft",
-                    IsDirect: 1,
-                    ServiceDetails: serviceDetails,
-                    SelectedServices: [service?.ServiceID],
-                    SelectedServicePrices: { [service?.ServiceID]: priceObj },
-                    MailQuoteCustomers: [
-                      {
-                        CustomerID: customerId,
-                        CustomerName: customerName,
-                        Email: user?.Email || ""
-                      }
-                    ],
-                    PaymentType: 0,
-                    EmployeeID: employeeId
-                  };
-                  payload.is_manual = 0;
-                  await upsertQuote(payload);
-                  toast.success("Quote created successfully!");
-                  if (typeof navigate === 'function') navigate("/dashboard/bizpoleone");
-                } catch (err) {
-                  toast.error("Failed to create quote. Please try again.", err);
-                }
-              }}
-            >
-              Request Quote
-            </button>
+                      const { gstEligible, state: franchiseeState } = await fetchFranchiseeGstInfo(franchiseeId);
+                      const gstAmount = calcGstAmount(professionalFee, vendorFee, gstEligible);
+                      const { cgst, sgst, igst } = splitGst(gstAmount, franchiseeState, stateName);
+                      const total = professionalFee + vendorFee + govtFee + contractorFee - discount + gstAmount;
+                      const advanceAmount = Math.ceil(total * 0.3);
+
+                      const serviceDetails = [
+                        {
+                          ServiceID: service?.ServiceID,
+                          ItemName: service?.ServiceName,
+                          ProfessionalFee: professionalFee,
+                          VendorFee: vendorFee,
+                          GovtFee: govtFee,
+                          ContractorFee: contractorFee,
+                          GSTPercent: gstEligible ? 18 : 0,
+                          GstAmount: gstAmount,
+                          CGST: cgst,
+                          SGST: sgst,
+                          IGST: igst,
+                          Discount: discount,
+                          Rounding: rounding,
+                          Total: total,
+                          AdvanceAmount: advanceAmount,
+                          IsManual: 0,
+                          IsIndividual: 1
+                        }
+                      ];
+                      const payload = {
+                        IsIndividual: 1,
+                        IsMonthly: 0,
+                        FranchiseeID: franchiseeId,
+                        SelectedCompany: {
+                          CompanyID: companyId,
+                          CompanyName: companyName,
+                          State: stateName
+                        },
+                        SelectedCustomer: {
+                          CustomerID: customerId,
+                          CustomerName: customerName
+                        },
+                        QuoteCRE: {
+                          EmployeeID: employeeId,
+                          EmployeeName: employeeName
+                        },
+                        SourceOfSale: "Website",
+                        StateService: stateName,
+                        Remarks: "",
+                        QuoteStatus: "Draft",
+                        IsDirect: 1,
+                        ServiceDetails: serviceDetails,
+                        SelectedServices: [service?.ServiceID],
+                        SelectedServicePrices: { [service?.ServiceID]: priceObj },
+                        MailQuoteCustomers: [
+                          {
+                            CustomerID: customerId,
+                            CustomerName: customerName,
+                            Email: user?.Email || ""
+                          }
+                        ],
+                        PaymentType: 0,
+                        EmployeeID: employeeId
+                      };
+                      payload.is_manual = 0;
+                      await upsertQuote(payload);
+                      toast.success("Requested quote");
+                      navigate("/dashboard/bizpoleone");
+                    } catch (err) {
+                      toast.error("Failed to create quote. Please try again.", err);
+                    }
+                  }}
+                >
+                  Request Quote
+                </button>
+
+                <motion.button
+                  onClick={() => {
+                    if (!price) return;
+                    onSelect(service.ServiceID);
+                  }}
+                  whileHover={price ? { scale: 1.03 } : undefined}
+                  whileTap={price ? { scale: 0.97 } : undefined}
+                  disabled={!price}
+                  className={`flex-shrink-0 px-4 py-2 rounded-xl font-semibold text-sm ${!price
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed shadow-none"
+                    : isSelected
+                      ? "bg-[#F3C625] text-black shadow-md hover:shadow-xl"
+                      : "bg-[#F3C625] text-white hover:bg-[#e0b420] shadow-md hover:shadow-xl"
+                    }`}
+                >
+                  {isSelected ? "Selected" : "Select"}
+                </motion.button>
+              </div>
+            </div>
           )}
-
-          <motion.button
-            onClick={() => onSelect(service.ServiceID)}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className={` bg-gradient-to-r from-yellow-400 to-yellow-500 px-3 py-2 rounded-xl shadow-md hover:shadow-xl ${isSelected
-              ? "bg-[#F3C625] text-black"
-              : "bg-[#F3C625] text-white hover:bg-[#e0b420]"
-              }`}
-          >
-            {isSelected ? (
-              <>
-
-                Selected
-              </>
-            ) : (
-              "Select"
-            )}
-          </motion.button>
         </div>
       </div>
     </motion.div>
@@ -328,6 +397,7 @@ const Services = () => {
   const [showSigninModal, setShowSigninModal] = useState(false);
   const [selectedStateForModal, setSelectedStateForModal] = useState("");
   const [statesLoading, setStatesLoading] = useState(false);
+  const [proceedingToQuote, setProceedingToQuote] = useState(false);
 
   const navigate = useNavigate();
 
@@ -488,51 +558,81 @@ const Services = () => {
 
   return (
     <>
+      <ToastContainer position="top-right" autoClose={3000} />
       <SigninModal isOpen={showSigninModal} onClose={() => setShowSigninModal(false)} />
-      <div className="min-h-screen mt-20 bg-gray-50">
+      <div className="min-h-screen bg-gray-50">
+
         {/* State selection modal */}
         {showStateModal && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8">
-              <div className="text-center mb-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-3">
-                  Select Your State
-                </h2>
-                <p className="text-gray-600 text-xs">Please select your state to get accurate pricing</p>
+            <div className="relative bg-white rounded-[2rem] shadow-2xl max-w-md w-full p-8 overflow-hidden">
+              {/* Decorative corner glow */}
+              <div className="pointer-events-none absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br from-amber-50 to-transparent rounded-full" />
+
+              {/* Icon */}
+              <div className="w-16 h-16 rounded-2xl bg-[#F3C625] flex items-center justify-center mb-6">
+                <svg className="w-7 h-7 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
               </div>
+
+              {/* Heading */}
+              <h2 className="text-3xl font-extrabold text-gray-900 mb-3">
+                Where are you located?
+              </h2>
+
+              {/* Subtext */}
+              <p className="text-gray-500 text-sm leading-relaxed">
+                Where would you like to avail this service?<br />
+                Please select your state to get accurate pricing.
+              </p>
+              <p className="text-amber-400 font-semibold text-sm mt-1 mb-6">
+                Service availability and pricing may vary by location
+              </p>
+
               <form onSubmit={handleStateModalSubmit}>
                 <div className="mb-6">
-                  <label className="block text-xs font-medium text-gray-700 mb-3">
-                    Select your state *
+                  <label className="block text-sm font-bold text-gray-900 mb-2">
+                    Select your state <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    value={selectedStateForModal}
-                    onChange={e => setSelectedStateForModal(e.target.value)}
-                    required
-                    className="w-full px-4 py-2 rounded-xl border-2 text-sm border-gray-200 focus:ring-2 focus:ring-[#F3C625] focus:border-[#F3C625]"
-                    disabled={statesLoading}
-                  >
-                    <option value="">Choose your state</option>
-                    {allStates.map((state) => (
-                      <option key={state.id || state.StateID} value={state.id || state.StateID}>
-                        {state.state_name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={selectedStateForModal}
+                      onChange={e => setSelectedStateForModal(e.target.value)}
+                      required
+                      className="w-full appearance-none pl-4 pr-14 py-3.5 rounded-2xl border border-gray-200 text-sm text-gray-700 focus:ring-1 focus:ring-[#f7d761] focus:border-[#f7d761] outline-none disabled:opacity-60"
+                      disabled={statesLoading}
+                    >
+                      <option value="">Choose your state</option>
+                      {allStates.map((state) => (
+                        <option key={state.id || state.StateID} value={state.id || state.StateID}>
+                          {state.state_name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute right-1.5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-[#F3C625] flex items-center justify-center pointer-events-none">
+                      <IconChevronDown />
+                    </div>
+                  </div>
                 </div>
+
                 <div className="flex gap-3">
                   <button
                     type="button"
                     onClick={() => setShowStateModal(false)}
-                    className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 text-sm font-semibold rounded-xl hover:border-gray-400"
-                    disabled={!!stateId}
+                    className="flex-1 px-6 py-3.5 border-2 border-gray-200 text-gray-900 text-sm font-bold rounded-2xl hover:border-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  // disabled={!!stateId}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={!selectedStateForModal}
-                    className="flex-1 px-6 py-3 bg-[#F3C625] text-white text-sm font-semibold rounded-xl hover:bg-[#e0b420] disabled:opacity-50"
+                    className={`flex-1 px-6 py-3.5 text-sm font-bold rounded-2xl transition-colors ${selectedStateForModal
+                      ? "bg-[#F3C625] text-gray-900 hover:bg-[#e0b420]"
+                      : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      }`}
                   >
                     Get Price
                   </button>
@@ -547,7 +647,7 @@ const Services = () => {
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 text-[#c9a700] text-xs font-semibold rounded-full mb-4 border border-amber-100">
               <IconStar /> Explore Our Services
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold font-black text-gray-900 mb-3">
+            <h1 className="text-4xl md:text-5xl font-bold  text-gray-900 mb-3">
               Choose Your Perfect Service
             </h1>
             <p className="text-gray-500 max-w-lg mx-auto text-sm">
@@ -563,20 +663,22 @@ const Services = () => {
             transition={{ duration: 0.3 }}
             className="flex-shrink-0 overflow-hidden"
           >
-            <div className="w-60 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sticky ">
+            <div className="w-60 bg-white rounded-3xl border border-gray-100 shadow-sm p-5 sticky">
               {/* Sidebar Header */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2 font-bold text-gray-800 text-sm">
-                  <IconFilter />
-                  Filters
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-[#F3C625] flex items-center justify-center">
+                    <IconFilter />
+                  </div>
+                  <span className="font-bold text-gray-900 text-base">Filters</span>
                 </div>
-                <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600 text-xs">
+                <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600">
                   <IconChevronUp />
                 </button>
               </div>
 
               {/* Search */}
-              <div className="mb-4">
+              <div className="mb-5">
                 <p className="text-xs font-semibold text-gray-500 mb-2">Search Services</p>
                 <div className="relative">
                   <input
@@ -584,9 +686,9 @@ const Services = () => {
                     placeholder="Type to search..."
                     value={filter}
                     onChange={(e) => { setFilter(e.target.value); setPage(1); }}
-                    className="w-full pl-8 pr-3 py-2 text-sm rounded-xl border border-gray-200 focus:border-[#F3C625] focus:ring-1 focus:ring-[#F3C625] outline-none transition-all"
+                    className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg bg-gray-100 border-none focus:ring-2 focus:ring-[#F3C625] outline-none transition-all placeholder:text-gray-400"
                   />
-                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                     <IconSearch />
                   </div>
                 </div>
@@ -595,47 +697,60 @@ const Services = () => {
               {/* Categories */}
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-2">Categories</p>
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <button
                     onClick={() => handleCategoryChange("")}
-                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all ${!selectedCategory
-                      ? "bg-[#F3C625] text-white"
-                      : "text-gray-600 hover:bg-gray-50"
+                    className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${!selectedCategory
+                      ? "bg-[#F3C625] text-white shadow-sm"
+                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                       }`}
                   >
-                    <IconGrid />
+                    <Sparkles size={16} strokeWidth={2} />
                     All
                   </button>
                   {categoriesLoading ? (
                     <div className="text-xs text-gray-400 px-3 py-2">Loading…</div>
                   ) : (
-                    categories.map((cat) => (
-                      <button
-                        key={cat.CategoryID}
-                        onClick={() => handleCategoryChange(cat.CategoryID.toString())}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all ${selectedCategory === cat.CategoryID.toString()
-                          ? "bg-[#F3C625] text-white"
-                          : "text-gray-600 hover:bg-gray-50"
-                          }`}
-                      >
-                        <span>{getCategoryIcon(cat.CategoryName)}</span>
-                        {cat.CategoryName}
-                      </button>
-                    ))
+                    categories.map((cat) => {
+                      const CategoryIcon = getCategoryIcon(cat.CategoryName);
+                      const isActive = selectedCategory === cat.CategoryID.toString();
+                      return (
+                        <button
+                          key={cat.CategoryID}
+                          onClick={() => handleCategoryChange(cat.CategoryID.toString())}
+                          className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-left transition-all ${isActive
+                            ? "bg-[#F3C625] text-white shadow-sm"
+                            : "bg-gray-50 text-gray-500 hover:bg-gray-200"
+                            }`}
+                        >
+                          <CategoryIcon size={16} strokeWidth={2} className="flex-shrink-0" />
+                          {cat.CategoryName}
+                        </button>
+                      );
+                    })
                   )}
                 </div>
               </div>
 
-              {/* Selected Services Summary */}
+              {/* Your Selection */}
               <div className="mt-6 pt-4 border-t border-gray-100">
-                <p className="text-xs text-gray-500">
-                  <span className="font-bold text-gray-800">{selectedServices.length}</span> service{selectedServices.length !== 1 ? "s" : ""} selected
-                </p>
-                {selectedServices.length > 0 && (
+                <div className="flex items-center gap-2 mb-3">
+                  <ShoppingCart size={16} className="text-gray-700" strokeWidth={2} />
+                  <span className="font-bold text-gray-900 text-sm">Your Selection</span>
+                </div>
+
+                {selectedServices.length === 0 ? (
+                  <div className="flex flex-col items-center text-center py-6">
+                    <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                      <ShoppingCart size={20} className="text-gray-400" strokeWidth={2} />
+                    </div>
+                    <p className="text-sm font-semibold text-gray-700">No services selected</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Select services to view here</p>
+                  </div>
+                ) : (
                   <>
-                    <div className="mt-2 mb-2 max-h-40 overflow-y-auto">
+                    <div className="space-y-2 max-h-56 overflow-y-auto mb-4">
                       {selectedServices.map(sid => {
-                        // Try to find the service in current page, else fallback to localStorage cache
                         let svc = services.find(s => s.ServiceID === sid);
                         if (!svc) {
                           try {
@@ -643,166 +758,238 @@ const Services = () => {
                             svc = allSvcs.find(s => s.ServiceID === sid);
                           } catch (err) { console.log(err); }
                         }
-                        // Get price from bulkPrices or fallback to localStorage
+                        const categoryName = svc?.Category?.CategoryName || svc?.CategoryName;
+                        const CategoryIcon = getCategoryIcon(categoryName);
+
                         let price = bulkPrices[sid]?.TotalFee;
                         if (!price) {
                           try {
                             const priceCache = JSON.parse(localStorage.getItem("SelectedServicePrices") || "{}");
                             price = priceCache[sid];
-                          } catch (error) {
-                            console.error("Error fetching services:", error);
-                          }
+                          } catch (error) { console.error("Error fetching services:", error); }
                         }
+
                         return (
-                          <div key={sid} className="flex justify-between items-center text-xs py-1 border-b border-gray-100 last:border-b-0">
-                            <span className="truncate max-w-[110px]" title={svc?.ServiceName}>{svc?.ServiceName || 'Service'}</span>
-                            <span className="font-semibold text-green-700">
-                              {price && typeof price === 'object' ? `₹${price.TotalFee}` : price ? `₹${price}` : '--'}
-                            </span>
+                          <div key={sid} className="relative bg-[#FFFCF0] border border-amber-100 rounded-2xl p-3.5 pr-8">
+                            <button
+                              onClick={() => removeFromCart(sid)}
+                              className="absolute top-3 right-3 text-red-400 hover:text-red-600"
+                            >
+                              <X size={14} strokeWidth={2.5} />
+                            </button>
+                            <div className="flex items-start gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-[#F3C625] flex items-center justify-center flex-shrink-0">
+                                <CategoryIcon size={15} className="text-white" strokeWidth={2} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-bold text-gray-900 truncate" title={svc?.ServiceName}>
+                                  {svc?.ServiceName || "Service"}
+                                </p>
+                                {categoryName && (
+                                  <p className="text-xs text-gray-400">{categoryName}</p>
+                                )}
+                                {stateId && price && (
+                                  <p className="text-sm font-extrabold text-gray-900 mt-1">
+                                    ₹{typeof price === "object" ? price.TotalFee : price}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         );
                       })}
                     </div>
-                    {/* Total Price Calculation */}
-                    <div className="flex justify-between items-center text-sm font-bold py-2 border-t border-gray-200 mb-2">
-                      <span>Total</span>
-                      <span className="text-green-700">
-                        ₹{
-                          selectedServices.reduce((sum, sid) => {
-                            let price = bulkPrices[sid];
-                            let value = 0;
-                            if (price && typeof price === 'object' && price.TotalFee) {
-                              value = parseFloat(price.TotalFee) || 0;
-                            } else if (typeof price === 'number' || typeof price === 'string') {
-                              value = parseFloat(price) || 0;
-                            } else {
-                              try {
-                                const priceCache = JSON.parse(localStorage.getItem("SelectedServicePrices") || "{}");
-                                value = parseFloat(priceCache[sid]) || 0;
-                              } catch (error) {
-                                console.error("Error fetching services:", error);
-                              }
+
+                    {!stateId ? (
+                      <button
+                        onClick={openStateModal}
+                        className="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-black bg-[#F3C625] hover:bg-[#e0b420] rounded-2xl px-2 py-3 whitespace-nowrap transition-colors"
+                      >
+                        <MapPin size={14} strokeWidth={2} className="flex-shrink-0" />
+                        Select State to View Pricing
+                      </button>
+                    ) : (
+                      <>
+                        <div className="bg-gray-900 rounded-2xl px-4 py-3 mb-3">
+                          <div className="flex justify-between items-center text-xs text-gray-400 mb-1.5">
+                            <span>Subtotal</span>
+                            <span>
+                              ₹{selectedServices.reduce((sum, sid) => {
+                                let price = bulkPrices[sid];
+                                let value = 0;
+                                if (price && typeof price === "object" && price.TotalFee) {
+                                  value = parseFloat(price.TotalFee) || 0;
+                                } else if (typeof price === "number" || typeof price === "string") {
+                                  value = parseFloat(price) || 0;
+                                } else {
+                                  try {
+                                    const priceCache = JSON.parse(localStorage.getItem("SelectedServicePrices") || "{}");
+                                    value = parseFloat(priceCache[sid]) || 0;
+                                  } catch (error) { console.error("Error fetching services:", error); }
+                                }
+                                return sum + value;
+                              }, 0).toLocaleString("en-IN")}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm font-bold text-white">
+                            <span>Total</span>
+                            <span className="text-[#F3C625]">
+                              ₹{selectedServices.reduce((sum, sid) => {
+                                let price = bulkPrices[sid];
+                                let value = 0;
+                                if (price && typeof price === "object" && price.TotalFee) {
+                                  value = parseFloat(price.TotalFee) || 0;
+                                } else if (typeof price === "number" || typeof price === "string") {
+                                  value = parseFloat(price) || 0;
+                                } else {
+                                  try {
+                                    const priceCache = JSON.parse(localStorage.getItem("SelectedServicePrices") || "{}");
+                                    value = parseFloat(priceCache[sid]) || 0;
+                                  } catch (error) { console.error("Error fetching services:", error); }
+                                }
+                                return sum + value;
+                              }, 0).toLocaleString("en-IN")}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          className={`w-full flex items-center justify-center gap-2 text-sm font-bold rounded-2xl px-4 py-3 transition-colors ${proceedingToQuote
+                            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                            : "text-black bg-[#F3C625] hover:bg-[#e0b420]"
+                            }`}
+                          disabled={proceedingToQuote}
+                          onClick={async () => {
+                            const token = localStorage.getItem('token');
+                            if (!token) {
+                              setShowSigninModal(true);
+                              return;
                             }
-                            return sum + value;
-                          }, 0).toLocaleString('en-IN')
-                        }
-                      </span>
-                    </div>
-                    <button
-                      style={{ marginTop: 8 }}
-                      className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 px-4 py-2 rounded-xl shadow-md hover:shadow-xl transition-all duration-300"
-                      onClick={async () => {
-                        const token = localStorage.getItem('token');
-                        if (!token) {
-                          setShowSigninModal(true);
-                          return;
-                        }
-                        try {
-                          const user = getSecureItem("user");
-                          const selectedCompany = getSecureItem("selectedCompany");
-                          const franchiseeId = user?.FranchiseeId || user?.FranchiseeID || 1;
-                          const employeeId = user?.EmployeeID || 9;
-                          const employeeName = user?.FirstName || "admin";
-                          const customerId = user?.CustomerID || 2;
-                          const customerName = user?.FirstName ? `${user.FirstName} ${user.LastName || ''}`.trim() : "John Doe";
-                          const stateName = selectedCompany?.State || "";
-                          const companyName = selectedCompany?.CompanyName || "";
-                          const companyId = selectedCompany?.CompanyID || null;
-
-                          // Use CartContext for selected services and prices
-                          const selectedServiceIds = Object.keys(cart).map(Number);
-                          // Build ServiceDetails from cart
-                          const serviceDetails = selectedServiceIds.map(sid => {
-                            let svc = services.find(s => s.ServiceID === sid);
-                            if (!svc) {
-                              try {
-                                const allCache = JSON.parse(localStorage.getItem("AllServicesCache") || "[]");
-                                svc = allCache.find(s => s.ServiceID === sid);
-                              } catch (error) {
-                                console.error("Error fetching services:", error);
-                              }
+                            setProceedingToQuote(true);
+                            // Open the tab synchronously, tied to this click, so the browser
+                            // doesn't block it — then redirect it once the quote is ready below.
+                            const previewTab = window.open("", "_blank");
+                            if (previewTab) {
+                              previewTab.document.write(
+                                '<title>Loading your quote…</title><body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;color:#666">Loading your quote…</body>'
+                              );
                             }
-                            const price = cart[sid] || {};
-                            return {
-                              ServiceID: svc?.ServiceID,
-                              ItemName: svc?.ServiceName,
-                              ProfessionalFee: price.ProfessionalFee ?? 100,
-                              VendorFee: price.VendorFee ?? 100,
-                              GovtFee: price.GovtFee ?? 100,
-                              ContractorFee: price.ContractorFee ?? 100,
-                              GSTPercent: price.GSTPercent ?? 0,
-                              GstAmount: price.GstAmount ?? 18,
-                              CGST: price.CGST ?? 9,
-                              SGST: price.SGST ?? 9,
-                              IGST: price.IGST ?? 0,
-                              Discount: price.Discount ?? 0,
-                              Rounding: price.Rounding ?? 0,
-                              Total: price.TotalFee ?? (typeof price === 'number' ? price : 418),
-                              AdvanceAmount: price.AdvanceAmount ?? 126,
-                              IsManual: 0,
-                              IsIndividual: 1
-                            };
-                          });
+                            try {
+                              const user = getSecureItem("user");
+                              const selectedCompany = getSecureItem("selectedCompany");
+                              const franchiseeId = user?.FranchiseeId || user?.FranchiseeID || 1;
+                              const employeeId = user?.EmployeeID || 9;
+                              const employeeName = user?.FirstName || "admin";
+                              const customerId = user?.CustomerID || 2;
+                              const customerName = user?.FirstName ? `${user.FirstName} ${user.LastName || ''}`.trim() : "John Doe";
+                              const stateName = selectedCompany?.State || "";
+                              const companyName = selectedCompany?.CompanyName || "";
+                              const companyId = selectedCompany?.CompanyID || null;
 
-                          // Build SelectedServicePrices from cart
-                          const selectedServicePrices = {};
-                          selectedServiceIds.forEach(sid => {
-                            selectedServicePrices[sid] = cart[sid] || {};
-                          });
+                              const selectedServiceIds = Object.keys(cart).map(Number);
+                              const { gstEligible, state: franchiseeState } = await fetchFranchiseeGstInfo(franchiseeId);
+                              const serviceDetails = selectedServiceIds.map(sid => {
+                                let svc = services.find(s => s.ServiceID === sid);
+                                if (!svc) {
+                                  try {
+                                    const allCache = JSON.parse(localStorage.getItem("AllServicesCache") || "[]");
+                                    svc = allCache.find(s => s.ServiceID === sid);
+                                  } catch (error) { console.error("Error fetching services:", error); }
+                                }
+                                const price = cart[sid] || {};
+                                const professionalFee = Number(price.ProfessionalFee ?? 100);
+                                const vendorFee = Number(price.VendorFee ?? 100);
+                                const govtFee = Number(price.GovernmentFee ?? 100);
+                                const contractorFee = Number(price.ContractFee ?? 100);
+                                const discount = Number(price.Discount ?? 0);
+                                const rounding = Number(price.Rounding ?? 0);
+                                const gstAmount = calcGstAmount(professionalFee, vendorFee, gstEligible);
+                                const { cgst, sgst, igst } = splitGst(gstAmount, franchiseeState, stateName);
+                                const total = professionalFee + vendorFee + govtFee + contractorFee - discount + gstAmount;
+                                const advanceAmount = Math.ceil(total * 0.3);
+                                return {
+                                  ServiceID: svc?.ServiceID,
+                                  ItemName: svc?.ServiceName,
+                                  ProfessionalFee: professionalFee,
+                                  VendorFee: vendorFee,
+                                  GovtFee: govtFee,
+                                  ContractorFee: contractorFee,
+                                  GSTPercent: gstEligible ? 18 : 0,
+                                  GstAmount: gstAmount,
+                                  CGST: cgst,
+                                  SGST: sgst,
+                                  IGST: igst,
+                                  Discount: discount,
+                                  Rounding: rounding,
+                                  Total: total,
+                                  AdvanceAmount: advanceAmount,
+                                  IsManual: 0,
+                                  IsIndividual: 1
+                                };
+                              });
 
-                          const payload = {
-                            IsIndividual: 1,
-                            IsMonthly: 0,
-                            FranchiseeID: franchiseeId,
-                            SelectedCompany: {
-                              CompanyID: companyId,
-                              CompanyName: companyName,
-                              State: stateName
-                            },
-                            SelectedCustomer: {
-                              CustomerID: customerId,
-                              CustomerName: customerName
-                            },
-                            QuoteCRE: {
-                              EmployeeID: employeeId,
-                              EmployeeName: employeeName
-                            },
-                            SourceOfSale: "Website",
-                            StateService: stateName,
-                            Remarks: "Generated from services page",
-                            QuoteStatus: "Draft",
-                            IsDirect: 1,
-                            ServiceDetails: serviceDetails,
-                            SelectedServices: selectedServiceIds,
-                            SelectedServicePrices: selectedServicePrices,
-                            MailQuoteCustomers: [
-                              {
-                                CustomerID: customerId,
-                                CustomerName: customerName,
-                                Email: user?.Email || ""
+                              const selectedServicePrices = {};
+                              selectedServiceIds.forEach(sid => {
+                                selectedServicePrices[sid] = cart[sid] || {};
+                              });
+
+                              const payload = {
+                                IsIndividual: 1,
+                                IsMonthly: 0,
+                                FranchiseeID: franchiseeId,
+                                SelectedCompany: { CompanyID: companyId, CompanyName: companyName, State: stateName },
+                                SelectedCustomer: { CustomerID: customerId, CustomerName: customerName },
+                                QuoteCRE: { EmployeeID: employeeId, EmployeeName: employeeName },
+                                SourceOfSale: "Website",
+                                StateService: stateName,
+                                Remarks: "Generated from services page",
+                                QuoteStatus: "Draft",
+                                IsDirect: 1,
+                                ServiceDetails: serviceDetails,
+                                SelectedServices: selectedServiceIds,
+                                SelectedServicePrices: selectedServicePrices,
+                                MailQuoteCustomers: [{ CustomerID: customerId, CustomerName: customerName, Email: user?.Email || "" }],
+                                PaymentType: 0,
+                                EmployeeID: employeeId
+                              };
+
+                              payload.is_manual = 0;
+                              const data = await upsertQuote(payload);
+                              const quoteId = data?.QuoteID;
+                              toast.success("Requested quote");
+                              if (quoteId) {
+                                const url = buildQuotePreviewUrl(quoteId);
+                                if (previewTab) {
+                                  previewTab.location.href = url;
+                                } else {
+                                  window.open(url, "_blank");
+                                }
+                              } else if (previewTab) {
+                                previewTab.close();
                               }
-                            ],
-                            PaymentType: 0,
-                            EmployeeID: employeeId
-                          };
-
-                          payload.is_manual = 0;
-                          await upsertQuote(payload);
-                          navigate("/dashboard/bizpoleone");
-                        } catch (err) {
-                          alert("Failed to create quote. Please try again.", err);
-                        }
-                      }}
-                    >
-                      Request Quote
-                    </button>
-
-                    <button
-                      onClick={() => setSelectedServices([])}
-                      className="text-xs text-red-400 hover:text-red-600 mt-1 transition-colors w-full text-center"
-                    >
-                      Clear selection
-                    </button>
+                            } catch (err) {
+                              if (previewTab) previewTab.close();
+                              console.error("Error creating quote from cart:", err);
+                              toast.error(err?.response?.data?.message || "Failed to create quote. Please try again.");
+                            } finally {
+                              setProceedingToQuote(false);
+                            }
+                          }}
+                        >
+                          {proceedingToQuote ? (
+                            <>
+                              <Loader2 size={16} strokeWidth={2.5} className="animate-spin" />
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              Proceed to Quote
+                              <ArrowRight size={16} strokeWidth={2.5} />
+                            </>
+                          )}
+                        </button>
+                      </>
+                    )}
                   </>
                 )}
               </div>
@@ -822,7 +1009,7 @@ const Services = () => {
                     <IconFilter /> Filters
                   </button>
                 )}
-                <div>
+                <div >
                   <p className="font-bold text-gray-900 text-sm">
                     {loading ? "Loading..." : `${totalCount} Services Available`}
                   </p>
@@ -912,6 +1099,7 @@ const Services = () => {
                         stateId={stateId}
                         bulkLoading={bulkLoading}
                         setShowSigninModal={setShowSigninModal}
+                        navigate={navigate}
                       />
                     ))}
                   </div>

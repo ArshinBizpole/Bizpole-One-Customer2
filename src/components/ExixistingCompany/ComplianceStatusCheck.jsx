@@ -54,6 +54,14 @@ const ComplianceStatusCheck = ({ onNext, onPrev, registrationStatusObj }) => {
     employees: "",
     businessUnderstanding: "",
     expectations: "",
+    gstReturnsUpToDate: "",
+    gstReturnsDetails: "",
+    rocFilingYear: "",
+    itReturnYear: "",
+    booksUpToDate: "",
+    hasAuditor: "",
+    iecEnabled: "",
+    tdsEnabled: "",
   });
 
   // Prefill form from localStorage if available
@@ -251,6 +259,8 @@ const ComplianceStatusCheck = ({ onNext, onPrev, registrationStatusObj }) => {
         pfDate: form.pfEnabled === "yes" ? form.pfDate : "",
         ptNumber: form.professionalTaxEnabled === "yes" ? form.ptNumber : "",
         ptDate: form.professionalTaxEnabled === "yes" ? form.ptDate : "",
+        iec: form.iecEnabled === "yes" ? form.iec : "",
+        gstReturnsDetails: form.gstReturnsUpToDate === "yes" ? form.gstReturnsDetails : "",
       };
 
       // Flatten registrationStatusObj if it contains nested registrationStatus or CompanyID
@@ -539,19 +549,55 @@ const ComplianceStatusCheck = ({ onNext, onPrev, registrationStatusObj }) => {
                   </>
                 )}
 
-                {/* IEC */}
+                {/* IE Code Registered? */}
                 <div>
                   <label className="block mb-1 text-xs font-medium text-gray-600">
-                    Import Export Code (IEC)
+                    Do you have IE Code?
                   </label>
-                  <input
-                    type="text"
-                    name="iec"
-                    value={form.iec}
+                  <select
+                    name="iecEnabled"
+                    value={form.iecEnabled}
                     onChange={handleChange}
-                    placeholder="e.g. IEC123456789"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400 hover:border-yellow-200 transition-all"
-                  />
+                  >
+                    <option value="">Select Option</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </div>
+
+                {/* IEC Number - Conditional */}
+                {form.iecEnabled === "yes" && (
+                  <div>
+                    <label className="block mb-1 text-xs font-medium text-gray-600">
+                      Import Export Code (IEC)
+                    </label>
+                    <input
+                      type="text"
+                      name="iec"
+                      value={form.iec}
+                      onChange={handleChange}
+                      placeholder="e.g. IEC123456789"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400 hover:border-yellow-200 transition-all"
+                    />
+                  </div>
+                )}
+
+                {/* TDS Returns */}
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-600">
+                    Do you file TDS returns?
+                  </label>
+                  <select
+                    name="tdsEnabled"
+                    value={form.tdsEnabled}
+                    onChange={handleChange}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400 hover:border-yellow-200 transition-all"
+                  >
+                    <option value="">Select Option</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
                 </div>
 
                 {/* Udyam */}
@@ -873,6 +919,115 @@ const ComplianceStatusCheck = ({ onNext, onPrev, registrationStatusObj }) => {
                     placeholder="e.g. 50"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400 hover:border-yellow-200 transition-all"
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* ================= FILING & RETURN STATUS ================= */}
+            <div className="bg-white rounded-xl shadow-sm p-5">
+              <h4 className="font-semibold text-base mb-4 border-b border-gray-100 pb-2 text-gray-700">
+                Filing & Return Status
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* GST Returns Up to Date */}
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-600">
+                    Are GST returns up to date?
+                  </label>
+                  <select
+                    name="gstReturnsUpToDate"
+                    value={form.gstReturnsUpToDate}
+                    onChange={handleChange}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400 hover:border-yellow-200 transition-all"
+                  >
+                    <option value="">Select Option</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                    <option value="na">NA</option>
+                  </select>
+                </div>
+
+                {/* GST Returns Details - Conditional */}
+                {form.gstReturnsUpToDate === "yes" && (
+                  <div>
+                    <label className="block mb-1 text-xs font-medium text-gray-600">
+                      GST Return Details
+                    </label>
+                    <input
+                      type="text"
+                      name="gstReturnsDetails"
+                      value={form.gstReturnsDetails}
+                      onChange={handleChange}
+                      placeholder="e.g. Filed up to June 2026"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400 hover:border-yellow-200 transition-all"
+                    />
+                  </div>
+                )}
+
+                {/* ROC Filing */}
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-600">
+                    Is ROC filing current?
+                  </label>
+                  <input
+                    type="text"
+                    name="rocFilingYear"
+                    value={form.rocFilingYear}
+                    onChange={handleChange}
+                    placeholder="Financial year of last ROC return"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400 hover:border-yellow-200 transition-all"
+                  />
+                </div>
+
+                {/* IT Return */}
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-600">
+                    Is IT return up to date?
+                  </label>
+                  <input
+                    type="text"
+                    name="itReturnYear"
+                    value={form.itReturnYear}
+                    onChange={handleChange}
+                    placeholder="Financial year of last IT return"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400 hover:border-yellow-200 transition-all"
+                  />
+                </div>
+
+                {/* Books of Accounts */}
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-600">
+                    Books of accounts up to date?
+                  </label>
+                  <select
+                    name="booksUpToDate"
+                    value={form.booksUpToDate}
+                    onChange={handleChange}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400 hover:border-yellow-200 transition-all"
+                  >
+                    <option value="">Select Option</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                    <option value="na">NA</option>
+                  </select>
+                </div>
+
+                {/* Auditor */}
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-gray-600">
+                    Do you have an auditor?
+                  </label>
+                  <select
+                    name="hasAuditor"
+                    value={form.hasAuditor}
+                    onChange={handleChange}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400 hover:border-yellow-200 transition-all"
+                  >
+                    <option value="">Select Option</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                    <option value="na">NA</option>
+                  </select>
                 </div>
               </div>
             </div>

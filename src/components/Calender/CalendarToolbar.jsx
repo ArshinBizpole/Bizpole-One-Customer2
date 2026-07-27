@@ -69,56 +69,54 @@ const CalendarToolbar = (toolbar) => {
   };
 
   return (
-    <div className="flex items-center justify-between mb-4 p-4 bg-white rounded-lg shadow-sm">
-      {/* Left Controls */}
-      <div className="flex items-center space-x-2">
-        <button
-          onClick={() => navigate('PREV')}
-          className="p-2 rounded-md hover:bg-gray-100 transition-colors"
-          aria-label="Previous"
-        >
-          <ChevronLeft size={20} />
-        </button>
-        <button
-          onClick={() => navigate('TODAY')}
-          className="px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
-        >
-          Today
-        </button>
-        <button
-          onClick={() => navigate('NEXT')}
-          className="p-2 rounded-md hover:bg-gray-100 transition-colors"
-          aria-label="Next"
-        >
-          <ChevronRight size={20} />
-        </button>
-      </div>
+    <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100">
+    {/* Today pill */}
+    <button
+      onClick={() => navigate('TODAY')}
+      className="px-4 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-full hover:bg-gray-50 transition-colors shadow-sm"
+    >
+      Today
+    </button>
 
-      {/* Center Label */}
-      <div className="flex-1 text-center">
-        <h2 className="text-xl font-semibold text-gray-800">
-          {label}
-        </h2>
-      </div>
+    {/* Center nav group */}
+    <div className="flex items-center gap-3">
+      <button
+        onClick={() => navigate('PREV')}
+        className="p-1.5 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors"
+        aria-label="Previous"
+      >
+        <ChevronLeft size={16} className="text-gray-500" />
+      </button>
+      <h2 className="text-sm font-medium text-violet-600 whitespace-nowrap">
+        {label}
+      </h2>
+      <button
+        onClick={() => navigate('NEXT')}
+        className="p-1.5 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors"
+        aria-label="Next"
+      >
+        <ChevronRight size={16} className="text-gray-500" />
+      </button>
+    </div>
 
       {/* Right View Controls */}
       <div className="relative">
         {/* Desktop View Buttons */}
-        <div className="hidden sm:flex items-center space-x-1 bg-gray-100 rounded-md p-1">
-          {['month', 'week', 'day', 'agenda'].map((viewName) => (
-            <button
-              key={viewName}
-              onClick={() => changeView(viewName)}
-              className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                view === viewName
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              {viewName.charAt(0).toUpperCase() + viewName.slice(1)}
-            </button>
-          ))}
-        </div>
+        <div className="hidden sm:flex items-center space-x-1 bg-gray-100 rounded-full p-1">
+  {['month', 'week', 'day', 'agenda'].map((viewName) => (
+    <button
+      key={viewName}
+      onClick={() => changeView(viewName)}
+      className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+        view === viewName
+          ? 'bg-white text-violet-600 shadow-sm'
+          : 'text-gray-500 hover:text-gray-700'
+      }`}
+    >
+      {viewName.charAt(0).toUpperCase() + viewName.slice(1)}
+    </button>
+  ))}
+</div>
 
         {/* Mobile 3-dot Menu */}
         <div className="sm:hidden">

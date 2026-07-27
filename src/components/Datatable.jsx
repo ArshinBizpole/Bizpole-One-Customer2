@@ -24,7 +24,7 @@ const DataTable = ({
                 {columns.map((col, index) => (
                   <th
                     key={index}
-                    className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                    className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
                   >
                     {col.header}
                   </th>
@@ -83,7 +83,7 @@ const DataTable = ({
                   {columns.map((col, colIndex) => (
                     <td
                       key={colIndex}
-                      className="px-6 py-4 text-sm text-gray-900"
+                      className="px-4 py-2.5 text-xs text-gray-900"
                     >
                       {typeof col.render === 'function' ? col.render(row) : row[col.key]}
                     </td>
@@ -96,7 +96,7 @@ const DataTable = ({
 
         {/* Pagination Controls with modern styling */}
         {!loading && !error && data.length > 0 && totalPages > 1 && (
-          <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+          <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
             <div className="flex items-center justify-between">
               {/* Previous Button */}
               <button

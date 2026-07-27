@@ -1,6 +1,7 @@
 import { Routes, Route, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import AOS from "aos";
+import useAutoLogout from "./hooks/useAutoLogout";
 
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -84,23 +85,20 @@ import ExploreServices from "./pages/associate/ExploreServices";
 function App() {
   const location = useLocation();
 
+  useAutoLogout();
+
   useEffect(() => {
     AOS.init({ duration: 1000 });
   }, []);
 
   // Hide Navbar & Footer for these paths
   const hideLayoutPaths = [
-    "/startbusiness",
-    "/startbusiness/choose",
-    "/startbusiness/quiz",
-    "/startbusiness/about",
-    "/startbusiness/subscriptions",
     "/payments",
     "/quiz",
     "/profile",
-    "/existing-companies",
-    "/dashboard",
+    // "/existing-companies",
     "/associate",
+    "/dashboard",
   ];
 
   const hideLayout = hideLayoutPaths.some((path) =>

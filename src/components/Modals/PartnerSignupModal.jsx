@@ -4,6 +4,7 @@ import { X, ChevronDown, CheckCircle2, AlertCircle, Loader2 } from "lucide-react
 import locationData from "../../utils/statesAndDistricts.json";
 import AssociateApi from "../../api/AssociateApi";
 import { getSecureItem, setSecureItem } from "../../utils/secureStorage";
+import { notifyTokenSet } from "../../utils/authSession";
 import { useNavigate } from "react-router-dom";
 import Select from "react-select";
 
@@ -193,6 +194,7 @@ const PartnerSignupModal = ({ isOpen, onClose, onSwitchToLogin }) => {
                     if (response.success) {
                         if (response.token && response.user) {
                             localStorage.setItem('partnerToken', response.token);
+                            notifyTokenSet();
                             localStorage.setItem('EmployeeID', response.user.EmployeeID);
                             localStorage.setItem('FranchiseeID', response.user.FranchiseeID);
                             localStorage.setItem('AssociateID', response.user.id);

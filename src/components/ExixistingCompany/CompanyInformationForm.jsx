@@ -143,6 +143,7 @@ const CompanyInformationForm = ({ onNext }) => {
     { label: "Gujarati", value: "gujarati" },
     { label: "Bengali", value: "bengali" },
     { label: "Kannada", value: "kannada" },
+    { label: "Malayalam", value: "malayalam" },
   ];
 
   const [loading, setLoading] = useState(false);
@@ -151,7 +152,6 @@ const CompanyInformationForm = ({ onNext }) => {
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState("");
   const [touched, setTouched] = useState({});
-  const [sameAsRegistered, setSameAsRegistered] = useState(false);
 
   useEffect(() => {
     const fetchStates = async () => {
@@ -188,23 +188,6 @@ const CompanyInformationForm = ({ onNext }) => {
       ...prev,
       [name]: true,
     }));
-  };
-
-  const handleSameAsRegistered = (e) => {
-    const checked = e.target.checked;
-    setSameAsRegistered(checked);
-    
-    if (checked && form.registeredOffice) {
-      setForm((prev) => ({
-        ...prev,
-        commAddress1: prev.registeredOffice,
-      }));
-    } else if (checked && !form.registeredOffice) {
-      setForm((prev) => ({
-        ...prev,
-        commAddress1: "",
-      }));
-    }
   };
 
   // Enhanced assignCustomer function with debouncing
@@ -800,41 +783,46 @@ const CompanyInformationForm = ({ onNext }) => {
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400 hover:border-yellow-200 transition-all"
                     />
                     
-                    <label className="flex items-center gap-1.5 mt-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={sameAsRegistered}
-                        onChange={handleSameAsRegistered}
-                        className="w-3.5 h-3.5 accent-yellow-400"
-                      />
-                      <span className="text-xs text-gray-600">Same as communication address</span>
-                    </label>
                   </div>
                 )}
 
                 {/* Communication Address */}
                 <div className="bg-white rounded-xl shadow-sm p-4">
-                  <label className="block mb-1.5 text-sm font-medium text-gray-700">
-                    Communication Address
-                  </label>
-                  
-                  <textarea
-                    name="commAddress1"
-                    value={form.commAddress1}
-                    onChange={handleChange}
-                    rows="2"
-                    placeholder="Address (House No, Building, Street, Area)"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-yellow-400"
-                  />
-                  
-                  <input
-                    type="text"
-                    name="commAddress2"
-                    value={form.commAddress2}
-                    onChange={handleChange}
-                    placeholder="Locality/Town"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-yellow-400"
-                  />
+                  {/* State */}
+                  <div className="mb-2">
+                    <label className="block mb-1 text-xs font-medium text-gray-600">
+                      State
+                      {isFieldMandatory("state", form.businessType) && <span className="text-red-500 ml-1">*</span>}
+                    </label>
+                    <select
+                      name="commState"
+                      value={form.commState}
+                      onChange={handleChange}
+                      onBlur={(e) => {
+                        handleBlur(e);
+                        handleAssignBlur();
+                      }}
+                      className={`
+                        w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400 transition-all
+                        ${hasError("state")
+                          ? 'border-red-400 bg-red-50'
+                          : form.commState
+                            ? 'border-green-400 bg-green-50'
+                            : 'border-gray-200 hover:border-yellow-200'
+                        }
+                      `}
+                    >
+                      <option value="">Select State</option>
+                      {states.map((state) => (
+                        <option key={state._id || state.id || state.state_name} value={state.state_name}>
+                          {state.state_name}
+                        </option>
+                      ))}
+                    </select>
+                    {hasError("state") && (
+                      <p className="text-red-500 text-xs mt-1">⚠️ State is required</p>
+                    )}
+                  </div>
 
                   {/* District - MANDATORY */}
                   <div className="mb-2">
@@ -854,10 +842,10 @@ const CompanyInformationForm = ({ onNext }) => {
                       placeholder="Enter district"
                       className={`
                         w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400 transition-all
-                        ${hasError("district") 
-                          ? 'border-red-400 bg-red-50' 
-                          : form.commCity && form.commCity.trim() !== "" 
-                            ? 'border-green-400 bg-green-50' 
+                        ${hasError("district")
+                          ? 'border-red-400 bg-red-50'
+                          : form.commCity && form.commCity.trim() !== ""
+                            ? 'border-green-400 bg-green-50'
                             : 'border-gray-200 hover:border-yellow-200'
                         }
                       `}
@@ -867,58 +855,43 @@ const CompanyInformationForm = ({ onNext }) => {
                     )}
                   </div>
 
-                  {/* State and Pincode */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block mb-1 text-xs font-medium text-gray-600">
-                        State
-                        {isFieldMandatory("state", form.businessType) && <span className="text-red-500 ml-1">*</span>}
-                      </label>
-                      <select
-                        name="commState"
-                        value={form.commState}
-                        onChange={handleChange}
-                        onBlur={(e) => {
-                          handleBlur(e);
-                          handleAssignBlur();
-                        }}
-                        className={`
-                          w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400 transition-all
-                          ${hasError("state") 
-                            ? 'border-red-400 bg-red-50' 
-                            : form.commState 
-                              ? 'border-green-400 bg-green-50' 
-                              : 'border-gray-200 hover:border-yellow-200'
-                          }
-                        `}
-                      >
-                        <option value="">Select State</option>
-                        {states.map((state) => (
-                          <option key={state._id || state.id || state.state_name} value={state.state_name}>
-                            {state.state_name}
-                          </option>
-                        ))}
-                      </select>
-                      {hasError("state") && (
-                        <p className="text-red-500 text-xs mt-1">⚠️ State is required</p>
-                      )}
-                    </div>
-                    
-                    <div>
-                      <label className="block mb-1 text-xs font-medium text-gray-600">
-                        Pincode
-                      </label>
-                      <input
-                        type="text"
-                        name="commPincode"
-                        value={form.commPincode}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        placeholder="6 digits"
-                        maxLength="6"
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400"
-                      />
-                    </div>
+                  <label className="block mb-1.5 text-sm font-medium text-gray-700">
+                    Communication Address
+                  </label>
+
+                  <textarea
+                    name="commAddress1"
+                    value={form.commAddress1}
+                    onChange={handleChange}
+                    rows="2"
+                    placeholder="Address (House No, Building, Street, Area)"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                  />
+
+                  <input
+                    type="text"
+                    name="commAddress2"
+                    value={form.commAddress2}
+                    onChange={handleChange}
+                    placeholder="Locality/Town"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                  />
+
+                  {/* Pincode */}
+                  <div>
+                    <label className="block mb-1 text-xs font-medium text-gray-600">
+                      Pincode
+                    </label>
+                    <input
+                      type="text"
+                      name="commPincode"
+                      value={form.commPincode}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      placeholder="6 digits"
+                      maxLength="6"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                    />
                   </div>
                 </div>
 

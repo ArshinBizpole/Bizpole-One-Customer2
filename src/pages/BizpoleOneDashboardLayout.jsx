@@ -220,7 +220,7 @@ const BizpoleOneDashboardLayout = () => {
             className="p-4 space-y-4"
           >
             {/* Upgrade Card */}
-            <div className="bg-[#FFC42A] rounded-2xl text-center p-4 text-white font-medium shadow-md">
+            {/* <div className="bg-[#FFC42A] rounded-2xl text-center p-4 text-white font-medium shadow-md">
               <div className="mb-3 flex justify-center">
                 <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
                   <span className="text-[#FFC42A] font-bold text-lg">⬆</span>
@@ -232,7 +232,7 @@ const BizpoleOneDashboardLayout = () => {
                 <br />
                 Connect with Venus World!
               </p>
-            </div>
+            </div> */}
 
             {/* Custom Sidebar Image */}
             <img

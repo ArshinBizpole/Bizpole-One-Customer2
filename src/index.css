@@ -1,23 +1,20 @@
 @import "tailwindcss";
-
 @import "aos/dist/aos.css";
 
 body {
   font-family: "Poppins", sans-serif !important;
 }
 
+html {
+  font-size: 13px;
+}
+
 * {
   font-family: "Poppins", sans-serif !important;
-
 }
 
 .hero-content {
   padding-top: 150px;
-}
-
-.rbc-month-view {
-  border: 1px solid #0f0f0f00 !important;
-
 }
 
 .grain {
@@ -30,108 +27,166 @@ body {
   background-size: 180px;
 }
 
-
-/* === Yellow theme for react-big-calendar === */
-
-/* Event cards (month, week, day) */
-.rbc-event,
-.rbc-day-slot .rbc-background-event {
-  background-color: #f59e0b !important;
-  /* amber-500 */
-  border: none !important;
-  color: #111827 !important;
-  /* gray-900 */
-  border-radius: 8px !important;
-  padding: 2px 6px !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15) !important;
-}
-
-/* Selected/active event */
-
-/* Hover effect */
-.rbc-event:hover {
-  filter: brightness(0.95);
-}
-
-/* Drag-to-create selection overlay (week/day views) */
-.rbc-slot-selection {
-  background-color: rgba(245, 158, 11, 0.25) !important;
-  /* amber-500 @ 25% */
-  border: 1px dashed #f59e0b !important;
-}
-
-/* Month view selected cells while dragging */
-.rbc-selected-cell {
-  background-color: rgba(245, 158, 11, 0.15) !important;
-}
-
-/* Today highlight */
-.rbc-today {
-  background-color: rgba(251, 191, 36, 0.12) !important;
-  /* amber-400 @ 12% */
-}
-
-/* Toolbar buttons (optional, if you want a yellow accent) */
-.rbc-toolbar button:hover {
-  background-color: #fff7ed !important;
-  /* amber-50 */
-  border-color: #f59e0b !important;
-  color: #92400e !important;
-  /* amber-800 */
-}
-
-.rbc-toolbar .rbc-active {
-  background-color: #fde68a !important;
-  /* amber-300 */
-  border-color: #f59e0b !important;
-  color: #92400e !important;
-}
-
-.rbc-event.rbc-selected {
-  background-color: #d9770600 !important;
-}
-
-.rbc-event {
-  background-color: #d9770600 !important;
-  box-shadow: none !important;
-  color: white !important;
-  border-radius: 0px !important;
-}
-
 .navitems {
   font-size: 18px;
-  /* default size for large screens */
 }
 
 .custom-container {
-  max-width: 1800px;
+  max-width: 1100px;
   margin-left: auto;
   margin-right: auto;
   padding-left: 1rem;
   padding-right: 1rem;
 }
 
-/* Tablet (max-width: 1024px) */
 @media (max-width: 1324px) {
-  .navitems {
-    font-size: 10px !important;
-  }
+  .navitems { font-size: 10px !important; }
 }
-
-/* Mobile (max-width: 768px) */
 @media (max-width: 768px) {
-  .navitems {
-    font-size: 14px;
-  }
+  .navitems { font-size: 14px; }
 }
-
-/* Small mobile (max-width: 480px) */
 @media (max-width: 480px) {
-  .navitems {
-    font-size: 12px;
-  }
+  .navitems { font-size: 12px; }
 }
 
 button {
   cursor: pointer;
+}
+
+/* ── react-big-calendar overrides ── */
+
+/* Strip RBC's default event wrapper styling
+   so our EventComponent chip shows through cleanly */
+.rbc-event,
+.rbc-event.rbc-selected,
+.rbc-day-slot .rbc-background-event {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 6px !important;
+  padding: 1px 2px !important;
+  color: inherit !important;
+}
+
+.rbc-event:hover {
+  filter: none;
+}
+
+/* No background on today's cell */
+.rbc-today {
+  background-color: #ffffff !important;
+}
+
+/* No gray fill on off-range days — just dim the number */
+.rbc-off-range-bg {
+  background-color: #ffffff !important;
+}
+
+.rbc-off-range .rbc-button-link {
+  color: #d1d5db !important;
+}
+
+/* Drag-to-create amber tint */
+.rbc-slot-selection {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  border: 1px dashed #f59e0b !important;
+}
+
+.rbc-selected-cell {
+  background-color: rgba(245, 158, 11, 0.10) !important;
+}
+
+/* Amber grid lines */
+.rbc-month-view {
+  border: none !important;
+}
+
+.rbc-month-row + .rbc-month-row {
+  border-top: 1px solid #fde68a !important;
+}
+
+.rbc-day-bg + .rbc-day-bg {
+  border-left: 1px solid #fde68a !important;
+}
+
+.rbc-header + .rbc-header {
+  border-left: 1px solid #fde68a !important;
+}
+
+.rbc-header {
+  border-bottom: 1px solid #fde68a !important;
+  padding: 10px 0;
+}
+
+/* Row height */
+.rbc-month-row {
+  min-height: 110px;
+}
+
+/* Date number spacing */
+.rbc-date-cell {
+  padding: 10px 12px 0 0;
+  line-height: 1.4;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.rbc-date-cell.rbc-now .rbc-button-link {
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Overflow "+N more" badge */
+.rbc-show-more {
+  background: #f59e0b;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 9999px;
+  padding: 1px 6px;
+  margin-top: 2px;
+  display: inline-block;
+}
+
+/* Toolbar button hover (week/day views) */
+.rbc-toolbar button:hover {
+  background-color: #fff7ed !important;
+  border-color: #f59e0b !important;
+  color: #92400e !important;
+}
+
+.rbc-toolbar .rbc-active {
+  background-color: #fde68a !important;
+  border-color: #f59e0b !important;
+  color: #92400e !important;
+}
+
+@media (min-width: 1280px) {
+  .custom-container {
+    max-width: 1280px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .custom-container {
+    max-width: 1400px;
+  }
+}
+
+@media (min-width: 1920px) {
+  .custom-container {
+    max-width: 1600px;
+  }
+}
+
+/* Hide scrollbars everywhere, on every element, regardless of what's scrolling */
+* {
+  scrollbar-width: none;      /* Firefox */
+  -ms-overflow-style: none;   /* IE/Edge */
+}
+
+*::-webkit-scrollbar {
+  display: none;              /* Chrome/Safari/Edge (Chromium) */
+  width: 0;
+  height: 0;
 }

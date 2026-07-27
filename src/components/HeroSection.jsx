@@ -89,7 +89,7 @@ const HeroSection = () => {
             className="bg-yellow-400 text-black text-xl  px-6 py-3 rounded-full flex items-center gap-2 shadow-md hover:bg-yellow-500 transition w-full sm:w-auto justify-center"
             onClick={() => navigate("/startbusiness/choose")}
           >
-            Get Started  <span className="font-bold">Your Business</span>
+            Start  <span className="font-bold">New Company</span>
             <FaArrowRight />
           </motion.button>
 
