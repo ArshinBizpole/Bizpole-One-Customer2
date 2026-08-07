@@ -14,10 +14,10 @@ export const getServiceDetailById = async (id) => {
         throw error;
     }
 };
-export const serviceFormMapping = async (id) => {
+export const serviceFormMapping = async (id, orderId) => {
 
     try {
-        const response = await axiosInstance.post(`/getServiceFormFullMapping`, { serviceId: id });
+        const response = await axiosInstance.post(`/getServiceFormFullMapping`, { serviceId: id, orderId });
 
         return response.data;
     } catch (error) {

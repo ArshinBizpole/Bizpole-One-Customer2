@@ -85,7 +85,7 @@ const ServiceDetailView = () => {
                     if (response.ServiceID) {
                         // setFormConfigLoading(true);
                         try {
-                            const serviceRes = await serviceFormMapping(response.ServiceID);
+                            const serviceRes = await serviceFormMapping(response.ServiceID, response.OrderID);
                             // Handle both { data: [...] } and plain array responses
                             if (serviceRes?.data) {
                                 setFormConfig(serviceRes.data);

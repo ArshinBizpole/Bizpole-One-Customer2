@@ -34,6 +34,7 @@ const statusStyles = {
 const normalizeStatus = (raw) => {
   if (raw === null || raw === undefined || raw === "") return "Quote Draft";
   const value = String(raw);
+  if (value === "Converted to Order" || value === "Created-Order") return "Paid";
   return QUOTE_STATUS_MAP[Number(value)] || value;
 };
 

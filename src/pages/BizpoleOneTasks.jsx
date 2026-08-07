@@ -429,7 +429,7 @@ export default function ServiceSelection() {
   useEffect(() => {
     if (selectedService?.ServiceID) {
       setFormConfig([]);
-      serviceFormMapping(selectedService.ServiceID)
+      serviceFormMapping(selectedService.ServiceID, selectedService.OrderID)
         .then((res) => {
           if (res?.data) setFormConfig(res.data);
           else if (Array.isArray(res)) setFormConfig(res);
