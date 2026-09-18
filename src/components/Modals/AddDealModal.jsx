@@ -704,6 +704,17 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                 const selectedPackageObj = !isIndividual ? availablePackages.find((pkg) => pkg.PackageID === parseInt(formData.selectedPackage)) : null;
                 const payload = {
                     leadId: null,
+                    ServiceDetails: servicesPayload.map(s => ({
+                        serviceId: s.serviceId,
+                        categoryId: s.serviceCategoryId,
+                        categoryName: s.serviceCategory,
+                        serviceName: s.serviceName,
+                        professionalFee: s.professionalFee,
+                        vendorFee: s.vendorFee,
+                        contractFee: s.contractorFee || 0,
+                        governmentFee: s.govtFee,
+                        total: s.total,
+                    })),
                     customer: {
                         firstName: formData.firstName,
                         lastName: formData.lastName,
