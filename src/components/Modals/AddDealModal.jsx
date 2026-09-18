@@ -508,7 +508,7 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
             try {
                 const selectedState = availableStates.find((s) => s.state_name === formData.serviceState);
                 if (!selectedState) return;
-                const r = await fetch(`${API_BASE_URL}/service-price-currency`, {
+                const r = await fetch(`${API_BASE_URL}/service-price-currency/bulk`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json", Authorization: `Bearer ${getSecureItem("partnerToken")}` },
                     body: JSON.stringify({ StateID: selectedState.ID, ServiceIDs: formData.selectedServices, isIndividual: formData.serviceType === 'individual' ? 1 : 0, packageId: formData.selectedPackage, yearly: formData.billingPeriod === 'yearly' ? 1 : 0 }),
