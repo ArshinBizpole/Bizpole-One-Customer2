@@ -45,7 +45,7 @@ const ChooseBusinessType = ({ onBack }) => {
   const handleTypeClick = (type) => {
     const typeName = type.Service_Name || "";
     if (isDashBoard) navigate("/startbusiness/subscriptions", { state: { type: type.Id } });
-    else navigate("/startbusiness/about", { state: { selectedType: typeName, type: type.Id } });
+    else navigate("/startbusiness/apply", { state: { selectedType: typeName, type: type.Id } });
   };
 
   // Split the recommended type (from the quiz) out of the grid

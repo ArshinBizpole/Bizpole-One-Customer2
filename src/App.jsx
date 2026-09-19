@@ -14,6 +14,7 @@ import StartYourBusiness from "./components/StartYourBusiness";
 import Quiz from "./components/Quiz";
 import BusinessPanel from "./components/BusinessPanel";
 import Tellabout from "./components/Tellabout";
+import NewCompanyFlow from "./components/NewCompanyFlow";
 import Subscription from "./components/Subscription";
 import Payment from "./components/Payment";
 
@@ -142,6 +143,7 @@ function App() {
           <Route path="/services/:id" element={<ServiceDetails />} />
           <Route path="/products" element={<ProductList />} />
           <Route path="/partners" element={<Partners />} />
+          <Route path="/startbusiness/apply" element={<NewCompanyFlow />} />
           <Route path="/startbusiness/about" element={<Tellabout />} />
           <Route path="/startbusiness/subscriptions" element={<Subscription />} />
           <Route path="/payments" element={<Payment />} />

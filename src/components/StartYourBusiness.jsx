@@ -1,6 +1,8 @@
 import { Routes, Route, useNavigate } from "react-router-dom";
 import ChooseBusinessType from "./ChooseBusinessType";
 import StartYourBusinessContent from "./StartYourBusinessContent";
+import NewCompanyServiceMenu from "./NewCompanyServiceMenu";
+import OtherRegistrationsMenu from "./OtherRegistrationsMenu";
 
 const StartYourBusiness = () => {
   const navigate = useNavigate();
@@ -10,11 +12,19 @@ const StartYourBusiness = () => {
       <Routes>
         <Route
           path="/"
-          element={<StartYourBusinessContent onNext={() => navigate("choose")} />}
+          element={<StartYourBusinessContent onNext={() => navigate("services")} />}
+        />
+        <Route
+          path="services"
+          element={<NewCompanyServiceMenu onBack={() => navigate("/startbusiness")} />}
+        />
+        <Route
+          path="other"
+          element={<OtherRegistrationsMenu onBack={() => navigate("/startbusiness/services")} />}
         />
         <Route
           path="choose"
-          element={<ChooseBusinessType onBack={() => navigate("/startbusiness")} />}
+          element={<ChooseBusinessType onBack={() => navigate("/startbusiness/services")} />}
         />
       </Routes>
     </div>
@@ -22,4 +32,3 @@ const StartYourBusiness = () => {
 };
 
 export default StartYourBusiness;
-  
