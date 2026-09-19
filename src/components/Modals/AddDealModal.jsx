@@ -508,7 +508,7 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
             try {
                 const selectedState = availableStates.find((s) => s.state_name === formData.serviceState);
                 if (!selectedState) return;
-                const r = await fetch(`${API_BASE_URL}/service-price-currency`, {
+                const r = await fetch(`${API_BASE_URL}/service-price-currency/bulk`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json", Authorization: `Bearer ${getSecureItem("partnerToken")}` },
                     body: JSON.stringify({ StateID: selectedState.ID, ServiceIDs: formData.selectedServices, isIndividual: formData.serviceType === 'individual' ? 1 : 0, packageId: formData.selectedPackage, yearly: formData.billingPeriod === 'yearly' ? 1 : 0 }),
@@ -704,6 +704,17 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                 const selectedPackageObj = !isIndividual ? availablePackages.find((pkg) => pkg.PackageID === parseInt(formData.selectedPackage)) : null;
                 const payload = {
                     leadId: null,
+                    ServiceDetails: servicesPayload.map(s => ({
+                        serviceId: s.serviceId,
+                        categoryId: s.serviceCategoryId,
+                        categoryName: s.serviceCategory,
+                        serviceName: s.serviceName,
+                        professionalFee: s.professionalFee,
+                        vendorFee: s.vendorFee,
+                        contractFee: s.contractorFee || 0,
+                        governmentFee: s.govtFee,
+                        total: s.total,
+                    })),
                     customer: {
                         firstName: formData.firstName,
                         lastName: formData.lastName,
