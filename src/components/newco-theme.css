@@ -1,0 +1,107 @@
+/* Recolors the shared FlowRunner wizard (built for the "Existing Company" blue theme)
+   to the Bizpole brand yellow/black used across ChooseBusinessType, Tellabout and
+   Subscription, without touching FlowRunner.jsx itself — every rule here is scoped
+   under .newco-theme so the Existing Company flow keeps its original blue palette. */
+
+.newco-theme {
+  --brand: #F5C518;
+  --brand-dark: #1a1a1a;
+  --brand-soft: #FFFBEA;
+  --brand-text: #92620a;
+}
+
+/* FlowRunner boxes itself into a fixed max-w-6xl (1152px) — fine for the Existing
+   Company blue flow, but on a wide monitor the New Company wizard reads as a small
+   card lost in a sea of empty gray. Let it use the full page width instead. */
+.newco-theme .max-w-6xl {
+  max-width: 100% !important;
+}
+
+/* Same problem vertically — the rail and the step card both shrink-wrap to their
+   own content, leaving a short card on top of a lot of empty gray page. Give both
+   panels real height, and pin "Cancel application" / the Back-Continue row to the
+   bottom of that taller box instead of floating right under the content. */
+.newco-theme .p-4.bg-white.rounded-xl.border.border-gray-200.shadow-sm,
+.newco-theme .p-5.bg-white.rounded-xl.border.border-gray-200.shadow-sm {
+  min-height: 74vh;
+  display: flex;
+  flex-direction: column;
+}
+.newco-theme .p-4.bg-white.rounded-xl.border.border-gray-200.shadow-sm > ul.space-y-0\.5 {
+  flex: 1;
+}
+.newco-theme .p-4.bg-white.rounded-xl.border.border-gray-200.shadow-sm > button.w-full.text-xs.text-gray-400 {
+  margin-top: auto !important;
+}
+.newco-theme .p-5.bg-white.rounded-xl.border.border-gray-200.shadow-sm > div.border-t.border-gray-100 {
+  margin-top: auto !important;
+}
+
+/* Primary solid buttons (bg-blue-600 + text-white together) */
+.newco-theme .bg-blue-600.text-white {
+  background-color: var(--brand) !important;
+  color: var(--brand-dark) !important;
+}
+.newco-theme .hover\:bg-blue-700:hover {
+  background-color: var(--brand-dark) !important;
+  color: var(--brand) !important;
+}
+
+/* Bare accent text (links, edit/jump buttons, +/- counters, step "now" label) */
+.newco-theme .text-blue-600,
+.newco-theme .text-blue-700 {
+  color: var(--brand-text) !important;
+}
+.newco-theme .hover\:text-blue-600:hover {
+  color: var(--brand-dark) !important;
+}
+
+/* Soft tinted backgrounds / badges / notes */
+.newco-theme .bg-blue-50 {
+  background-color: var(--brand-soft) !important;
+}
+.newco-theme .bg-blue-100 {
+  background-color: #FFF3C4 !important;
+}
+.newco-theme .bg-blue-100.text-blue-700 {
+  color: var(--brand-dark) !important;
+}
+.newco-theme .border-blue-200 {
+  border-color: #F5E7A8 !important;
+}
+.newco-theme .text-blue-900 {
+  color: #7a5a12 !important;
+}
+
+/* Selected option cards / step rail */
+.newco-theme .border-blue-500 {
+  border-color: var(--brand) !important;
+}
+.newco-theme .ring-blue-200 {
+  --tw-ring-color: rgba(245, 197, 24, 0.45) !important;
+}
+.newco-theme .border-blue-300,
+.newco-theme .hover\:border-blue-300:hover {
+  border-color: var(--brand) !important;
+}
+
+/* Progress bar + step dots */
+.newco-theme .bg-blue-500 {
+  background-color: var(--brand) !important;
+}
+
+/* Inputs */
+.newco-theme .focus\:ring-blue-200:focus {
+  --tw-ring-color: rgba(245, 197, 24, 0.45) !important;
+}
+.newco-theme .focus\:border-blue-400:focus {
+  border-color: var(--brand) !important;
+}
+.newco-theme .accent-blue-600 {
+  accent-color: var(--brand) !important;
+}
+
+/* Cancel-application / hover-only blue-50 buttons */
+.newco-theme .hover\:bg-blue-50:hover {
+  background-color: var(--brand-soft) !important;
+}

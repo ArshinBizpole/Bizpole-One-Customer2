@@ -93,14 +93,36 @@ export const bankStep = (id) => ({
     pickField("bank_type", "Account Type", ["Current", "Savings"]),
   ],
 });
+// Adds a Date of Birth field, plus (only if that DOB makes them a minor) a nominee/
+// guardian sub-section asking the same identity fields — reused by every step that
+// collects one individual's details across every registration flow (Authorized
+// Person, MSME/Trademark applicant, etc.). `prefix` namespaces the answer keys
+// (e.g. "auth" -> auth_dob, auth_nominee_name...); `showIf`, if given, gates the
+// whole block (e.g. only for an "Individual" trademark applicant).
+export function personMinorFields(prefix, showIf) {
+  const dobKey = prefix + "_dob";
+  const nomineeShown = (A) => (!showIf || showIf(A)) && isMinor(A[dobKey]);
+  return [
+    textField(dobKey, "Date of Birth", { type: "date", showIf }),
+    noteField(() => ({ variant: "warn", title: "This person is under 18", body: "A nominee/guardian's details are required for them — see below." }), { full: true, showIf: nomineeShown }),
+    textField(prefix + "_nominee_name", "Nominee / Guardian Full Name", { full: true, showIf: nomineeShown }),
+    textField(prefix + "_nominee_dob", "Nominee Date of Birth", { type: "date", showIf: nomineeShown }),
+    textField(prefix + "_nominee_pan", "Nominee PAN", { pattern: "pan", showIf: nomineeShown }),
+    textField(prefix + "_nominee_aadhaar", "Nominee Aadhaar", { pattern: "aadhaar", showIf: nomineeShown }),
+    textField(prefix + "_nominee_email", "Nominee Email", { pattern: "email", type: "email", showIf: nomineeShown }),
+    textField(prefix + "_nominee_mobile", "Nominee Mobile", { pattern: "mobile", type: "tel", showIf: nomineeShown }),
+    textField(prefix + "_nominee_address", "Nominee Address", { full: true, showIf: nomineeShown }),
+  ];
+}
 export const authStep = (id) => ({
   id, title: "Authorized Person", fields: [
     textField("auth_name", "Full Name"),
     textField("auth_designation", "Designation"),
-    textField("auth_email", "Email", { pattern: "email", type: "email" }),
-    textField("auth_mobile", "Mobile", { pattern: "mobile", type: "tel", ph: "10 digits" }),
+    textField("auth_email", "Email", { pattern: "email", type: "email", required: (A) => !isMinor(A.auth_dob) }),
+    textField("auth_mobile", "Mobile", { pattern: "mobile", type: "tel", ph: "10 digits", required: (A) => !isMinor(A.auth_dob) }),
     textField("auth_pan", "PAN", { pattern: "pan", required: false }),
-    textField("auth_din", "DIN / DPIN (if any)", { required: false }),
+    textField("auth_din", "DIN / DPIN (if any)", { required: false, showIf: (A) => !isMinor(A.auth_dob) }),
+    ...personMinorFields("auth"),
   ],
 });
 export const docStep = (items, o = {}) => ({ id: "documents", title: "Documents", type: "docs", items, ...o });
@@ -175,7 +197,26 @@ export function ownerBaseFields() {
   ];
 }
 export function newOwner() {
-  return { name: "", dob: "", pan: "", aadhaar: "", email: "", mobile: "", address: "", role: "", dinKnown: "", din: "", shareholding: "", capital: "" };
+  return {
+    name: "", dob: "", pan: "", aadhaar: "", email: "", mobile: "", address: "", role: "", dinKnown: "", din: "", shareholding: "", capital: "",
+    // Collected only when this owner/director turns out to be a minor (see isMinor below) —
+    // same field set as the owner themself, since a minor can't sign for themselves and a
+    // nominee/guardian has to be on record with full identity details too.
+    nominee: { name: "", dob: "", pan: "", aadhaar: "", email: "", mobile: "", address: "" },
+  };
+}
+// A director/owner under 18 needs a nominee/guardian on record — company law generally
+// bars minors from being directors outright, but this keeps the form honest for any
+// owner/shareholder role where a minor's date of birth gets entered.
+export function isMinor(dob) {
+  if (!dob) return false;
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return false;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age >= 0 && age < 18;
 }
 
 /* ---------------------------------------------------------------------------
@@ -445,7 +486,22 @@ export function newcoBusinessSteps(A) {
       cardsField("propertyType", "Do you own or rent this property?", ["Owned", "Rented", "Leased", "Other"], { cols: 2, full: true }),
     ] },
     { id: "owners", title: (ownerConfig(A)).label, type: "owners" },
-    docStep(["PAN", "Aadhaar / ID Proof", "Address Proof", "Photograph", "Registered Office Address Proof", "NOC, if applicable", "Other Supporting Document"]),
+    docStep([], {
+      // One PAN/Aadhaar/Photograph/Address-proof upload slot per director/shareholder
+      // actually added on the Owners step (each in their own section), instead of one
+      // generic flat set for everyone.
+      groupedItems: (A, state) => {
+        const owners = (state && state.owners) || [];
+        const groups = owners.map((o, i) => {
+          const label = o.name || `Director ${i + 1}`;
+          const items = [`PAN – ${label}`, `Aadhaar / ID Proof – ${label}`, `Photograph – ${label}`, `Address Proof – ${label}`];
+          if (isMinor(o.dob)) items.push(`Nominee ID Proof – ${label}`);
+          return { title: label, items };
+        });
+        groups.push({ title: "Company Documents", items: ["Registered Office Address Proof", "NOC, if applicable", "Other Supporting Document"] });
+        return groups;
+      },
+    }),
     addonStep(),
   ];
   return s;
@@ -476,11 +532,13 @@ export const TRADEMARK_FLOW = {
     { id: "owner", title: "Applicant Details", fields: [
       cardsField("tm_ownerType", "Who owns the trademark?", ["Individual", "Company", "LLP", "Partnership", "Other"], { cols: 3, full: true }),
       textField("tm_ownerName", "Owner name (as per records)", { full: true }),
-      textField("tm_ownerEmail", "Email", { pattern: "email", type: "email" }),
-      textField("tm_ownerMobile", "Mobile", { pattern: "mobile", type: "tel" }),
+      textField("tm_ownerEmail", "Email", { pattern: "email", type: "email", required: (A) => !isMinor(A.tm_owner_dob) }),
+      textField("tm_ownerMobile", "Mobile", { pattern: "mobile", type: "tel", required: (A) => !isMinor(A.tm_owner_dob) }),
       textField("tm_ownerPan", "PAN", { pattern: "pan", required: false }),
       ynField("tm_startup", "Do you have MSME (Udyam) or Startup India registration?", { full: true, showIf: (A) => !!A.tm_ownerType && A.tm_ownerType !== "Individual", hint: "This qualifies you for the lower government filing fee that individual applicants already get." }),
       textField("tm_udyamNo", "Udyam Registration Number", { full: true, showIf: (A) => A.tm_ownerType !== "Individual" && A.tm_startup === "Yes" }),
+      // Only an individual applicant can be a minor — a Company/LLP/Partnership can't.
+      ...personMinorFields("tm_owner", (A) => A.tm_ownerType === "Individual"),
     ] },
     { id: "details", title: "Trademark Details", fields: [
       checksField("tm_what", "What do you want to protect?", ["Brand Name", "Logo", "Product Name", "Service Name", "Company Name", "Tagline", "Other"], { cols: 3, full: true }),
@@ -515,10 +573,11 @@ export const MSME_FLOW = {
     { id: "applicant", title: "Applicant Details", fields: [
       textField("msme_applicant", "Applicant Name"),
       pickField("msme_role", "Designation", ["Proprietor", "Partner", "Director", "Authorized Signatory", "Other"]),
-      textField("msme_email", "Email", { pattern: "email", type: "email" }),
-      textField("msme_mobile", "Mobile", { pattern: "mobile", type: "tel" }),
+      textField("msme_email", "Email", { pattern: "email", type: "email", required: (A) => !isMinor(A.msme_dob) }),
+      textField("msme_mobile", "Mobile", { pattern: "mobile", type: "tel", required: (A) => !isMinor(A.msme_dob) }),
       pickField("msme_social", "Social Category", ["General", "SC", "ST", "OBC"]),
       pickField("msme_gender", "Gender", ["Male", "Female", "Other", "Prefer not to say"]),
+      ...personMinorFields("msme"),
     ] },
     panStep("pan", "enterprise"),
     { id: "aadhaar", title: "Aadhaar", fields: [
@@ -585,6 +644,79 @@ export const IEC_FLOW = {
    FLOWS — the Existing Company flows reachable from EXISTING_MENU
 --------------------------------------------------------------------------- */
 export const FLOWS = {
+  /* Brand-new company registration, used by the "Start Your Business" signup journey
+     (ChooseBusinessType -> NewCompanyFlow) — reuses the same newcoBusinessSteps()
+     step set the "ex-business" (existing-company) flow reuses for "Register another
+     company", just addressed directly instead of via the existing-company menu. */
+  "newco": {
+    name: "Business Registration", code: "BR", price: 6999, govt: 2100, kind: "New Company",
+    steps: (A) => newcoBusinessSteps(A),
+  },
+  /* Standalone GST/Trademark/MSME/IEC registration, for a customer who lands on the
+     "What would you like to register?" menu and picks one of those directly rather
+     than "Business Registration". Trademark/MSME/IEC reuse the flows already ported
+     for the Existing Company journey verbatim; GST is a simpler, non-branching port
+     of the prototype's standalone "gst" flow (the Existing Company "ex-gst" flow
+     asks a branching "why do you need GST" question that assumes a company already
+     exists, which doesn't fit a brand-new signup). */
+  "gst": {
+    name: "GST Registration", code: "GST", price: 1499, govt: 0, kind: "New Company",
+    steps: (A) => {
+      // "Existing business GST registration" already answers "Do you already hold a
+      // GST registration?" — default it to Yes so the GSTIN detail fields below the
+      // (now hidden) toggle show up immediately, without asking a question we
+      // already know the answer to.
+      if (A.gst_reason === "Existing business GST registration" && !A.gst_hasReg) A.gst_hasReg = "Yes";
+      return [
+      { id: "bizinfo", title: "Business Information", fields: [
+        cardsField("gst_reason", "Why do you need GST registration?", ["New business GST registration", "Existing business GST registration", "Additional place of business", "Interstate business", "Other"], { cols: 2 }),
+        textField("gst_bizname", "Legal Business Name", { full: true }),
+        textField("gst_tradename", "Trade Name", { required: false }),
+        pickField("gst_biztype", "Constitution of Business", BIZ_TYPES),
+      ] },
+      {
+        id: "existing", title: "Existing Registration",
+        // Only relevant when they might already hold a GSTIN — "New business GST
+        // registration" already tells us the answer is No, so skip asking it again.
+        showIf: (A) => A.gst_reason !== "New business GST registration",
+        fields: [
+          noteField(() => ({ variant: "info", body: "Since this is for your existing business, share its current GSTIN and status below." }), { showIf: (A) => A.gst_reason === "Existing business GST registration" }),
+          ynField("gst_hasReg", "Do you already hold a GST registration?", { showIf: (A) => A.gst_reason !== "Existing business GST registration" }),
+          { k: "gst_existingGstin", type: "gstinLookup", label: "Existing GSTIN", ph: "15 characters", full: true, pattern: "gstin", showIf: (A) => A.gst_hasReg === "Yes" },
+          cardsField("gst_regState", "Status of the existing registration", ["Active", "Suspended", "Cancelled", "Not sure"], { cols: 2, showIf: (A) => A.gst_hasReg === "Yes" && !A.gst_verifiedStatus }),
+          noteField(() => ({ variant: "info", body: "First-time registration. We will file a fresh REG-01 application and handle the ARN follow-up until your GSTIN is issued." }), { showIf: (A) => A.gst_hasReg === "No" }),
+        ],
+      },
+      { id: "activity", title: "Business Activity", fields: [
+        cardsField("gst_activity", "Primary nature of business", ACTIVITIES, { cols: 3 }),
+        areaField("gst_goods", "Main goods / services supplied", { full: true, ph: "List your top goods or services, and HSN/SAC codes if you know them." }),
+      ] },
+      { id: "turnover", title: "Turnover", fields: [
+        cardsField("gst_turnover", "Expected annual turnover?", TURNOVER, { cols: 2 }),
+        ynField("gst_composition", "Do you want to opt for the Composition Scheme?", { hint: "Available for turnover up to ₹1.5 Crore in most states." }),
+      ] },
+      { id: "location", title: "Business Location", fields: [
+        ...addressFields("gst", "Principal place of business"),
+        cardsField("gst_premises", "Nature of premises", ["Owned", "Rented", "Leased", "Consent / Shared", "Other"], { cols: 2, full: true }),
+        ynField("gst_extraPlace", "Do you have additional places of business?", { full: true }),
+        areaField("gst_extraPlaceDetails", "Additional place(s) of business", { full: true, showIf: (A) => A.gst_extraPlace === "Yes" }),
+      ] },
+      { id: "interstate", title: "Interstate Business", fields: [
+        ynField("gst_interstate", "Do you sell goods/services across states?"),
+        checksField("gst_states", "Which states do you supply to?", STATES.slice(0, 12).concat(["Other"]), { showIf: (A) => A.gst_interstate === "Yes" }),
+        ynField("gst_ecom", "Do you sell through e-commerce platforms?"),
+      ] },
+      panStep("pan", "business or proprietor"),
+      bankStep("bank"),
+      authStep("auth"),
+      docStep(["PAN of Business / Proprietor", "Aadhaar of Authorized Signatory", "Photograph", "Proof of Business Address", "Bank Statement / Cancelled Cheque", "Rent Agreement / NOC", "Other Supporting Document"]),
+      ];
+    },
+  },
+  "trademark": { ...TRADEMARK_FLOW, kind: "New Company" },
+  "msme": { ...MSME_FLOW, kind: "New Company" },
+  "iec": { ...IEC_FLOW, kind: "New Company" },
+
   "other-generic": {
     name: "Other Registration", code: "OTH", price: 2999, govt: 1000, kind: "Existing Company",
     steps: (A) => {
@@ -1058,6 +1190,7 @@ export const RULES = {
   pin: { re: /^[1-9][0-9]{5}$/, msg: "Pincode must be 6 digits" },
   ifsc: { re: /^[A-Z]{4}0[A-Z0-9]{6}$/i, msg: "Enter a valid IFSC (e.g. HDFC0001234)" },
   digits: { re: /^[0-9]+$/, msg: "Numbers only" },
+  gstin: { re: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[A-Z0-9]{1}Z[A-Z0-9]{1}$/i, msg: "Enter a valid 15-character GSTIN" },
 };
 export function fieldError(f, value) {
   const v = Array.isArray(value) ? value : String(value == null ? "" : value).trim();
@@ -1071,6 +1204,16 @@ export function visibleFields(step, A) {
   if (!step || !step.fields) return [];
   return step.fields.filter((f) => !f.showIf || f.showIf(A));
 }
-export function docItems(step, A) {
-  return step.dynamicItems ? step.dynamicItems(A) : step.items || [];
+export function docItems(step, A, state) {
+  if (step.dynamicItems) return step.dynamicItems(A, state);
+  if (step.groupedItems) return step.groupedItems(A, state).flatMap((g) => g.items);
+  return step.items || [];
+}
+// Same document list as docItems, but organized into titled sections (e.g. one per
+// director) when the step defines groupedItems — otherwise a single untitled group,
+// so DocsBody can render every "docs" step the same way.
+export function docGroups(step, A, state) {
+  if (step.groupedItems) return step.groupedItems(A, state);
+  const items = docItems(step, A, state);
+  return items.length ? [{ title: null, items }] : [];
 }

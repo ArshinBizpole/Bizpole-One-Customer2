@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useReducer, useRef } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { getSecureItem, setSecureItem, removeSecureItem } from "../../utils/secureStorage";
+import { lookupGstin } from "../../api/GstinLookup";
 import {
-  FLOWS, ownerConfig, ownerBaseFields, newOwner, visibleFields, docItems,
+  FLOWS, ownerConfig, ownerBaseFields, newOwner, visibleFields, docItems, docGroups, isMinor,
   fieldError, today, rupee, newApplicationId, ADDON_PRICE,
   recommendBusinessType, suggestedBusinessNames, runNameCheckSim,
   generateBusinessObjective, suggestedNicCodes, tmClassMatches,
@@ -9,6 +10,15 @@ import {
 } from "./existingCompanyData";
 
 const STORAGE_KEY = "existingCompanyFlowState";
+// Fields a minor owner/director isn't expected to have in their own name yet —
+// their nominee/guardian's matching fields are required instead (see validateStep).
+const MINOR_OPTIONAL_FIELDS = ["pan", "email", "mobile"];
+// A minor can't legally hold a DIN/DPIN or a Director-type role — narrow the Role
+// dropdown to what's actually available to them (e.g. Shareholder, Other).
+function rolesFor(cfg, minor) {
+  if (!minor || !cfg.hasDIN) return cfg.roles;
+  return cfg.roles.filter((r) => !/director|designated partner/i.test(r));
+}
 
 function freshState(flowId, initialSet) {
   return {
@@ -17,7 +27,9 @@ function freshState(flowId, initialSet) {
     stepIndex: 0,
     confirmed: false,
     answers: { ...(initialSet || {}) },
-    owners: [],
+    // Always start with one visible person, so a flow with an "owners" step never
+    // opens on an empty "no one added yet" state — "+ Add another" covers the rest.
+    owners: [newOwner()],
     documents: {},
     tmSearch: null,
     nameChecks: {},
@@ -51,13 +63,18 @@ function validateStep(step, A, state) {
     else if (cfg.maxCount && n > cfg.maxCount) errors.__owners = `${cfg.label} allows at most ${cfg.maxCount}. Currently: ${n}.`;
     const fields = ownerBaseFields(cfg);
     state.owners.forEach((o, i) => {
+      const minor = isMinor(o.dob);
       fields.forEach((f) => {
-        const e = fieldError({ required: true, pattern: f.pattern }, o[f.k]);
+        // A minor often has no PAN/email/mobile of their own yet — their nominee/
+        // guardian's details (validated separately below) cover that instead.
+        const relaxed = minor && MINOR_OPTIONAL_FIELDS.includes(f.k);
+        const e = fieldError({ required: !relaxed, pattern: f.pattern }, o[f.k]);
         if (e) errors["owner" + i + "_" + f.k] = e;
       });
       const roleErr = fieldError({ required: true }, o.role);
       if (roleErr) errors["owner" + i + "_role"] = roleErr;
-      if (cfg.hasDIN) {
+      // A minor can't legally hold a DIN/DPIN, so don't ask.
+      if (cfg.hasDIN && !minor) {
         const dk = fieldError({ required: true }, o.dinKnown);
         if (dk) errors["owner" + i + "_dinKnown"] = dk;
         if (o.dinKnown === "Yes") {
@@ -73,13 +90,19 @@ function validateStep(step, A, state) {
         const ce = fieldError({ required: true }, o.capital);
         if (ce) errors["owner" + i + "_capital"] = ce;
       }
+      if (minor) {
+        fields.forEach((f) => {
+          const e = fieldError({ required: true, pattern: f.pattern }, (o.nominee || {})[f.k]);
+          if (e) errors["owner" + i + "_nominee_" + f.k] = e;
+        });
+      }
     });
     if (cfg.shareholding && n) {
       const total = state.owners.reduce((sum, o) => sum + (Number(o.shareholding) || 0), 0);
       if (total !== 100) errors.__shareholding = `Shareholding must total 100%. Current total: ${total}%.`;
     }
   } else if (step.type === "docs") {
-    const items = docItems(step, A);
+    const items = docItems(step, A, state);
     const any = items.some((it) => state.documents[it]);
     if (!any) errors.__docs = "Upload at least one document to continue";
     const logoItem = "Logo Artwork (PNG / JPG)";
@@ -100,7 +123,10 @@ function validateStep(step, A, state) {
   } else {
     visibleFields(step, A).forEach((f) => {
       if (f.type === "note" || !f.k) return;
-      const e = fieldError(f, A[f.k]);
+      // `required` can be a function of the answers so far (e.g. relaxed for a minor
+      // whose nominee covers their PAN/email/mobile instead) — resolve it here.
+      const required = typeof f.required === "function" ? f.required(A) : f.required;
+      const e = fieldError({ ...f, required }, A[f.k]);
       if (e) errors[f.k] = e;
       if (A[f.k] === "Other" && f.type === "cards" && f.otherText !== false) {
         const oe = fieldError({ required: true }, A[f.k + "__other"]);
@@ -150,8 +176,9 @@ function ErrorText({ msg }) {
   if (!msg) return null;
   return <p className="text-red-600 text-xs mt-1">⚠ {msg}</p>;
 }
-function ReqMark({ f }) {
-  return f.required === false ? null : <span className="text-red-500 ml-0.5">*</span>;
+function ReqMark({ f, A }) {
+  const required = typeof f.required === "function" ? f.required(A) : f.required;
+  return required === false ? null : <span className="text-red-500 ml-0.5">*</span>;
 }
 function OptionButton({ selected, square, onClick, children }) {
   return (
@@ -174,7 +201,7 @@ const inputCls = (bad) =>
     bad ? "border-red-400 bg-red-50" : "border-gray-200"
   }`;
 
-export default function FlowRunner({ flowId, initialSet, onExit }) {
+export default function FlowRunner({ flowId, initialSet, onExit, onComplete, homeLabel, nextLabel }) {
   const appRef = useRef(null);
   if (appRef.current === null) {
     const saved = getSecureItem(STORAGE_KEY);
@@ -206,6 +233,11 @@ export default function FlowRunner({ flowId, initialSet, onExit }) {
   const total = steps.length - 1; // success not counted
   const shown = Math.min(stepIndex + 1, total);
   const pct = total > 1 ? Math.round((Math.min(stepIndex, total - 1) / (total - 1)) * 100) : 0;
+  // Once documents are reached, let the applicant jump straight to account setup /
+  // the dashboard instead of grinding through Additional Registrations, Review and
+  // Payment right now — they can always come back and finish this application later.
+  const docsIndex = steps.findIndex((s) => s.type === "docs");
+  const canSkipToDashboard = !!onComplete && docsIndex !== -1 && stepIndex >= docsIndex;
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -247,13 +279,13 @@ export default function FlowRunner({ flowId, initialSet, onExit }) {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
       <nav className="flex items-center gap-1.5 text-xs text-gray-500 mb-4 flex-wrap">
-        <button onClick={goBack} className="hover:text-blue-600 hover:underline">Existing Company</button>
+        <button onClick={goBack} className="hover:text-blue-600 hover:underline">{homeLabel || "Existing Company"}</button>
         <span>›</span>
         <span className="text-gray-800 font-medium">{state.serviceType}</span>
       </nav>
 
       {step.type === "success" ? (
-        <SuccessScreen state={state} onExit={onExit} />
+        <SuccessScreen state={state} onExit={onExit} onComplete={onComplete} nextLabel={nextLabel} />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[264px_1fr] gap-6 items-start">
           <aside className="lg:sticky lg:top-6">
@@ -309,9 +341,16 @@ export default function FlowRunner({ flowId, initialSet, onExit }) {
             {step.type !== "payment" && (
               <div className="flex items-center justify-between gap-3 mt-7 pt-5 border-t border-gray-100">
                 <button onClick={goBack} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50">← Back</button>
-                <button onClick={goNext} className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700">
-                  {step.type === "review" ? "Proceed to Payment →" : "Continue →"}
-                </button>
+                <div className="flex items-center gap-3">
+                  {canSkipToDashboard && (
+                    <button onClick={() => onComplete()} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-500 hover:bg-gray-50">
+                      Skip for now — go to dashboard
+                    </button>
+                  )}
+                  <button onClick={goNext} className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700">
+                    {step.type === "review" ? "Proceed to Payment →" : "Continue →"}
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -354,6 +393,7 @@ function Field({ f, A, errors, setAnswer, state, bump }) {
   if (f.type === "helpChoose") return <HelpChoose A={A} setAnswer={setAnswer} state={state} bump={bump} />;
   if (f.type === "suggestNames") return <SuggestNames A={A} setAnswer={setAnswer} state={state} bump={bump} />;
   if (f.type === "tmRisk") return <TmRiskNote A={A} state={state} />;
+  if (f.type === "gstinLookup") return <GstinLookupField f={f} A={A} errors={errors} setAnswer={setAnswer} />;
   if (f.type === "note") {
     const content = f.render ? f.render(A) : null;
     if (f.plainLabel) return <div className="font-semibold text-sm text-gray-800">{f.render(A)}</div>;
@@ -366,7 +406,7 @@ function Field({ f, A, errors, setAnswer, state, bump }) {
     const cols = f.cols || (f.opts.length > 4 ? 3 : 2);
     return (
       <div>
-        <div className="font-semibold text-sm text-gray-800 mb-2">{f.q || f.label}<ReqMark f={f} /></div>
+        <div className="font-semibold text-sm text-gray-800 mb-2">{f.q || f.label}<ReqMark f={f} A={A} /></div>
         {f.hint && <p className="text-xs text-gray-500 mb-2">{f.hint}</p>}
         <div className={`grid gap-2 grid-cols-1 sm:grid-cols-${Math.min(cols, 3)}`}>
           {f.opts.map((o) => {
@@ -399,7 +439,7 @@ function Field({ f, A, errors, setAnswer, state, bump }) {
   if (f.type === "select") {
     return (
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">{f.label}<ReqMark f={f} /></label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{f.label}<ReqMark f={f} A={A} /></label>
         {f.hint && <p className="text-xs text-gray-500 mb-1">{f.hint}</p>}
         <select className={inputCls(errors[f.k])} value={A[f.k] || ""} onChange={(e) => setAnswer(f.k, e.target.value)}>
           <option value="">Select…</option>
@@ -412,7 +452,7 @@ function Field({ f, A, errors, setAnswer, state, bump }) {
   if (f.type === "textarea") {
     return (
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">{f.label}<ReqMark f={f} /></label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{f.label}<ReqMark f={f} A={A} /></label>
         {f.hint && <p className="text-xs text-gray-500 mb-1">{f.hint}</p>}
         <textarea rows={3} className={inputCls(errors[f.k])} value={A[f.k] || ""} onChange={(e) => setAnswer(f.k, e.target.value)} placeholder={f.ph || ""} />
         <ErrorText msg={errors[f.k]} />
@@ -421,10 +461,77 @@ function Field({ f, A, errors, setAnswer, state, bump }) {
   }
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{f.label}<ReqMark f={f} /></label>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{f.label}<ReqMark f={f} A={A} /></label>
       {f.hint && <p className="text-xs text-gray-500 mb-1">{f.hint}</p>}
       <input type={f.type === "text" ? "text" : f.type} className={inputCls(errors[f.k])} value={A[f.k] || ""} onChange={(e) => setAnswer(f.k, e.target.value)} placeholder={f.ph || ""} />
       <ErrorText msg={errors[f.k]} />
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   GSTIN lookup — auto-fetches legal name / trade name / status from the
+   server-side GST verification proxy once a well-formed 15-char GSTIN is typed,
+   so we don't ask the customer for details we can already look up ourselves.
+--------------------------------------------------------------------------- */
+function GstinLookupField({ f, A, errors, setAnswer }) {
+  const [status, setStatus] = useState("idle"); // idle | loading | done | error
+  const [message, setMessage] = useState("");
+  const value = A[f.k] || "";
+
+  async function runLookup(gstin) {
+    setStatus("loading");
+    setMessage("");
+    try {
+      const details = await lookupGstin(gstin);
+      if (!details) throw new Error("not found");
+      setAnswer("gst_bizname", details.legalName || A.gst_bizname || "");
+      if (details.tradeName) setAnswer("gst_tradename", details.tradeName);
+      if (details.status) {
+        setAnswer("gst_regState", details.status);
+        setAnswer("gst_verifiedStatus", details.status);
+      }
+      setStatus("done");
+    } catch {
+      setAnswer("gst_verifiedStatus", "");
+      setStatus("error");
+      setMessage("Couldn't verify that GSTIN right now — you can still continue and our team will confirm it manually.");
+    }
+  }
+
+  function onChange(e) {
+    const v = e.target.value.toUpperCase();
+    setAnswer(f.k, v);
+    setAnswer("gst_verifiedStatus", "");
+    setStatus("idle");
+    setMessage("");
+    if (/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[A-Z0-9]{1}Z[A-Z0-9]{1}$/.test(v)) runLookup(v);
+  }
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{f.label}<ReqMark f={f} A={A} /></label>
+      <div className="relative">
+        <input
+          className={inputCls(errors[f.k])}
+          value={value}
+          maxLength={15}
+          onChange={onChange}
+          placeholder={f.ph || ""}
+        />
+        {status === "loading" && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">Verifying…</span>
+        )}
+      </div>
+      <ErrorText msg={errors[f.k]} />
+      {status === "done" && A.gst_bizname && (
+        <div className="mt-2 text-xs rounded-lg border border-green-200 bg-green-50 text-green-800 px-3 py-2">
+          ✓ Verified — <b>{A.gst_bizname}</b>{A.gst_verifiedStatus ? ` · ${A.gst_verifiedStatus}` : ""}
+        </div>
+      )}
+      {status === "error" && (
+        <div className="mt-2 text-xs rounded-lg border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2">{message}</div>
+      )}
     </div>
   );
 }
@@ -443,55 +550,54 @@ function OwnersBody({ A, state, errors, bump }) {
   function addOwner() { if (!capReached) { state.owners.push(newOwner()); bump(); } }
   function removeOwner(i) { state.owners.splice(i, 1); bump(); }
   function setOwnerField(i, k, v) { state.owners[i][k] = v; bump(); }
+  function setOwnerNomineeField(i, k, v) {
+    if (!state.owners[i].nominee) state.owners[i].nominee = {};
+    state.owners[i].nominee[k] = v;
+    bump();
+  }
 
   return (
     <div>
       <div className="mb-4">
-        <div className="font-semibold text-sm text-gray-800">How many {cfg.label.toLowerCase()} will the business have?<span className="text-red-500 ml-0.5">*</span></div>
+        <div className="font-semibold text-sm text-gray-800">{cfg.label}</div>
         <p className="text-xs text-gray-500 mt-1">{cfg.hint}</p>
-        <div className="flex items-center gap-3 mt-2">
-          <button type="button" onClick={() => n > 0 && removeOwner(n - 1)} className="w-9 h-9 rounded-lg border border-gray-200 text-blue-600 font-bold">−</button>
-          <span className="text-lg font-bold w-8 text-center">{n}</span>
-          <button type="button" onClick={addOwner} disabled={capReached} className="w-9 h-9 rounded-lg border border-gray-200 text-blue-600 font-bold disabled:opacity-40">+</button>
-        </div>
         <ErrorText msg={errors.__owners} />
       </div>
 
-      {n === 0 && (
-        <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-xl text-gray-500">
-          <p className="font-medium text-gray-700">No {cfg.label.toLowerCase()} added yet</p>
-          <p className="text-sm mt-1">Use the + control above to add the first person.</p>
-        </div>
-      )}
-
       <div className="space-y-4">
-        {state.owners.map((o, i) => (
+        {state.owners.map((o, i) => {
+          const minor = isMinor(o.dob);
+          return (
           <div key={i} className="border border-gray-200 rounded-xl p-4 bg-gray-50/50">
             <div className="flex items-center justify-between mb-3">
               <b className="flex items-center gap-2 text-sm">
                 <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">{i + 1}</span>
                 {o.name || `${primaryLabel} ${i + 1}`}
               </b>
-              {cfg.maxCount !== 1 && <button onClick={() => removeOwner(i)} className="text-xs text-red-500 hover:underline">Remove</button>}
+              {cfg.maxCount !== 1 && n > 1 && <button onClick={() => removeOwner(i)} className="text-xs text-red-500 hover:underline">Remove</button>}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {fields.map((f) => (
-                <div key={f.k} className={f.full ? "sm:col-span-2" : ""}>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}<span className="text-red-500">*</span></label>
-                  <input type={f.type} className={inputCls(errors["owner" + i + "_" + f.k])} value={o[f.k] || ""} placeholder={f.ph || ""}
-                    onChange={(e) => setOwnerField(i, f.k, e.target.value)} />
-                  <ErrorText msg={errors["owner" + i + "_" + f.k]} />
-                </div>
-              ))}
+              {fields.map((f) => {
+                const optional = minor && MINOR_OPTIONAL_FIELDS.includes(f.k);
+                return (
+                  <div key={f.k} className={f.full ? "sm:col-span-2" : ""}>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}{!optional && <span className="text-red-500">*</span>}{optional && <span className="text-gray-400 font-normal"> (optional)</span>}</label>
+                    <input type={f.type} className={inputCls(errors["owner" + i + "_" + f.k])} value={o[f.k] || ""} placeholder={f.ph || ""}
+                      onChange={(e) => setOwnerField(i, f.k, e.target.value)} />
+                    <ErrorText msg={errors["owner" + i + "_" + f.k]} />
+                  </div>
+                );
+              })}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Role<span className="text-red-500">*</span></label>
                 <select className={inputCls(errors["owner" + i + "_role"])} value={o.role || ""} onChange={(e) => setOwnerField(i, "role", e.target.value)}>
                   <option value="">Select…</option>
-                  {cfg.roles.map((r) => <option key={r} value={r}>{r}</option>)}
+                  {rolesFor(cfg, minor).map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
                 <ErrorText msg={errors["owner" + i + "_role"]} />
+                {minor && cfg.hasDIN && <p className="text-[11px] text-gray-400 mt-1">Director-type roles are hidden — a minor can't hold a DIN.</p>}
               </div>
-              {cfg.hasDIN && (
+              {cfg.hasDIN && !minor && (
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Do you already have a {cfg.dinLabel}?<span className="text-red-500">*</span></label>
                   <select className={inputCls(errors["owner" + i + "_dinKnown"])} value={o.dinKnown || ""} onChange={(e) => setOwnerField(i, "dinKnown", e.target.value)}>
@@ -501,7 +607,7 @@ function OwnersBody({ A, state, errors, bump }) {
                   <ErrorText msg={errors["owner" + i + "_dinKnown"]} />
                 </div>
               )}
-              {cfg.hasDIN && o.dinKnown === "Yes" && (
+              {cfg.hasDIN && !minor && o.dinKnown === "Yes" && (
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">{cfg.dinLabel}<span className="text-red-500">*</span></label>
                   <input className={inputCls(errors["owner" + i + "_din"])} value={o.din || ""} onChange={(e) => setOwnerField(i, "din", e.target.value)} placeholder="e.g. 08123456" />
@@ -523,11 +629,28 @@ function OwnersBody({ A, state, errors, bump }) {
                 </div>
               )}
             </div>
+
+            {minor && (
+              <div className="mt-4 pt-4 border-t border-dashed border-gray-200">
+                <Note variant="warn" body={<><b>{o.name || `${primaryLabel} ${i + 1}`}</b> is under 18 — a nominee/guardian's details are required for them.</>} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                  {fields.map((f) => (
+                    <div key={"nom_" + f.k} className={f.full ? "sm:col-span-2" : ""}>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Nominee {f.label}<span className="text-red-500">*</span></label>
+                      <input type={f.type} className={inputCls(errors["owner" + i + "_nominee_" + f.k])} value={(o.nominee || {})[f.k] || ""} placeholder={f.ph || ""}
+                        onChange={(e) => setOwnerNomineeField(i, f.k, e.target.value)} />
+                      <ErrorText msg={errors["owner" + i + "_nominee_" + f.k]} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
-      {!capReached && n > 0 && (
+      {!capReached && (
         <button onClick={addOwner} className="w-full mt-3 py-2.5 rounded-lg border border-dashed border-blue-300 text-blue-600 text-sm font-medium hover:bg-blue-50">
           + Add another {primaryLabel.toLowerCase()}
         </button>
@@ -546,7 +669,8 @@ function OwnersBody({ A, state, errors, bump }) {
    Documents
 --------------------------------------------------------------------------- */
 function DocsBody({ step, A, state, errors, bump }) {
-  const items = docItems(step, A);
+  const groups = docGroups(step, A, state);
+  const items = groups.flatMap((g) => g.items);
   const count = items.filter((it) => state.documents[it]).length;
   function attach(it, file) {
     if (!file) return;
@@ -558,30 +682,41 @@ function DocsBody({ step, A, state, errors, bump }) {
   return (
     <div>
       <Note variant="info" body={<>Files stay on your device in this prototype — nothing is uploaded. <b>{count} of {items.length}</b> attached.</>} />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-        {items.map((it) => {
-          const d = state.documents[it];
-          return (
-            <label key={it} className={`flex items-start gap-3 rounded-xl border-2 border-dashed p-4 cursor-pointer transition ${d ? "border-green-400 bg-green-50" : "border-gray-200 hover:border-blue-300"}`}>
-              <span className={`flex-none w-9 h-9 rounded-lg border flex items-center justify-center ${d ? "text-green-600 border-green-200 bg-white" : "text-blue-500 border-gray-200 bg-white"}`}>
-                {d ? "✓" : "⬆"}
-              </span>
-              <span className="flex-1 min-w-0">
-                <b className="block text-sm">{it}</b>
-                {d ? (
-                  <>
-                    <span className="block text-xs text-green-700 font-medium mt-0.5 truncate">{d.name} · {d.size}</span>
-                    <button type="button" onClick={(e) => { e.preventDefault(); remove(it); }} className="text-xs text-gray-500 hover:text-red-600 mt-1">↺ Replace / remove</button>
-                  </>
-                ) : (
-                  <span className="block text-xs text-gray-400 mt-0.5">Click to browse · PDF, JPG, PNG up to 5 MB</span>
-                )}
-              </span>
-              <input type="file" className="hidden" onChange={(e) => attach(it, e.target.files?.[0])} />
-            </label>
-          );
-        })}
-      </div>
+      {groups.map((g, gi) => (
+        <div key={g.title || gi} className={gi > 0 ? "mt-5" : "mt-4"}>
+          {g.title && (
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center justify-center">{gi + 1}</span>
+              <b className="text-sm text-gray-800">{g.title}</b>
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {g.items.map((it) => {
+              const d = state.documents[it];
+              const label = g.title ? it.split(" – ")[0] : it;
+              return (
+                <label key={it} className={`flex items-start gap-3 rounded-xl border-2 border-dashed p-4 cursor-pointer transition ${d ? "border-green-400 bg-green-50" : "border-gray-200 hover:border-blue-300"}`}>
+                  <span className={`flex-none w-9 h-9 rounded-lg border flex items-center justify-center ${d ? "text-green-600 border-green-200 bg-white" : "text-blue-500 border-gray-200 bg-white"}`}>
+                    {d ? "✓" : "⬆"}
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <b className="block text-sm">{label}</b>
+                    {d ? (
+                      <>
+                        <span className="block text-xs text-green-700 font-medium mt-0.5 truncate">{d.name} · {d.size}</span>
+                        <button type="button" onClick={(e) => { e.preventDefault(); remove(it); }} className="text-xs text-gray-500 hover:text-red-600 mt-1">↺ Replace / remove</button>
+                      </>
+                    ) : (
+                      <span className="block text-xs text-gray-400 mt-0.5">Click to browse · PDF, JPG, PNG up to 5 MB</span>
+                    )}
+                  </span>
+                  <input type="file" className="hidden" onChange={(e) => attach(it, e.target.files?.[0])} />
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      ))}
       <ErrorText msg={errors.__docs} />
     </div>
   );
@@ -885,6 +1020,10 @@ function reviewRows(flowId, A, state) {
         if (cfg.capital && o.capital) extra.push("₹" + o.capital + " capital");
         if (cfg.hasDIN && o.dinKnown === "Yes" && o.din) extra.push("DIN " + o.din);
         rows.push([s.title + " " + (oi + 1), [o.name, o.role, o.pan, o.email, o.mobile, ...extra].filter(Boolean).join(" · ") || "—"]);
+        if (isMinor(o.dob) && o.nominee) {
+          const nom = o.nominee;
+          rows.push(["Nominee for " + (o.name || "owner " + (oi + 1)), [nom.name, nom.pan, nom.email, nom.mobile].filter(Boolean).join(" · ") || "—"]);
+        }
       });
       if (!rows.length) rows.push([s.title, "None added"]);
     } else if (s.type === "namecheck") {
@@ -896,7 +1035,7 @@ function reviewRows(flowId, A, state) {
       rows.push(["Business objective", A.br_objectiveAccepted === "Yes" ? (A.br_objective || "—") : "Not yet accepted"]);
       rows.push(["NIC Code", A.br_nicCode || "Not selected"]);
     } else if (s.type === "docs") {
-      const items = docItems(s, A);
+      const items = docItems(s, A, state);
       items.forEach((it) => { if (state.documents[it]) rows.push([it, state.documents[it].name]); });
       if (!rows.length) rows.push(["Documents", "No documents attached"]);
     } else if (s.id === "class") {
@@ -1008,7 +1147,7 @@ function PaymentBody({ flow, A, state, onPay, onBack }) {
   );
 }
 
-function SuccessScreen({ state, onExit }) {
+function SuccessScreen({ state, onExit, onComplete, nextLabel }) {
   const s = state.submitted || {};
   return (
     <div className="max-w-xl mx-auto text-center bg-white border border-gray-200 rounded-xl shadow-sm p-8">
@@ -1021,10 +1160,18 @@ function SuccessScreen({ state, onExit }) {
         <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span className="text-gray-500">Submission Date</span><b>{s.date || today()}</b></div>
         <div className="flex justify-between text-sm py-2"><span className="text-gray-500">Amount Paid</span><b>{s.amount || ""}</b></div>
       </div>
-      <div className="flex gap-3 justify-center flex-wrap mt-6">
-        <button onClick={() => { removeSecureItem(STORAGE_KEY); onExit(); }} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold">+ Start Another Application</button>
-        <button onClick={() => { removeSecureItem(STORAGE_KEY); onExit(); }} className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold">Back to Requests</button>
-      </div>
+      {onComplete ? (
+        <div className="flex justify-center mt-6">
+          <button onClick={() => { removeSecureItem(STORAGE_KEY); onComplete(s); }} className="px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold">
+            {nextLabel || "Continue →"}
+          </button>
+        </div>
+      ) : (
+        <div className="flex gap-3 justify-center flex-wrap mt-6">
+          <button onClick={() => { removeSecureItem(STORAGE_KEY); onExit(); }} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold">+ Start Another Application</button>
+          <button onClick={() => { removeSecureItem(STORAGE_KEY); onExit(); }} className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold">Back to Requests</button>
+        </div>
+      )}
     </div>
   );
 }
