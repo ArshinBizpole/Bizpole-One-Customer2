@@ -9,7 +9,7 @@ import { loginWithPhone, signupWithPhone, verifyOtp } from "../../api/AuthApi";
 import { notifyTokenSet } from "../../utils/authSession";
 import {
   FLOWS, ownerConfig, ownerBaseFields, newOwner, visibleFields, docItems, docGroups, isMinor,
-  fieldError, today, rupee, newApplicationId, ADDON_PRICE,
+  fieldError, today, rupee, newApplicationId, ADDON_PRICE, ADDON_SERVICE_ID, STATES,
   recommendBusinessType, suggestedBusinessNames, runNameCheckSim,
   generateBusinessObjective, suggestedNicCodes, tmClassMatches,
   selectedNiceClass, runTrademarkSearchSim, tmRiskLevel, NICE_CLASSES,
@@ -340,6 +340,23 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, hom
   }
   const [, rerender] = useReducer((c) => c + 1, 0);
   const errorsRef = useRef({});
+  // Every "State" pick field (business address, GST location, existing-GST
+  // state) falls back to the static STATES list, but that list is only ever
+  // as complete/correctly-spelled as we remember to keep it — a name that
+  // doesn't exactly match `indiastates.state_name` (case, missing UT, future
+  // DB addition) silently breaks the Quote's StateID resolution down the
+  // line (null StateID -> empty bulk service-price lookup at Payment/OTP).
+  // Fetching the real list once and swapping it in removes that whole class
+  // of mismatch — same source of truth the admin/associate side already uses.
+  const [liveStateNames, setLiveStateNames] = useState(null);
+  useEffect(() => {
+    getAllStates()
+      .then((rows) => {
+        const names = Array.isArray(rows) ? rows.map((r) => r.state_name).filter(Boolean) : [];
+        if (names.length) setLiveStateNames(names);
+      })
+      .catch(() => {}); // static STATES list stays as the fallback
+  }, []);
 
   function persist() {
     setSecureItem(storageKey, appRef.current);
@@ -501,7 +518,7 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, hom
             {step.type === "tmClassConfirm" && <TmClassConfirmBody A={A} onChangeClass={() => { state.stepIndex = steps.findIndex((s) => s.id === "recommend"); bump(); }} />}
             {step.type === "tmSearch" && <TmSearchBody A={A} state={state} errors={errorsRef.current} setAnswer={setAnswer} bump={bump} />}
             {step.type === "tmResults" && <TmResultsBody A={A} state={state} />}
-            {!step.type && <FieldsBody step={step} A={A} errors={errorsRef.current} setAnswer={setAnswer} state={state} bump={bump} />}
+            {!step.type && <FieldsBody step={step} A={A} errors={errorsRef.current} setAnswer={setAnswer} state={state} bump={bump} liveStateNames={liveStateNames} />}
 
             {step.type !== "payment" && (
               <div className="flex items-center justify-between gap-3 mt-7 pt-5 border-t border-gray-100">
@@ -548,6 +565,7 @@ function serviceDetailsFor(flow, A, state) {
     },
     ...addons.map((name) => ({
       serviceName: name,
+      serviceId: ADDON_SERVICE_ID[name] || null,
       professionalFee: ADDON_PRICE[name] || 999,
       governmentFee: 0,
       gstAmount: 0,
@@ -1017,20 +1035,20 @@ function LeadCaptureModal({ state, bump }) {
 /* ---------------------------------------------------------------------------
    Generic field-list body
 --------------------------------------------------------------------------- */
-function FieldsBody({ step, A, errors, setAnswer, state, bump }) {
+function FieldsBody({ step, A, errors, setAnswer, state, bump, liveStateNames }) {
   const fields = visibleFields(step, A);
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {fields.map((f, i) => (
         <div key={f.k || i} className={f.full || ["cards", "checks", "note", "textarea", "helpChoose", "suggestNames", "tmRisk"].includes(f.type) ? "sm:col-span-2" : ""}>
-          <Field f={f} A={A} errors={errors} setAnswer={setAnswer} state={state} bump={bump} />
+          <Field f={f} A={A} errors={errors} setAnswer={setAnswer} state={state} bump={bump} liveStateNames={liveStateNames} />
         </div>
       ))}
     </div>
   );
 }
 
-function Field({ f, A, errors, setAnswer, state, bump }) {
+function Field({ f, A, errors, setAnswer, state, bump, liveStateNames }) {
   if (f.type === "helpChoose") return <HelpChoose A={A} setAnswer={setAnswer} state={state} bump={bump} />;
   if (f.type === "suggestNames") return <SuggestNames A={A} setAnswer={setAnswer} state={state} bump={bump} />;
   if (f.type === "tmRisk") return <TmRiskNote A={A} state={state} />;
@@ -1078,13 +1096,18 @@ function Field({ f, A, errors, setAnswer, state, bump }) {
     );
   }
   if (f.type === "select") {
+    // Every State picker (business address, GST location, existing-GST state)
+    // shares the exact STATES array reference — swap in the live, DB-backed
+    // list once it's loaded so the saved value is guaranteed to match
+    // `indiastates.state_name` (see liveStateNames fetch in FlowRunner).
+    const opts = f.opts === STATES && liveStateNames?.length ? [...liveStateNames, "Other"] : f.opts;
     return (
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">{f.label}<ReqMark f={f} A={A} /></label>
         {f.hint && <p className="text-xs text-gray-500 mb-1">{f.hint}</p>}
         <select className={inputCls(errors[f.k])} value={A[f.k] || ""} onChange={(e) => setAnswer(f.k, e.target.value)}>
           <option value="">Select…</option>
-          {f.opts.map((o) => <option key={o} value={o}>{o}</option>)}
+          {opts.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
         <ErrorText msg={errors[f.k]} />
       </div>

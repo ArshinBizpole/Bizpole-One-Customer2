@@ -17,11 +17,21 @@
 
 export const YN = ["Yes", "No"];
 
+// Full list of Indian states + union territories, spelled to match
+// `indiastates.state_name` exactly (see LeadWebhookNormalizer.js's STATE_MAP on
+// the server, the canonical source for this spelling). Picking "Other" here
+// sends the literal string "Other" as the Company/Customer state — that never
+// matches a real indiastates row, so the Quote's StateID join comes back null
+// and the bulk service-price lookup on the Quote approval page silently
+// returns no pricing (data: []). Keeping this list complete (all 28 states +
+// 8 UTs) means a real applicant should never need "Other" for their own state.
 export const STATES = [
-  "Andhra Pradesh", "Assam", "Bihar", "Chhattisgarh", "Delhi", "Goa", "Gujarat", "Haryana",
-  "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra",
-  "Odisha", "Punjab", "Rajasthan", "Tamil Nadu", "Telangana", "Uttar Pradesh", "Uttarakhand",
-  "West Bengal", "Other",
+  "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar",
+  "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Goa",
+  "Gujarat", "Haryana", "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand", "Karnataka",
+  "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya",
+  "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
+  "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Other",
 ];
 
 export const BIZ_TYPES = [
@@ -61,6 +71,19 @@ export const ADDON_PRICE = {
   "GST Registration": 1499, "Trademark Registration": 5999, "MSME / Udyam Registration": 999,
   "IEC Registration": 2499, "Professional Tax": 1299, "FSSAI": 2499, "Shops & Establishment": 1999,
   "Other": 999,
+};
+// Maps an addon picked on the "Additional Registrations" step to its real
+// ServiceMaster.ServiceID, same rationale as BUSINESS_TYPE_SERVICE_ID above —
+// an addon Quote line with no serviceId ships with ServiceID: null, and the
+// bulk service-price lookup (Quote approval page) treats that as no match
+// (empty pricing) for that line. Reuses the same IDs the standalone flows for
+// these services already carry (FLOWS.gst.serviceId, TRADEMARK_FLOW.serviceId).
+// MSME / IEC / Professional Tax / FSSAI / Shops & Establishment / Other have
+// no matching ServiceMaster entry yet — same as MSME_FLOW / IEC_FLOW above,
+// they're left out here and ship with ServiceID: null until one exists.
+export const ADDON_SERVICE_ID = {
+  "GST Registration": 281,
+  "Trademark Registration": 344,
 };
 
 export const TM_NATURE = ["Service-based", "Trading", "Manufacturing"];

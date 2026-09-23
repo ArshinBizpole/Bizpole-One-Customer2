@@ -4,7 +4,7 @@ import { getSecureItem } from '../../utils/secureStorage';
 import { format, differenceInDays } from 'date-fns';
 import { initPayment, listOrders } from '../../api/Orders/Order';
 import { useNavigate } from 'react-router-dom';
-import { toCustomerOrderStatus, toCustomerServiceStatus } from '../../utils/orderStatus';
+import { toCustomerOrderStatus } from '../../utils/orderStatus';
 
 const ORDER_STATUSES = [
     { value: 1, label: "Not Started" },
