@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { getAssociateReceiptDetails, getInvoicesForService, getReceiptsForOrder } from '../../api/AssociateApi';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { toCustomerServiceStatus } from '../../utils/orderStatus';
 
 const OrderDetailView = () => {
     const { id } = useParams();
@@ -342,7 +343,7 @@ const OrderDetailView = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                 <DataItem label="Order ID" value={order.OrderCodeId} />
                                 <DataItem label="Order Date" value={order.quote?.RealOrderCreatedAt ? format(new Date(order.quote?.RealOrderCreatedAt), 'dd MMM yyyy HH:mm:ss') : '--'} />
-                                <DataItem label="Order Status" value={order.OrderStatus || 'pending'} />
+                                <DataItem label="Order Status" value={toCustomerServiceStatus(order.OrderStatus)} />
                                 <DataItem label="Order Source" value={order.SourceOfSale || 'Associate'} />
                                 <DataItem label="Company Name" value={order.CompanyName} isBold />
                                 <DataItem label="Customer Name" value={order.CustomerName} isBold />
@@ -400,7 +401,7 @@ const OrderDetailView = () => {
                                                         service.StatusRemark === 'In Progress' ? 'bg-blue-50 text-blue-600' :
                                                             'bg-slate-100 text-slate-500'
                                                         }`}>
-                                                        {service.StatusRemark || 'pending'}
+                                                        {toCustomerServiceStatus(service.StatusRemark)}
                                                     </span>
                                                 </td>
                                             </tr>
@@ -634,7 +635,7 @@ const OrderDetailView = () => {
                                     <div key={sIdx} className="border border-slate-100 rounded-2xl p-6 bg-slate-50/20">
                                         <div className="flex items-center justify-between mb-4">
                                             <h3 className="text-sm font-bold text-slate-800">{service.ServiceName}</h3>
-                                            <span className="text-[10px] bg-[#4b49ac]/10 text-[#4b49ac] px-3 py-1 rounded-full font-black uppercase">{service.ServiceStatus || 'Standard'}</span>
+                                            <span className="text-[10px] bg-[#4b49ac]/10 text-[#4b49ac] px-3 py-1 rounded-full font-black uppercase">{toCustomerServiceStatus(service.ServiceStatus)}</span>
                                         </div>
                                         <div className="space-y-3">
                                             {/* Static tasks for now until dynamic task data is available */}
