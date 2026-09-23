@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import CryptoJS from "crypto-js";
 import { getSecureItem, setSecureItem, removeSecureItem } from "../../utils/secureStorage";
 import { lookupGstin } from "../../api/GstinLookup";
+import { assignCustomer } from "../../api/CustomerApi";
+import { createLead, createCustomerCompany, convertLeadToDeal, createQuoteForApplication, uploadApplicationDocument, removeApplicationDocument } from "../../api/LeadApi";
+import { getAllStates } from "../../api/States";
+import { loginWithPhone, signupWithPhone, verifyOtp } from "../../api/AuthApi";
+import { notifyTokenSet } from "../../utils/authSession";
 import {
   FLOWS, ownerConfig, ownerBaseFields, newOwner, visibleFields, docItems, docGroups, isMinor,
-  fieldError, today, rupee, newApplicationId, ADDON_PRICE,
+  fieldError, today, rupee, newApplicationId, ADDON_PRICE, ADDON_SERVICE_ID, STATES,
   recommendBusinessType, suggestedBusinessNames, runNameCheckSim,
   generateBusinessObjective, suggestedNicCodes, tmClassMatches,
   selectedNiceClass, runTrademarkSearchSim, tmRiskLevel, NICE_CLASSES,
@@ -37,7 +43,127 @@ function freshState(flowId, initialSet) {
     suggestedNames: null,
     classBrowseOpen: false,
     submitted: null,
+    // Lead capture — the first name-check / trademark-search / GSTIN-lookup ("checking
+    // procedure") in a flow session opens leadGate and asks for contact details, so we
+    // can raise a Lead for this prospect even if they abandon the application before
+    // Review/Payment. Captured once per flow session (see requireLead()).
+    leadGate: null,
+    leadCaptured: false,
+    leadContact: null,
+    // Set once the Directors/Shareholders step is completed and the applicant's
+    // Customer + Company records are created (see syncCustomerCompany()).
+    customerId: null,
+    companyId: null,
+    // Set once the Directors/Shareholders step is completed and the Lead is
+    // converted to a Deal (see createDealForApplication()) — right after the
+    // Customer/Company sync above, well before Documents. The Quote is created
+    // later, at Payment, against this same Deal.
+    dealId: null,
+    // Set once the Quote is created at Payment (see createQuoteForApplicationStep()) —
+    // the applicant reviews/approves it, and pays, on the existing Quote page this
+    // opens them to (see openQuoteForApproval()).
+    quoteId: null,
   };
+}
+
+// Gate a "checking procedure" (name check, trademark search, GSTIN lookup) behind a
+// one-time contact-details capture per flow session — runs `run` immediately once the
+// lead has already been captured, otherwise opens the LeadCaptureModal first.
+function requireLead(state, bump, run) {
+  if (state.leadCaptured) { run(); return; }
+  state.leadGate = { run };
+  bump();
+}
+
+// The dashboard's "Select Company" list (DashboardLayout.jsx) reads Companies
+// straight off the `user` object cached in storage at sign-in time — before
+// this Company existed (sign-in happens at Name Check, step 3; the Company
+// isn't created until Owners/Directors, step 7+). Without this, a freshly
+// registered company would never appear there. Safe to call repeatedly —
+// skips if already present.
+function syncCachedUserCompany(companyId, companyName) {
+  if (!companyId) return;
+  try {
+    const raw = getSecureItem("user");
+    const user = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!user) return;
+    const companies = Array.isArray(user.Companies) ? user.Companies : [];
+    if (companies.some((c) => String(c.CompanyID) === String(companyId))) return;
+    user.Companies = [...companies, { CompanyID: companyId, BusinessName: companyName }];
+    setSecureItem("user", JSON.stringify(user));
+  } catch (err) {
+    console.error("Couldn't update cached user companies (non-fatal):", err);
+  }
+}
+
+// Once the applicant has entered real director/company details (the
+// Directors/Shareholders step), create/link their Customer + Company records.
+// No deal is created here — that stays gated behind convert-to-deal, once
+// service details are known. Non-blocking: failure never stops the applicant
+// from continuing, same rationale as lead capture (requireLead above).
+function syncCustomerCompany(state, A, bump) {
+  if (state.companyId || !state.leadContact) return; // already synced, or no contact captured yet
+  const companyName = (A.nc_target || A.name1 || "").trim();
+  if (!companyName) return;
+  // Directors/Shareholders entered on this same step — each maps to a
+  // company_directors row (see createCustomerAndCompanyOnly on the backend).
+  const directors = state.owners.map((o) => ({
+    name: o.name || null,
+    dob: o.dob || null,
+    pan: o.pan || null,
+    aadhaar: o.aadhaar || null,
+    email: o.email || null,
+    mobile: o.mobile || null,
+    address: o.address || null,
+    role: o.role || null,
+    din: o.dinKnown === "Yes" ? o.din : null,
+    shareholding: o.shareholding || null,
+    capital: o.capital || null,
+    isMinor: isMinor(o.dob),
+    nominee: isMinor(o.dob) ? o.nominee : null,
+  }));
+  createCustomerCompany({
+    leadId: state.leadContact.leadId,
+    customer: {
+      name: state.leadContact.name,
+      mobile: state.leadContact.mobile,
+      email: state.leadContact.email,
+      country: state.leadContact.country,
+      state: state.leadContact.state,
+      preferredLanguage: state.leadContact.language,
+      existingCustomerId: state.customerId,
+    },
+    company: {
+      name: companyName,
+      existingCompanyId: state.companyId,
+      // Business Type / Activity steps — closest matching Company columns.
+      constitutionCategory: A.businessType,
+      sector: A.activity,
+      businessNature: A.activityDesc,
+      // AI Business Objective & NIC Code step.
+      nicCode: A.br_nicCode,
+      businessObjective: A.br_objective,
+      // Business Address step (addressFields("", ...) — unprefixed keys).
+      country: A.country || state.leadContact.country,
+      state: A.state || state.leadContact.state,
+      district: A.district,
+      city: A.city,
+      pincode: A.pincode,
+      addressLine1: A.addr1,
+      addressLine2: A.addr2,
+      directors,
+    },
+    franchiseeId: state.leadContact.franchiseeId,
+  })
+    .then((res) => {
+      state.customerId = res?.data?.customerId || null;
+      state.companyId = res?.data?.companyId || null;
+      syncCachedUserCompany(state.companyId, companyName);
+      bump();
+    })
+    .catch((err) => {
+      console.error("Customer/Company sync failed (non-fatal):", err);
+    });
 }
 
 function contentSteps(flowId, A) {
@@ -202,16 +328,38 @@ const inputCls = (bad) =>
   }`;
 
 export default function FlowRunner({ flowId, initialSet, onExit, onComplete, homeLabel, nextLabel }) {
+  // Namespaced per flowId — this same FlowRunner backs every entry in FLOWS
+  // (New Company, GST, Trademark, MSME, IEC, Existing Company, ...). A single
+  // shared key here would let starting/resuming one flow silently wipe
+  // whatever progress was saved for a different one.
+  const storageKey = `${STORAGE_KEY}_${flowId}`;
   const appRef = useRef(null);
   if (appRef.current === null) {
-    const saved = getSecureItem(STORAGE_KEY);
+    const saved = getSecureItem(storageKey);
     appRef.current = saved && saved.flowId === flowId ? saved : freshState(flowId, initialSet);
   }
   const [, rerender] = useReducer((c) => c + 1, 0);
   const errorsRef = useRef({});
+  // Every "State" pick field (business address, GST location, existing-GST
+  // state) falls back to the static STATES list, but that list is only ever
+  // as complete/correctly-spelled as we remember to keep it — a name that
+  // doesn't exactly match `indiastates.state_name` (case, missing UT, future
+  // DB addition) silently breaks the Quote's StateID resolution down the
+  // line (null StateID -> empty bulk service-price lookup at Payment/OTP).
+  // Fetching the real list once and swapping it in removes that whole class
+  // of mismatch — same source of truth the admin/associate side already uses.
+  const [liveStateNames, setLiveStateNames] = useState(null);
+  useEffect(() => {
+    getAllStates()
+      .then((rows) => {
+        const names = Array.isArray(rows) ? rows.map((r) => r.state_name).filter(Boolean) : [];
+        if (names.length) setLiveStateNames(names);
+      })
+      .catch(() => {}); // static STATES list stays as the fallback
+  }, []);
 
   function persist() {
-    setSecureItem(STORAGE_KEY, appRef.current);
+    setSecureItem(storageKey, appRef.current);
   }
   function bump() {
     persist();
@@ -233,11 +381,18 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, hom
   const total = steps.length - 1; // success not counted
   const shown = Math.min(stepIndex + 1, total);
   const pct = total > 1 ? Math.round((Math.min(stepIndex, total - 1) / (total - 1)) * 100) : 0;
-  // Once documents are reached, let the applicant jump straight to account setup /
-  // the dashboard instead of grinding through Additional Registrations, Review and
-  // Payment right now — they can always come back and finish this application later.
+  // Once Documents is actually completed (not just reached — the required
+  // document(s) must be uploaded), let the applicant jump straight to account
+  // setup / the dashboard instead of grinding through Additional Registrations,
+  // Review and Payment right now — they can always come back and finish this
+  // application later. Every step before Documents is already guaranteed valid
+  // by this point, since goNext() never advances past a step that fails
+  // validateStep() — Documents itself is the one step the "Skip" button could
+  // otherwise bypass without ever being validated.
   const docsIndex = steps.findIndex((s) => s.type === "docs");
-  const canSkipToDashboard = !!onComplete && docsIndex !== -1 && stepIndex >= docsIndex;
+  const docsStep = docsIndex !== -1 ? steps[docsIndex] : null;
+  const docsComplete = !!docsStep && !validateStep(docsStep, A, state).__docs;
+  const canSkipToDashboard = !!onComplete && docsIndex !== -1 && stepIndex >= docsIndex && docsComplete;
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -252,13 +407,26 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, hom
       return;
     }
     errorsRef.current = {};
+    if (step.type === "owners") {
+      // Deal creation needs the Customer/Company this same step just synced (for
+      // existingCustomerId/existingCompanyId) — chain it after that sync resolves,
+      // rather than waiting for Documents, so a Deal already exists well before
+      // the applicant gets there. syncCustomerCompany() returns undefined (not a
+      // promise) whenever the Customer/Company was already synced on an earlier
+      // pass through this step — that's not a failure, so still attempt the Deal
+      // afterward either way; createDealForApplication() has its own guard against
+      // creating a second one.
+      const synced = syncCustomerCompany(state, A, bump);
+      const afterSync = synced && typeof synced.then === "function" ? synced : Promise.resolve();
+      afterSync.then(() => createDealForApplication(flow, state, A, bump));
+    }
     state.stepIndex = Math.min(state.stepIndex + 1, steps.length - 1);
     bump();
   }
   function goBack() {
     if (stepIndex === 0) {
       if (window.confirm("Leave this application? Your answers on this application will be discarded.")) {
-        removeSecureItem(STORAGE_KEY);
+        removeSecureItem(storageKey);
         onExit();
       }
       return;
@@ -273,11 +441,25 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, hom
       bump();
     }
   }
+  // The Submitted screen is shown as soon as the (mocked) payment "completes",
+  // regardless of whether the real Lead → Deal → Quote conversion behind it
+  // actually succeeded (createDealForApplication / createQuoteForApplicationStep
+  // fail non-blockingly, by design). If it didn't, send the applicant back to
+  // Payment to retry — their answers/owners/documents are untouched, only
+  // stepIndex and the stale `submitted` flag reset, so nothing needs re-entering.
+  function retryPayment() {
+    const idx = steps.findIndex((s) => s.type === "payment");
+    if (idx === -1) return;
+    state.submitted = null;
+    state.stepIndex = idx;
+    bump();
+  }
 
   if (!flow) return null;
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+      {state.leadGate && <LeadCaptureModal state={state} bump={bump} />}
       <nav className="flex items-center gap-1.5 text-xs text-gray-500 mb-4 flex-wrap">
         <button onClick={goBack} className="hover:text-blue-600 hover:underline">{homeLabel || "Existing Company"}</button>
         <span>›</span>
@@ -285,7 +467,7 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, hom
       </nav>
 
       {step.type === "success" ? (
-        <SuccessScreen state={state} onExit={onExit} onComplete={onComplete} nextLabel={nextLabel} />
+        <SuccessScreen state={state} onExit={onExit} onComplete={onComplete} nextLabel={nextLabel} onRetryPayment={retryPayment} />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[264px_1fr] gap-6 items-start">
           <aside className="lg:sticky lg:top-6">
@@ -327,7 +509,7 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, hom
             </div>
 
             {step.type === "review" && <ReviewBody flowId={flowId} A={A} state={state} errors={errorsRef.current} onConfirm={(v) => { state.confirmed = v; bump(); }} onJump={jumpTo} />}
-            {step.type === "payment" && <PaymentBody flow={flow} A={A} state={state} onPay={() => doPay(flow, state, bump)} onBack={goBack} />}
+            {step.type === "payment" && <PaymentBody flow={flow} A={A} state={state} bump={bump} onPay={() => doPay(flow, state, bump)} onBack={goBack} />}
             {step.type === "owners" && <OwnersBody A={A} state={state} errors={errorsRef.current} bump={bump} />}
             {step.type === "docs" && <DocsBody step={step} A={A} state={state} errors={errorsRef.current} bump={bump} />}
             {step.type === "namecheck" && <NameCheckBody A={A} state={state} errors={errorsRef.current} setAnswer={setAnswer} bump={bump} />}
@@ -336,7 +518,7 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, hom
             {step.type === "tmClassConfirm" && <TmClassConfirmBody A={A} onChangeClass={() => { state.stepIndex = steps.findIndex((s) => s.id === "recommend"); bump(); }} />}
             {step.type === "tmSearch" && <TmSearchBody A={A} state={state} errors={errorsRef.current} setAnswer={setAnswer} bump={bump} />}
             {step.type === "tmResults" && <TmResultsBody A={A} state={state} />}
-            {!step.type && <FieldsBody step={step} A={A} errors={errorsRef.current} setAnswer={setAnswer} state={state} bump={bump} />}
+            {!step.type && <FieldsBody step={step} A={A} errors={errorsRef.current} setAnswer={setAnswer} state={state} bump={bump} liveStateNames={liveStateNames} />}
 
             {step.type !== "payment" && (
               <div className="flex items-center justify-between gap-3 mt-7 pt-5 border-t border-gray-100">
@@ -344,7 +526,7 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, hom
                 <div className="flex items-center gap-3">
                   {canSkipToDashboard && (
                     <button onClick={() => onComplete()} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-500 hover:bg-gray-50">
-                      Skip for now — go to dashboard
+                      Skip for now — set up your account
                     </button>
                   )}
                   <button onClick={goNext} className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700">
@@ -360,10 +542,165 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, hom
   );
 }
 
-function doPay(flow, state, bump) {
+// Service-details breakdown (professional fee, addons, govt fee, GST) shared
+// by both the Deal (fees not sent, just needed for context) and the Quote —
+// recomputed each time since addons on later steps (e.g. Additional
+// Registrations) can still change it right up to Payment.
+function serviceDetailsFor(flow, A, state) {
+  const f = feeLines(flow, A);
+  const addons = Array.isArray(A.additionalServices) ? A.additionalServices : [];
+  // Real ServiceMaster ServiceID for this line, when one exists (see
+  // existingCompanyData.js) — needed so the Quote's saved line item can
+  // actually be priced/approved on the Quote review page later, instead of
+  // getting ServiceID: null (and, from there, no matching pricing at all).
+  const serviceId = typeof flow.serviceIdFor === "function" ? flow.serviceIdFor(A) : flow.serviceId || null;
+  return [
+    {
+      serviceName: state.serviceType,
+      serviceId,
+      professionalFee: f.service,
+      governmentFee: f.govt,
+      gstAmount: f.gst,
+      total: f.service + f.govt + f.gst,
+    },
+    ...addons.map((name) => ({
+      serviceName: name,
+      serviceId: ADDON_SERVICE_ID[name] || null,
+      professionalFee: ADDON_PRICE[name] || 999,
+      governmentFee: 0,
+      gstAmount: 0,
+      total: ADDON_PRICE[name] || 999,
+    })),
+  ];
+}
+
+// Once the applicant completes the Owners/Directors step (right after
+// syncCustomerCompany creates the Customer/Company above), convert the Lead
+// to a Deal — well before Documents, so a Deal already exists by the time
+// they get there. The Quote (with the final fee breakdown) is still created
+// later, at Payment, against this same Deal. Non-blocking: a failure here is
+// logged but never stops the applicant from continuing, same rationale as
+// lead capture. Also called as a fallback from createQuoteForApplicationStep
+// in case this first attempt didn't happen (e.g. Owners/Directors was somehow
+// skipped) or failed.
+// ServiceDetails must be included: the backend rejects a zero-value deal.
+// Only the base service fee is known this early (add-ons picked on the later
+// Additional Registrations step aren't reflected yet) — the Quote at Payment
+// carries the final, authoritative figures.
+async function createDealForApplication(flow, state, A, bump) {
+  if (state.dealId || !state.leadContact) return; // already converted, or no lead captured
+  const companyName = (A.nc_target || A.name1 || "").trim();
+  const ServiceDetails = serviceDetailsFor(flow, A, state);
+  try {
+    const dealRes = await convertLeadToDeal({
+      leadId: state.leadContact.leadId,
+      customer: {
+        name: state.leadContact.name,
+        mobile: state.leadContact.mobile,
+        email: state.leadContact.email,
+        country: state.leadContact.country,
+        state: state.leadContact.state,
+        preferredLanguage: state.leadContact.language,
+        existingCustomerId: state.customerId,
+      },
+      company: {
+        name: companyName,
+        existingCompanyId: state.companyId,
+        // Country is NOT NULL with no default on the backend's company table —
+        // must be sent even when the company doesn't exist yet here (e.g. if
+        // syncCustomerCompany hasn't created it for some reason).
+        country: A.country || state.leadContact.country,
+        state: A.state || state.leadContact.state,
+      },
+      franchiseeId: state.leadContact.franchiseeId,
+      employeeId: state.leadContact.employeeId,
+      isIndividual: 1,
+      ServiceDetails,
+    });
+    state.dealId = dealRes?.data?.dealId || null;
+    state.customerId = dealRes?.data?.customerId || state.customerId;
+    state.companyId = dealRes?.data?.companyId || state.companyId;
+    syncCachedUserCompany(state.companyId, companyName);
+    bump();
+  } catch (err) {
+    console.error("Convert-to-deal failed (non-fatal):", err);
+  }
+}
+
+// Once the applicant reaches Payment, the real service details are finally
+// settled — save the fee breakdown as a real Quote (QuoteStatus "Quote
+// Created") against the Deal from createDealForApplication, BEFORE the
+// (mocked) payment below runs. Falls back to creating the Deal first if it
+// somehow hasn't happened yet (e.g. Documents step was skipped). Guarded to
+// run only once, same as createDealForApplication.
+async function createQuoteForApplicationStep(flow, state, A) {
+  if (state.quoteId || !state.leadContact) return; // already quoted, or no lead captured
+  if (!state.dealId) await createDealForApplication(flow, state, A, () => {});
+  if (!state.dealId) return;
+  const companyName = (A.nc_target || A.name1 || "").trim();
+  const ServiceDetails = serviceDetailsFor(flow, A, state);
+  try {
+    const quoteRes = await createQuoteForApplication({
+      leadId: state.leadContact.leadId,
+      dealId: state.dealId,
+      customerId: state.customerId,
+      companyId: state.companyId,
+      customerName: state.leadContact.name,
+      companyName,
+      franchiseeId: state.leadContact.franchiseeId,
+      employeeId: state.leadContact.employeeId,
+      isIndividual: 1,
+      ServiceDetails,
+    });
+    state.quoteId = quoteRes?.data?.QuoteID || null;
+  } catch (err) {
+    console.error("Create-quote failed (non-fatal):", err);
+  }
+}
+
+// Opens the same customer-facing Quote review page the rest of the app already
+// links to (QuotesList.jsx, DashboardLayout.jsx, etc. — the "saved-preview"
+// link, opened in a new tab so the applicant's FlowRunner tab stays put) —
+// same encrypted-QuoteID link, same secret. That page already has everything
+// a payment step here would otherwise have to duplicate: showing the quote,
+// Accept Terms & Conditions, Approve (its own OTP verification, keyed to the
+// QuoteID) or Decline with a reason, and — on approval — the real Easebuzz
+// payment link via this same backend's /initiate endpoint. Nothing left for
+// FlowRunner to do once the Quote exists.
+//
+// `tab` is an already-open window (see doPay) — the Quote itself is only
+// known after an async createQuoteForApplicationStep() call, and calling
+// window.open() only after an await gets silently popup-blocked by most
+// browsers (it's no longer seen as a direct result of the click). Opening a
+// blank tab synchronously in the click handler, then navigating it here once
+// the Quote exists, avoids that.
+function openQuoteForApproval(state, tab) {
+  if (!state.quoteId) {
+    if (tab && !tab.closed) tab.close();
+    return;
+  }
+  const secret = import.meta.env.VITE_QUOTE_LINK_SECRET || "q3!9fKs7@pLzXr84$nmYtB!cVZdQ3";
+  const encrypted = CryptoJS.AES.encrypt(String(state.quoteId), secret).toString();
+  const url = `${import.meta.env.VITE_CLIENT_BASE_URL}/quotes/saved-preview/${encodeURIComponent(encrypted)}`;
+  if (tab && !tab.closed) {
+    tab.location.href = url;
+  } else {
+    // Fallback (e.g. the synchronous open above was itself blocked) — best
+    // effort, may still get blocked since we're past the click by now.
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}
+
+async function doPay(flow, state, bump) {
   const f = feeLines(flow, state.answers);
   state.__paying = true;
   bump();
+  // Opened synchronously, still inside the click's call stack — see
+  // openQuoteForApproval() for why this can't wait until after the Quote
+  // creation call below.
+  const approvalTab = window.open("", "_blank");
+  await createQuoteForApplicationStep(flow, state, state.answers);
+  openQuoteForApproval(state, approvalTab);
   setTimeout(() => {
     const id = newApplicationId(flow.code);
     state.submitted = { id, service: state.serviceType, date: today(), amount: rupee(f.total) };
@@ -373,27 +710,349 @@ function doPay(flow, state, bump) {
   }, 1100);
 }
 
+const LEAD_LANGUAGES = [
+  { label: "English", value: "english" }, { label: "Hindi", value: "hindi" },
+  { label: "Marathi", value: "marathi" }, { label: "Tamil", value: "tamil" },
+  { label: "Telugu", value: "telugu" }, { label: "Gujarati", value: "gujarati" },
+  { label: "Bengali", value: "bengali" }, { label: "Kannada", value: "kannada" },
+  { label: "Malayalam", value: "malayalam" },
+];
+
+/* ---------------------------------------------------------------------------
+   Lead capture gate — shown once per flow session the first time the applicant
+   runs a "checking procedure" (name check / trademark search / GSTIN lookup).
+   Now a real sign-in, not just a form: the applicant verifies their mobile via
+   an emailed OTP (the website's existing login/signup — loginWithPhone() if
+   they already have an account, signupWithPhone() if this is their first —
+   both send the OTP by email, see AuthApi.js) before the check runs, so their
+   details are saved against a real, logged-in Customer account (not just an
+   anonymous Lead) from this very first step. A Lead is still raised the same
+   as before, for sales/CRM tracking, once sign-in succeeds. Whatever check the
+   applicant was trying to run resumes automatically right after.
+--------------------------------------------------------------------------- */
+function LeadCaptureModal({ state, bump }) {
+  const [states, setStates] = useState([]);
+  const [form, setForm] = useState({ name: "", mobile: "", email: "", country: "India", state: "", language: "" });
+  // phase: "intro" (why sign up) -> "details" (contact form) -> "otp" (verify code) -> "done" (auto-continues)
+  const [phase, setPhase] = useState("intro");
+  const [accountMode, setAccountMode] = useState("login"); // "login" (existing account) | "signup" (first time)
+  const [submitting, setSubmitting] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [error, setError] = useState("");
+  // True when sign-up hit "account already exists" — e.g. the email is already
+  // registered under a different mobile number. Surfaces a Sign In link instead
+  // of just leaving them stuck on a dead-end error.
+  const [accountExists, setAccountExists] = useState(false);
+  const [otpValues, setOtpValues] = useState(["", "", "", ""]);
+  const [timer, setTimer] = useState(30);
+
+  useEffect(() => {
+    getAllStates().then(setStates).catch(() => setStates([]));
+  }, []);
+
+  useEffect(() => {
+    if (phase !== "otp" || timer <= 0) return;
+    const id = setInterval(() => setTimer((t) => t - 1), 1000);
+    return () => clearInterval(id);
+  }, [phase, timer]);
+
+  // Once sign-in + Lead capture are both done, resume automatically — no extra
+  // click needed, same spirit as "after sign-in, proceed where it stopped".
+  useEffect(() => {
+    if (phase !== "done") return;
+    const t = setTimeout(() => finish(), 900);
+    return () => clearTimeout(t);
+  }, [phase]);
+
+  function set(k, v) {
+    setForm((f) => ({ ...f, [k]: v }));
+  }
+
+  function finish() {
+    const run = state.leadGate?.run;
+    state.leadGate = null;
+    bump();
+    run && run();
+  }
+
+  function closeModal() {
+    state.leadGate = null;
+    bump();
+  }
+
+  async function submitDetails(e) {
+    e.preventDefault();
+    if (!form.name.trim()) return setError("Please enter your name.");
+    if (!/^[6-9]\d{9}$/.test(form.mobile.trim())) return setError("Please enter a valid 10-digit mobile number.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return setError("Please enter a valid email — we'll send your verification code there.");
+    if (!form.country.trim()) return setError("Please enter your country.");
+    if (!form.state) return setError("Please select your state.");
+    if (!form.language) return setError("Please select your preferred language.");
+    setError("");
+    setAccountExists(false);
+    setSubmitting(true);
+    try {
+      // Try signing in first (in case they already have an account from an
+      // earlier application) — only fall back to creating one if this mobile
+      // number genuinely isn't on file yet.
+      let mode = "login";
+      try {
+        await loginWithPhone(form.mobile.trim());
+      } catch (err) {
+        if (/not found/i.test(err?.message || "")) {
+          mode = "signup";
+          await signupWithPhone(form.name.trim(), form.email.trim(), form.mobile.trim());
+        } else {
+          throw err;
+        }
+      }
+      setAccountMode(mode);
+      setOtpValues(["", "", "", ""]);
+      setTimer(30);
+      setPhase("otp");
+    } catch (err) {
+      const msg = err?.message || "Couldn't send a verification code. Please check your details and try again.";
+      setError(msg);
+      // Signup hit the backend's "Mobile OR Email already registered" guard —
+      // most likely this email is already on file under a different mobile
+      // number. Offer a way to switch to signing in instead of a dead end.
+      setAccountExists(/already exists/i.test(msg));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // Lets them retry as a sign-in: clears the mobile field (their existing
+  // account may be under a different number than the one just tried) and
+  // keeps name/email filled in.
+  function switchToSignIn() {
+    setError("");
+    setAccountExists(false);
+    set("mobile", "");
+  }
+
+  // Raises the Lead the same way the form used to (for sales/CRM tracking),
+  // now attributed to the just-verified Customer account. Non-blocking, same
+  // rationale as elsewhere: sign-in already succeeded, so a failure here
+  // (routing/CRM hiccup) shouldn't strand the applicant on this modal.
+  async function completeLeadCapture(user) {
+    if (user?.CustomerID) state.customerId = user.CustomerID;
+    try {
+      const assignment = await assignCustomer({ language: form.language, state: form.state, district: form.state });
+      const res = await createLead({
+        name: form.name.trim(),
+        state: form.state,
+        mobile: form.mobile.trim(),
+        email: form.email.trim(),
+        proposed_service: state.serviceType,
+        preferred_language: form.language,
+        lead_source: `startbusiness-${state.flowId}`,
+        franchiseeId: assignment?.franchiseeId,
+      });
+      state.leadContact = {
+        ...form,
+        leadId: res?.lead?.id || null,
+        franchiseeId: assignment?.franchiseeId || null,
+        employeeId: res?.assignedEmployeeId || null,
+      };
+    } catch (err) {
+      console.error("Lead capture failed (non-fatal — already signed in):", err);
+      state.leadContact = { ...form, leadId: null, franchiseeId: null, employeeId: null };
+    }
+    state.leadCaptured = true;
+    setPhase("done");
+  }
+
+  async function handleOtpChange(index, value) {
+    if (value.length > 1) return;
+    const next = [...otpValues];
+    next[index] = value;
+    setOtpValues(next);
+    if (value && index < 3) document.getElementById(`gate-otp-${index + 1}`)?.focus();
+    if (index === 3 && value && next.every((v) => v.length === 1)) {
+      setIsVerifying(true);
+      setError("");
+      try {
+        const tokenData = await verifyOtp(form.mobile.trim(), next.join(""));
+        if (tokenData?.token) {
+          localStorage.setItem("token", tokenData.token);
+          notifyTokenSet();
+        }
+        if (tokenData?.user) setSecureItem("user", JSON.stringify(tokenData.user));
+        await completeLeadCapture(tokenData?.user);
+      } catch (err) {
+        setError(err?.message || "That code didn't match. Please try again.");
+        setOtpValues(["", "", "", ""]);
+        document.getElementById("gate-otp-0")?.focus();
+      } finally {
+        setIsVerifying(false);
+      }
+    }
+  }
+
+  // The account now exists either way (login found it, or signup just created
+  // it) — always resend via login, since a second signupWithPhone() call would
+  // hit the backend's "account already exists" guard.
+  async function handleResend() {
+    if (timer > 0) return;
+    setError("");
+    try {
+      await loginWithPhone(form.mobile.trim());
+      setTimer(30);
+    } catch (err) {
+      setError(err?.message || "Couldn't resend the code.");
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+        <button
+          type="button"
+          onClick={closeModal}
+          aria-label="Close"
+          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl leading-none"
+        >
+          &times;
+        </button>
+        {phase === "intro" && (
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Sign up to view your results</h3>
+            <p className="text-sm text-gray-600 mb-5">
+              Sign up to see your result — quick mobile verification, and your application stays saved to your account.
+            </p>
+            <button
+              type="button"
+              onClick={() => setPhase("details")}
+              className="w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold"
+            >
+              Sign Up
+            </button>
+          </div>
+        )}
+        {phase === "done" && (
+          <Note variant="ok" title="Signed in!" body="Continuing with your check now." />
+        )}
+        {phase === "otp" && (
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Verify it's you</h3>
+            <p className="text-xs text-gray-500 mb-4">
+              {accountMode === "login" ? "Welcome back — " : ""}We've emailed a 4-digit code to <b>{form.email}</b>.
+            </p>
+            <div className="flex gap-3 justify-center mb-3">
+              {[0, 1, 2, 3].map((i) => (
+                <input
+                  key={i}
+                  id={`gate-otp-${i}`}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={otpValues[i]}
+                  disabled={isVerifying}
+                  onChange={(e) => handleOtpChange(i, e.target.value.replace(/\D/g, ""))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Backspace" && !otpValues[i] && i > 0) document.getElementById(`gate-otp-${i - 1}`)?.focus();
+                  }}
+                  className="w-12 h-12 text-center text-lg font-semibold border-2 border-gray-200 rounded-lg focus:border-blue-400 focus:outline-none"
+                />
+              ))}
+            </div>
+            {isVerifying && <p className="text-xs text-blue-600 text-center mb-2">Verifying…</p>}
+            <ErrorText msg={error} />
+            <p className="text-xs text-gray-500 text-center mt-3">
+              {timer > 0 ? (
+                `Resend code in 00:${String(timer).padStart(2, "0")}`
+              ) : (
+                <button type="button" onClick={handleResend} className="text-blue-600 font-semibold hover:underline">Resend code</button>
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={() => { setPhase("details"); setOtpValues(["", "", "", ""]); setError(""); }}
+              className="mt-3 w-full text-xs text-gray-400 hover:text-gray-600"
+            >
+              ← Use a different number
+            </button>
+          </div>
+        )}
+        {phase === "details" && (
+          <form onSubmit={submitDetails}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Sign in to check that…</h3>
+            <p className="text-xs text-gray-500 mb-4">We'll verify your mobile with a code emailed to you, so your application is saved to your own account.</p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name<span className="text-red-500 ml-0.5">*</span></label>
+                <input className={inputCls()} value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Your full name" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mobile<span className="text-red-500 ml-0.5">*</span></label>
+                <input
+                  className={inputCls()}
+                  value={form.mobile}
+                  onChange={(e) => set("mobile", e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  placeholder="10-digit mobile number"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email<span className="text-red-500 ml-0.5">*</span></label>
+                <input className={inputCls()} type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="you@example.com" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Country<span className="text-red-500 ml-0.5">*</span></label>
+                <input className={inputCls()} value={form.country} onChange={(e) => set("country", e.target.value)} placeholder="India" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">State<span className="text-red-500 ml-0.5">*</span></label>
+                <select className={inputCls()} value={form.state} onChange={(e) => set("state", e.target.value)}>
+                  <option value="">Select State</option>
+                  {states.map((s) => <option key={s.id || s.state_code || s.state_name} value={s.state_name}>{s.state_name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Language<span className="text-red-500 ml-0.5">*</span></label>
+                <select className={inputCls()} value={form.language} onChange={(e) => set("language", e.target.value)}>
+                  <option value="">Select Language</option>
+                  {LEAD_LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+                </select>
+              </div>
+            </div>
+            <ErrorText msg={error} />
+            {accountExists && (
+              <button type="button" onClick={switchToSignIn} className="mt-1 text-xs text-blue-600 font-semibold hover:underline">
+                Already have an account? Sign in instead
+              </button>
+            )}
+            <button type="submit" disabled={submitting} className="mt-4 w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-60">
+              {submitting ? "Signing up…" : "Sign Up"}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ---------------------------------------------------------------------------
    Generic field-list body
 --------------------------------------------------------------------------- */
-function FieldsBody({ step, A, errors, setAnswer, state, bump }) {
+function FieldsBody({ step, A, errors, setAnswer, state, bump, liveStateNames }) {
   const fields = visibleFields(step, A);
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {fields.map((f, i) => (
         <div key={f.k || i} className={f.full || ["cards", "checks", "note", "textarea", "helpChoose", "suggestNames", "tmRisk"].includes(f.type) ? "sm:col-span-2" : ""}>
-          <Field f={f} A={A} errors={errors} setAnswer={setAnswer} state={state} bump={bump} />
+          <Field f={f} A={A} errors={errors} setAnswer={setAnswer} state={state} bump={bump} liveStateNames={liveStateNames} />
         </div>
       ))}
     </div>
   );
 }
 
-function Field({ f, A, errors, setAnswer, state, bump }) {
+function Field({ f, A, errors, setAnswer, state, bump, liveStateNames }) {
   if (f.type === "helpChoose") return <HelpChoose A={A} setAnswer={setAnswer} state={state} bump={bump} />;
   if (f.type === "suggestNames") return <SuggestNames A={A} setAnswer={setAnswer} state={state} bump={bump} />;
   if (f.type === "tmRisk") return <TmRiskNote A={A} state={state} />;
-  if (f.type === "gstinLookup") return <GstinLookupField f={f} A={A} errors={errors} setAnswer={setAnswer} />;
+  if (f.type === "gstinLookup") return <GstinLookupField f={f} A={A} errors={errors} setAnswer={setAnswer} state={state} bump={bump} />;
   if (f.type === "note") {
     const content = f.render ? f.render(A) : null;
     if (f.plainLabel) return <div className="font-semibold text-sm text-gray-800">{f.render(A)}</div>;
@@ -437,13 +1096,18 @@ function Field({ f, A, errors, setAnswer, state, bump }) {
     );
   }
   if (f.type === "select") {
+    // Every State picker (business address, GST location, existing-GST state)
+    // shares the exact STATES array reference — swap in the live, DB-backed
+    // list once it's loaded so the saved value is guaranteed to match
+    // `indiastates.state_name` (see liveStateNames fetch in FlowRunner).
+    const opts = f.opts === STATES && liveStateNames?.length ? [...liveStateNames, "Other"] : f.opts;
     return (
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">{f.label}<ReqMark f={f} A={A} /></label>
         {f.hint && <p className="text-xs text-gray-500 mb-1">{f.hint}</p>}
         <select className={inputCls(errors[f.k])} value={A[f.k] || ""} onChange={(e) => setAnswer(f.k, e.target.value)}>
           <option value="">Select…</option>
-          {f.opts.map((o) => <option key={o} value={o}>{o}</option>)}
+          {opts.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
         <ErrorText msg={errors[f.k]} />
       </div>
@@ -474,7 +1138,7 @@ function Field({ f, A, errors, setAnswer, state, bump }) {
    server-side GST verification proxy once a well-formed 15-char GSTIN is typed,
    so we don't ask the customer for details we can already look up ourselves.
 --------------------------------------------------------------------------- */
-function GstinLookupField({ f, A, errors, setAnswer }) {
+function GstinLookupField({ f, A, errors, setAnswer, state, bump }) {
   const [status, setStatus] = useState("idle"); // idle | loading | done | error
   const [message, setMessage] = useState("");
   const value = A[f.k] || "";
@@ -505,7 +1169,7 @@ function GstinLookupField({ f, A, errors, setAnswer }) {
     setAnswer("gst_verifiedStatus", "");
     setStatus("idle");
     setMessage("");
-    if (/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[A-Z0-9]{1}Z[A-Z0-9]{1}$/.test(v)) runLookup(v);
+    if (/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[A-Z0-9]{1}Z[A-Z0-9]{1}$/.test(v)) requireLead(state, bump, () => runLookup(v));
   }
 
   return (
@@ -672,16 +1336,43 @@ function DocsBody({ step, A, state, errors, bump }) {
   const groups = docGroups(step, A, state);
   const items = groups.flatMap((g) => g.items);
   const count = items.filter((it) => state.documents[it]).length;
-  function attach(it, file) {
+  const [uploading, setUploading] = useState({});
+  const [uploadError, setUploadError] = useState({});
+
+  async function attach(it, file) {
     if (!file) return;
-    const sizeKb = Math.max(1, Math.round(file.size / 1024));
-    state.documents[it] = { name: file.name, size: sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB` };
-    bump();
+    setUploadError((e) => ({ ...e, [it]: "" }));
+    setUploading((u) => ({ ...u, [it]: true }));
+    try {
+      const sizeKb = Math.max(1, Math.round(file.size / 1024));
+      const size = sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
+      const res = await uploadApplicationDocument({
+        file,
+        leadId: state.leadContact?.leadId,
+        companyId: state.companyId,
+        docLabel: it,
+      });
+      state.documents[it] = { name: file.name, size, url: res?.data?.url || null };
+      bump();
+    } catch (err) {
+      console.error("Document upload failed:", err);
+      setUploadError((e) => ({ ...e, [it]: "Upload failed. Please try again." }));
+    } finally {
+      setUploading((u) => ({ ...u, [it]: false }));
+    }
   }
-  function remove(it) { delete state.documents[it]; bump(); }
+  function remove(it) {
+    delete state.documents[it];
+    bump();
+    if (state.leadContact?.leadId) {
+      removeApplicationDocument({ leadId: state.leadContact.leadId, docLabel: it }).catch((err) => {
+        console.error("Document remove failed (non-fatal):", err);
+      });
+    }
+  }
   return (
     <div>
-      <Note variant="info" body={<>Files stay on your device in this prototype — nothing is uploaded. <b>{count} of {items.length}</b> attached.</>} />
+      <Note variant="info" body={<><b>{count} of {items.length}</b> document{items.length === 1 ? "" : "s"} attached.</>} />
       {groups.map((g, gi) => (
         <div key={g.title || gi} className={gi > 0 ? "mt-5" : "mt-4"}>
           {g.title && (
@@ -693,15 +1384,18 @@ function DocsBody({ step, A, state, errors, bump }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {g.items.map((it) => {
               const d = state.documents[it];
+              const isUploading = !!uploading[it];
               const label = g.title ? it.split(" – ")[0] : it;
               return (
-                <label key={it} className={`flex items-start gap-3 rounded-xl border-2 border-dashed p-4 cursor-pointer transition ${d ? "border-green-400 bg-green-50" : "border-gray-200 hover:border-blue-300"}`}>
+                <label key={it} className={`flex items-start gap-3 rounded-xl border-2 border-dashed p-4 transition ${isUploading ? "cursor-wait opacity-70" : "cursor-pointer"} ${d ? "border-green-400 bg-green-50" : "border-gray-200 hover:border-blue-300"}`}>
                   <span className={`flex-none w-9 h-9 rounded-lg border flex items-center justify-center ${d ? "text-green-600 border-green-200 bg-white" : "text-blue-500 border-gray-200 bg-white"}`}>
-                    {d ? "✓" : "⬆"}
+                    {isUploading ? "…" : d ? "✓" : "⬆"}
                   </span>
                   <span className="flex-1 min-w-0">
                     <b className="block text-sm">{label}</b>
-                    {d ? (
+                    {isUploading ? (
+                      <span className="block text-xs text-blue-600 mt-0.5">Uploading…</span>
+                    ) : d ? (
                       <>
                         <span className="block text-xs text-green-700 font-medium mt-0.5 truncate">{d.name} · {d.size}</span>
                         <button type="button" onClick={(e) => { e.preventDefault(); remove(it); }} className="text-xs text-gray-500 hover:text-red-600 mt-1">↺ Replace / remove</button>
@@ -709,8 +1403,9 @@ function DocsBody({ step, A, state, errors, bump }) {
                     ) : (
                       <span className="block text-xs text-gray-400 mt-0.5">Click to browse · PDF, JPG, PNG up to 5 MB</span>
                     )}
+                    {uploadError[it] && <span className="block text-xs text-red-600 mt-0.5">⚠ {uploadError[it]}</span>}
                   </span>
-                  <input type="file" className="hidden" onChange={(e) => attach(it, e.target.files?.[0])} />
+                  <input type="file" className="hidden" disabled={isUploading} onChange={(e) => attach(it, e.target.files?.[0])} />
                 </label>
               );
             })}
@@ -790,9 +1485,13 @@ function NameCheckBody({ A, state, errors, setAnswer, bump }) {
   function runCheck() {
     const name = (A.nc_target || "").trim();
     if (!name) return;
-    const key = name.toLowerCase();
-    state.nameChecks[key] = runNameCheckSim(name);
-    bump();
+    // Sign-in gate: the result itself (available / similar / taken) only shows
+    // once the applicant has verified their mobile — see requireLead().
+    requireLead(state, bump, () => {
+      const key = name.toLowerCase();
+      state.nameChecks[key] = runNameCheckSim(name);
+      bump();
+    });
   }
   if (!A.nc_target && names.length) A.nc_target = names[0];
   return (
@@ -956,10 +1655,12 @@ function TmSearchBody({ A, state, errors, bump }) {
   function run() {
     const name = (A.tm_name || "").trim();
     if (!name) return;
-    const results = runTrademarkSearchSim(name, A.tm_class);
-    state.tmSearch = { for: name.toLowerCase(), results, at: today() };
-    A.tm_searchDone = "Yes";
-    bump();
+    requireLead(state, bump, () => {
+      const results = runTrademarkSearchSim(name, A.tm_class);
+      state.tmSearch = { for: name.toLowerCase(), results, at: today() };
+      A.tm_searchDone = "Yes";
+      bump();
+    });
   }
   return (
     <div>
@@ -1111,7 +1812,7 @@ function feeLines(flow, A) {
   const gst = Math.round((service + addonTotal) * 0.18);
   return { service, addonLines, addonTotal, govt, gst, total: sub + gst };
 }
-function PaymentBody({ flow, A, state, onPay, onBack }) {
+function PaymentBody({ flow, A, state, bump, onPay, onBack }) {
   const f = feeLines(flow, A);
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-5">
@@ -1128,27 +1829,48 @@ function PaymentBody({ flow, A, state, onPay, onBack }) {
         <div className="text-xs font-bold uppercase text-blue-600 mt-3 mb-1">Taxes</div>
         <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span>GST @ 18% on professional fees</span><b>{rupee(f.gst)}</b></div>
         <div className="flex justify-between text-base font-bold pt-3"><span>Total Amount</span><span>{rupee(f.total)}</span></div>
-        <p className="text-xs text-gray-400 mt-3">🔒 Prototype only — no payment gateway is connected and no card details are collected.</p>
+        <p className="text-xs text-gray-400 mt-3">🔒 You'll review and approve this quote (with OTP verification) before any payment is taken.</p>
       </div>
       <div className="border border-gray-200 rounded-xl p-4">
         <h3 className="font-semibold mb-3">Payment method</h3>
         <div className="flex flex-col gap-2">
           {["UPI / QR", "Credit or Debit Card", "Net Banking", "Wallet"].map((m, i) => (
-            <OptionButton key={m} selected={(A.payMethod || "UPI / QR") === m} onClick={() => (A.payMethod = m)}>
+            <OptionButton key={m} selected={(A.payMethod || "UPI / QR") === m} onClick={() => { A.payMethod = m; bump(); }}>
               {m}<span className="block font-normal text-xs text-gray-500">{["Instant confirmation", "Visa, Mastercard, RuPay", "All major banks", "Paytm, PhonePe, Amazon Pay"][i]}</span>
             </OptionButton>
           ))}
         </div>
-        <div className="mt-4"><Note variant="info" body="A GST invoice is emailed as soon as the payment succeeds. Government fees are paid at actuals and shown separately." /></div>
-        <button onClick={onPay} className="w-full mt-4 py-2.5 rounded-lg bg-blue-600 text-white font-semibold text-sm">🔒 Pay {rupee(f.total)} &amp; Submit</button>
+        <div className="mt-4"><Note variant="info" body="Opens your quote in a new tab to accept, verify, and choose how to pay. A GST invoice is emailed as soon as the payment succeeds." /></div>
+        <button onClick={onPay} className="w-full mt-4 py-2.5 rounded-lg bg-blue-600 text-white font-semibold text-sm">🔒 Review &amp; Approve Quote →</button>
         <button onClick={onBack} className="w-full mt-2 py-2.5 rounded-lg text-gray-500 text-sm font-semibold hover:bg-gray-50">Back</button>
       </div>
     </div>
   );
 }
 
-function SuccessScreen({ state, onExit, onComplete, nextLabel }) {
+function SuccessScreen({ state, onExit, onComplete, nextLabel, onRetryPayment }) {
   const s = state.submitted || {};
+  const storageKey = `${STORAGE_KEY}_${state.flowId}`;
+  // A lead was captured (so a real Deal + Quote should exist) but the
+  // conversion never went through — surface that instead of a false success,
+  // and let the applicant retry from Payment without losing what they filled in.
+  const conversionFailed = !!state.leadContact && (!state.dealId || !state.quoteId);
+  if (conversionFailed) {
+    return (
+      <div className="max-w-xl mx-auto text-center bg-white border border-gray-200 rounded-xl shadow-sm p-8">
+        <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-600 text-3xl flex items-center justify-center mx-auto mb-4">⚠</div>
+        <h1 className="text-2xl font-bold text-gray-900">We couldn't process your application</h1>
+        <p className="text-gray-500 mt-2">
+          Something went wrong while setting up your payment. Nothing was charged — your answers are all still saved, so you can retry without re-entering anything.
+        </p>
+        <div className="flex justify-center mt-6">
+          <button onClick={onRetryPayment} className="px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold">
+            ↺ Retry Payment
+          </button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="max-w-xl mx-auto text-center bg-white border border-gray-200 rounded-xl shadow-sm p-8">
       <div className="w-16 h-16 rounded-full bg-green-100 text-green-600 text-3xl flex items-center justify-center mx-auto mb-4">✓</div>
@@ -1161,15 +1883,20 @@ function SuccessScreen({ state, onExit, onComplete, nextLabel }) {
         <div className="flex justify-between text-sm py-2"><span className="text-gray-500">Amount Paid</span><b>{s.amount || ""}</b></div>
       </div>
       {onComplete ? (
-        <div className="flex justify-center mt-6">
-          <button onClick={() => { removeSecureItem(STORAGE_KEY); onComplete(s); }} className="px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold">
+        <div className="flex items-center justify-center gap-3 mt-6">
+          <button onClick={onRetryPayment} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50">← Back</button>
+          {/* Doesn't clear storage: real payment/approval now happens on the Quote
+              page in the other tab, not synchronously here — the applicant may
+              still need to come back and finish it, so this application stays
+              recoverable until they explicitly start a new one. */}
+          <button onClick={() => onComplete(s)} className="px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold">
             {nextLabel || "Continue →"}
           </button>
         </div>
       ) : (
         <div className="flex gap-3 justify-center flex-wrap mt-6">
-          <button onClick={() => { removeSecureItem(STORAGE_KEY); onExit(); }} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold">+ Start Another Application</button>
-          <button onClick={() => { removeSecureItem(STORAGE_KEY); onExit(); }} className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold">Back to Requests</button>
+          <button onClick={() => { removeSecureItem(storageKey); onExit(); }} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold">+ Start Another Application</button>
+          <button onClick={onExit} className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold">Back to Requests</button>
         </div>
       )}
     </div>
