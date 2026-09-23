@@ -29,6 +29,19 @@ export const BIZ_TYPES = [
   "Partnership Firm", "Sole Proprietorship", "Other",
 ];
 
+// Maps a chosen business type to its real ServiceMaster.ServiceID (matched by exact
+// Name — the catalog has several near-duplicate/test entries per name, so anything
+// not an exact match is deliberately left out here). Used to tag the Business
+// Registration flow's Quote line item with a real ServiceID, since bulk service-price
+// lookups (on the Quote approval page) key off it and treat a missing one as ServiceID
+// 0 — no match, empty pricing. "Partnership Firm" has no matching catalog entry yet.
+export const BUSINESS_TYPE_SERVICE_ID = {
+  "Private Limited Company": 316,
+  "Limited Liability Partnership (LLP)": 340,
+  "One Person Company (OPC)": 317,
+  "Sole Proprietorship": 294,
+};
+
 export const ACTIVITIES = [
   "Product-based", "Service-based", "Trading", "Manufacturing", "Consultancy", "E-commerce",
   "Technology / IT", "Import / Export", "Education", "Healthcare", "Construction / Real Estate",
@@ -71,6 +84,10 @@ export function addressFields(prefix, label) {
     noteField(() => label, { plainLabel: true, full: true }),
     textField(p + "addr1", "Address Line 1", { full: true }),
     textField(p + "addr2", "Address Line 2", { full: true, required: false }),
+    // A company being registered here must have its registered office in
+    // India, so this is a single-option pick rather than free text — explicit
+    // and visible, but not an invitation to enter an invalid country.
+    pickField(p + "country", "Country", ["India"]),
     pickField(p + "state", "State", STATES),
     textField(p + "district", "District"),
     textField(p + "city", "City / Town"),
@@ -509,6 +526,10 @@ export function newcoBusinessSteps(A) {
 
 export const TRADEMARK_FLOW = {
   name: "Trademark Registration", code: "TM", price: 5999, govt: 4500,
+  // ServiceMaster has 3 exact-name "Trademark" duplicates (test data) — using
+  // the most recently created one (344) since there's no other way to tell
+  // which is "real".
+  serviceId: 344,
   steps: () => [
     { id: "nature", title: "Nature of Business", fields: [cardsField("tm_nature", "What is the nature of your business?", TM_NATURE, { cols: 3 })] },
     { id: "product", title: "Business / Product / Service Details", fields: [
@@ -563,6 +584,8 @@ export const TRADEMARK_FLOW = {
 
 export const MSME_FLOW = {
   name: "MSME / Udyam Registration", code: "MSME", price: 999, govt: 0,
+  // No matching ServiceMaster entry exists yet — its Quote line ships with
+  // ServiceID: null until one's created and added here.
   steps: () => [
     { id: "biz", title: "Business Details", fields: [
       textField("msme_name", "Enterprise Name", { full: true }),
@@ -609,6 +632,8 @@ export const MSME_FLOW = {
 
 export const IEC_FLOW = {
   name: "IEC Registration", code: "IEC", price: 2499, govt: 500,
+  // No matching ServiceMaster entry exists yet — its Quote line ships with
+  // ServiceID: null until one's created and added here.
   steps: (A) => {
     const existing = A.iec_has === "Yes";
     return [
@@ -651,6 +676,10 @@ export const FLOWS = {
   "newco": {
     name: "Business Registration", code: "BR", price: 6999, govt: 2100, kind: "New Company",
     steps: (A) => newcoBusinessSteps(A),
+    // Which real service this bills depends on the business type chosen at
+    // step 1 — see BUSINESS_TYPE_SERVICE_ID. Returns null for "Partnership
+    // Firm" / "Other" (no matching catalog entry yet).
+    serviceIdFor: (A) => BUSINESS_TYPE_SERVICE_ID[A.businessType] || null,
   },
   /* Standalone GST/Trademark/MSME/IEC registration, for a customer who lands on the
      "What would you like to register?" menu and picks one of those directly rather
@@ -661,6 +690,7 @@ export const FLOWS = {
      exists, which doesn't fit a brand-new signup). */
   "gst": {
     name: "GST Registration", code: "GST", price: 1499, govt: 0, kind: "New Company",
+    serviceId: 281, // ServiceMaster "GST Registration" — only exact-name match
     steps: (A) => {
       // "Existing business GST registration" already answers "Do you already hold a
       // GST registration?" — default it to Yes so the GSTIN detail fields below the
