@@ -5,6 +5,8 @@ import { lookupGstin } from "../../api/GstinLookup";
 import { assignCustomer } from "../../api/CustomerApi";
 import { createLead, createCustomerCompany, convertLeadToDeal, createQuoteForApplication, uploadApplicationDocument, removeApplicationDocument } from "../../api/LeadApi";
 import { getAllStates } from "../../api/States";
+import { createSupportTicket } from "../../api/SupportTickets/SupportTicket";
+import { fetchFranchiseeGstInfo, calcGstAmount, splitGst } from "../../utils/gstCalc";
 import { loginWithPhone, signupWithPhone, verifyOtp } from "../../api/AuthApi";
 import { notifyTokenSet } from "../../utils/authSession";
 import {
@@ -16,6 +18,8 @@ import {
 } from "./existingCompanyData";
 
 const STORAGE_KEY = "existingCompanyFlowState";
+// Payment-step option that skips the Quote approval tab for an advisor call instead.
+const CALLBACK_METHOD = "Request a Call Back";
 // Fields a minor owner/director isn't expected to have in their own name yet —
 // their nominee/guardian's matching fields are required instead (see validateStep).
 const MINOR_OPTIONAL_FIELDS = ["pan", "email", "mobile"];
@@ -96,15 +100,64 @@ function syncCachedUserCompany(companyId, companyName) {
   }
 }
 
+// Same idea for the Quote created at Payment: the dashboard's Quotes card
+// (DashboardLayout/QuotesList) reads user.Companies[].Quotes from the cached
+// sign-in payload, which predates this Quote. Patch it in and fire the same
+// "quotes-updated" event upsertQuote() uses, so it shows up without a re-login.
+function syncCachedUserQuote(companyId, companyName, quote) {
+  if (!companyId || !quote?.QuoteID) return;
+  syncCachedUserCompany(companyId, companyName);
+  try {
+    const raw = getSecureItem("user");
+    const user = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!user) return;
+    user.Companies = (user.Companies || []).map((c) => {
+      if (String(c.CompanyID) !== String(companyId)) return c;
+      const quotes = Array.isArray(c.Quotes) ? c.Quotes : [];
+      if (quotes.some((q) => String(q.QuoteID) === String(quote.QuoteID))) return c;
+      return { ...c, Quotes: [...quotes, quote] };
+    });
+    setSecureItem("user", JSON.stringify(user));
+    window.dispatchEvent(new Event("quotes-updated"));
+  } catch (err) {
+    console.error("Couldn't update cached user quotes (non-fatal):", err);
+  }
+}
+
 // Once the applicant has entered real director/company details (the
 // Directors/Shareholders step), create/link their Customer + Company records.
 // No deal is created here — that stays gated behind convert-to-deal, once
 // service details are known. Non-blocking: failure never stops the applicant
 // from continuing, same rationale as lead capture (requireLead above).
-function syncCustomerCompany(state, A, bump) {
-  if (state.companyId || !state.leadContact) return; // already synced, or no contact captured yet
-  const companyName = (A.nc_target || A.name1 || "").trim();
-  if (!companyName) return;
+// Company/Business name to register under — each flow's own field, since
+// only `newco` asks it via the name-check step (nc_target/name1). Falls back
+// to that same pair for any flow that doesn't declare companyNameFor, so
+// nothing here changes for newco itself.
+function resolveCompanyName(flow, A) {
+  if (typeof flow?.companyNameFor === "function") return (flow.companyNameFor(A) || "").trim();
+  return (A.nc_target || A.name1 || "").trim();
+}
+// Address fields' key prefix for this flow's own addressFields() step (e.g.
+// "gst" -> gst_addr1/gst_state/..., "msme" -> msme_addr1/msme_state/...).
+// `newco`'s own address step is unprefixed (addressFields("", ...)), so the
+// default ("") keeps that flow reading the same A.addr1/A.state it always has.
+function resolveAddress(flow, A, leadContact) {
+  const p = flow?.addressPrefix ? flow.addressPrefix + "_" : "";
+  return {
+    country: A[p + "country"] || leadContact?.country,
+    state: A[p + "state"] || leadContact?.state,
+    district: A[p + "district"],
+    city: A[p + "city"],
+    pincode: A[p + "pincode"],
+    addressLine1: A[p + "addr1"],
+    addressLine2: A[p + "addr2"],
+  };
+}
+
+function syncCustomerCompany(state, A, bump, flow) {
+  if (state.companyId || !state.leadContact) return Promise.resolve(); // already synced, or no contact captured yet
+  const companyName = resolveCompanyName(flow, A);
+  if (!companyName) return Promise.resolve();
   // Directors/Shareholders entered on this same step — each maps to a
   // company_directors row (see createCustomerAndCompanyOnly on the backend).
   const directors = state.owners.map((o) => ({
@@ -122,7 +175,7 @@ function syncCustomerCompany(state, A, bump) {
     isMinor: isMinor(o.dob),
     nominee: isMinor(o.dob) ? o.nominee : null,
   }));
-  createCustomerCompany({
+  return createCustomerCompany({
     leadId: state.leadContact.leadId,
     customer: {
       name: state.leadContact.name,
@@ -137,20 +190,15 @@ function syncCustomerCompany(state, A, bump) {
       name: companyName,
       existingCompanyId: state.companyId,
       // Business Type / Activity steps — closest matching Company columns.
+      // Only newco asks these under these exact keys; other flows leave them
+      // null, same as ServiceID/StateID fields those flows don't collect.
       constitutionCategory: A.businessType,
       sector: A.activity,
       businessNature: A.activityDesc,
-      // AI Business Objective & NIC Code step.
+      // AI Business Objective & NIC Code step (newco only).
       nicCode: A.br_nicCode,
       businessObjective: A.br_objective,
-      // Business Address step (addressFields("", ...) — unprefixed keys).
-      country: A.country || state.leadContact.country,
-      state: A.state || state.leadContact.state,
-      district: A.district,
-      city: A.city,
-      pincode: A.pincode,
-      addressLine1: A.addr1,
-      addressLine2: A.addr2,
+      ...resolveAddress(flow, A, state.leadContact),
       directors,
     },
     franchiseeId: state.leadContact.franchiseeId,
@@ -158,6 +206,13 @@ function syncCustomerCompany(state, A, bump) {
     .then((res) => {
       state.customerId = res?.data?.customerId || null;
       state.companyId = res?.data?.companyId || null;
+      // Auto sign-in — the backend only returns a token when it just created
+      // this Customer (the Details step has no OTP).
+      if (res?.data?.token) {
+        localStorage.setItem("token", res.data.token);
+        if (res.data.user) setSecureItem("user", JSON.stringify(res.data.user));
+        notifyTokenSet();
+      }
       syncCachedUserCompany(state.companyId, companyName);
       bump();
     })
@@ -239,6 +294,14 @@ function validateStep(step, A, state) {
     if (items.includes(msmeItem) && !state.documents[msmeItem]) {
       errors.__docs = "MSME / Startup certificate is required since you said you have MSME (Udyam) or Startup India registration — upload it to continue";
     }
+  } else if (step.type === "leadDetails") {
+    const lf = state.leadForm || {};
+    if (!(lf.name || "").trim()) errors.lead_name = "Please enter your name.";
+    if (!/^[6-9]\d{9}$/.test((lf.mobile || "").trim())) errors.lead_mobile = "Please enter a valid 10-digit mobile number.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((lf.email || "").trim())) errors.lead_email = "Please enter a valid email.";
+    if (!(lf.country || "").trim()) errors.lead_country = "Please enter your country.";
+    if (!lf.state) errors.lead_state = "Please select your state.";
+    if (!lf.language) errors.lead_language = "Please select your preferred language.";
   } else if (step.type === "namecheck") {
     if (!nameCheckIsCurrent(A, state)) errors.__namecheck = "Check name availability to continue";
   } else if (step.type === "objective") {
@@ -327,7 +390,7 @@ const inputCls = (bad) =>
     bad ? "border-red-400 bg-red-50" : "border-gray-200"
   }`;
 
-export default function FlowRunner({ flowId, initialSet, onExit, onComplete, homeLabel, nextLabel }) {
+export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onSkip, homeLabel, nextLabel }) {
   // Namespaced per flowId — this same FlowRunner backs every entry in FLOWS
   // (New Company, GST, Trademark, MSME, IEC, Existing Company, ...). A single
   // shared key here would let starting/resuming one flow silently wipe
@@ -349,6 +412,7 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, hom
   // Fetching the real list once and swapping it in removes that whole class
   // of mismatch — same source of truth the admin/associate side already uses.
   const [liveStateNames, setLiveStateNames] = useState(null);
+  const [leadSaving, setLeadSaving] = useState(false);
   useEffect(() => {
     getAllStates()
       .then((rows) => {
@@ -381,18 +445,14 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, hom
   const total = steps.length - 1; // success not counted
   const shown = Math.min(stepIndex + 1, total);
   const pct = total > 1 ? Math.round((Math.min(stepIndex, total - 1) / (total - 1)) * 100) : 0;
-  // Once Documents is actually completed (not just reached — the required
-  // document(s) must be uploaded), let the applicant jump straight to account
-  // setup / the dashboard instead of grinding through Additional Registrations,
-  // Review and Payment right now — they can always come back and finish this
-  // application later. Every step before Documents is already guaranteed valid
-  // by this point, since goNext() never advances past a step that fails
-  // validateStep() — Documents itself is the one step the "Skip" button could
-  // otherwise bypass without ever being validated.
+  // From the moment Documents is reached (uploads optional for this), let the
+  // applicant jump straight to the dashboard (onSkip) instead of
+  // grinding through Documents, Additional Registrations, Review and Payment
+  // right now — they can always come back and finish this application later.
+  // Every step before Documents is already guaranteed valid by this point,
+  // since goNext() never advances past a step that fails validateStep().
   const docsIndex = steps.findIndex((s) => s.type === "docs");
-  const docsStep = docsIndex !== -1 ? steps[docsIndex] : null;
-  const docsComplete = !!docsStep && !validateStep(docsStep, A, state).__docs;
-  const canSkipToDashboard = !!onComplete && docsIndex !== -1 && stepIndex >= docsIndex && docsComplete;
+  const canSkipToDashboard = !!onSkip && docsIndex !== -1 && stepIndex >= docsIndex;
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -407,18 +467,53 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, hom
       return;
     }
     errorsRef.current = {};
-    if (step.type === "owners") {
-      // Deal creation needs the Customer/Company this same step just synced (for
-      // existingCustomerId/existingCompanyId) — chain it after that sync resolves,
-      // rather than waiting for Documents, so a Deal already exists well before
-      // the applicant gets there. syncCustomerCompany() returns undefined (not a
-      // promise) whenever the Customer/Company was already synced on an earlier
-      // pass through this step — that's not a failure, so still attempt the Deal
-      // afterward either way; createDealForApplication() has its own guard against
-      // creating a second one.
-      const synced = syncCustomerCompany(state, A, bump);
-      const afterSync = synced && typeof synced.then === "function" ? synced : Promise.resolve();
-      afterSync.then(() => createDealForApplication(flow, state, A, bump));
+    // Details step — no OTP; Continue itself raises the Lead from the entered
+    // details, then advances once that's done (Customer/Company sync below
+    // needs leadContact.leadId).
+    if (step.type === "leadDetails") {
+      if (leadSaving) return;
+      setLeadSaving(true);
+      captureLeadDetails(state).finally(() => {
+        setLeadSaving(false);
+        state.stepIndex = Math.min(state.stepIndex + 1, steps.length - 1);
+        bump();
+      });
+      return;
+    }
+    // Deal creation needs the Customer/Company this same step just synced (for
+    // existingCustomerId/existingCompanyId) — chain it after that sync resolves,
+    // rather than waiting for Documents, so a Deal already exists well before
+    // the applicant gets there. syncCustomerCompany() returns undefined (not a
+    // promise) whenever the Customer/Company was already synced on an earlier
+    // pass through this step — that's not a failure, so still attempt the Deal
+    // afterward either way; createDealForApplication() has its own guard against
+    // creating a second one.
+    //
+    // newco has a dedicated "owners" step to key this off. GST/Trademark/MSME/
+    // IEC (flow.autoLeadGate — see the lead-gate effect below) have no such
+    // step, so attempt this after every step instead: both calls no-op until
+    // resolveCompanyName(flow, A) actually has something (that flow's own name
+    // field), so this just fires as soon as it's available, whichever step
+    // that turns out to be for each flow.
+    //
+    // flow.convertAtStep (e.g. GST's Business Location) narrows this to one
+    // step: Customer → Company → Deal run in order there, and Continue waits
+    // for them (that's also where the applicant gets signed in).
+    if (flow.convertAtStep) {
+      if (step.id === flow.convertAtStep) {
+        if (leadSaving) return;
+        setLeadSaving(true);
+        syncCustomerCompany(state, A, bump, flow)
+          .then(() => createDealForApplication(flow, state, A, bump))
+          .finally(() => {
+            setLeadSaving(false);
+            state.stepIndex = Math.min(state.stepIndex + 1, steps.length - 1);
+            bump();
+          });
+        return;
+      }
+    } else if (step.type === "owners" || flow.autoLeadGate) {
+      syncCustomerCompany(state, A, bump, flow).then(() => createDealForApplication(flow, state, A, bump));
     }
     state.stepIndex = Math.min(state.stepIndex + 1, steps.length - 1);
     bump();
@@ -508,8 +603,9 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, hom
               <h2 className="text-xl font-semibold text-gray-900 mt-1">{step.title}</h2>
             </div>
 
+            {step.type === "leadDetails" && <LeadDetailsBody state={state} errors={errorsRef.current} bump={bump} />}
             {step.type === "review" && <ReviewBody flowId={flowId} A={A} state={state} errors={errorsRef.current} onConfirm={(v) => { state.confirmed = v; bump(); }} onJump={jumpTo} />}
-            {step.type === "payment" && <PaymentBody flow={flow} A={A} state={state} bump={bump} onPay={() => doPay(flow, state, bump)} onBack={goBack} />}
+            {step.type === "payment" && <PaymentBody flow={flow} A={A} state={state} bump={bump} onPay={() => doPay(flow, state, bump)} onCallback={() => doCallback(flow, state, bump)} onBack={goBack} />}
             {step.type === "owners" && <OwnersBody A={A} state={state} errors={errorsRef.current} bump={bump} />}
             {step.type === "docs" && <DocsBody step={step} A={A} state={state} errors={errorsRef.current} bump={bump} />}
             {step.type === "namecheck" && <NameCheckBody A={A} state={state} errors={errorsRef.current} setAnswer={setAnswer} bump={bump} />}
@@ -525,12 +621,12 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, hom
                 <button onClick={goBack} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50">← Back</button>
                 <div className="flex items-center gap-3">
                   {canSkipToDashboard && (
-                    <button onClick={() => onComplete()} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-500 hover:bg-gray-50">
-                      Skip for now — set up your account
+                    <button onClick={() => onSkip()} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-500 hover:bg-gray-50">
+                      Skip for now — go to dashboard
                     </button>
                   )}
-                  <button onClick={goNext} className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700">
-                    {step.type === "review" ? "Proceed to Payment →" : "Continue →"}
+                  <button onClick={goNext} disabled={leadSaving} className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60">
+                    {step.type === "review" ? "Proceed to Payment →" : leadSaving ? "Saving…" : "Continue →"}
                   </button>
                 </div>
               </div>
@@ -547,31 +643,21 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, hom
 // recomputed each time since addons on later steps (e.g. Additional
 // Registrations) can still change it right up to Payment.
 function serviceDetailsFor(flow, A, state) {
-  const f = feeLines(flow, A);
-  const addons = Array.isArray(A.additionalServices) ? A.additionalServices : [];
-  // Real ServiceMaster ServiceID for this line, when one exists (see
-  // existingCompanyData.js) — needed so the Quote's saved line item can
-  // actually be priced/approved on the Quote review page later, instead of
-  // getting ServiceID: null (and, from there, no matching pricing at all).
-  const serviceId = typeof flow.serviceIdFor === "function" ? flow.serviceIdFor(A) : flow.serviceId || null;
-  return [
-    {
-      serviceName: state.serviceType,
-      serviceId,
-      professionalFee: f.service,
-      governmentFee: f.govt,
-      gstAmount: f.gst,
-      total: f.service + f.govt + f.gst,
-    },
-    ...addons.map((name) => ({
-      serviceName: name,
-      serviceId: ADDON_SERVICE_ID[name] || null,
-      professionalFee: ADDON_PRICE[name] || 999,
-      governmentFee: 0,
-      gstAmount: 0,
-      total: ADDON_PRICE[name] || 999,
-    })),
-  ];
+  // One entry per line (main service + each addon), each carrying its own GST
+  // and CGST/SGST/IGST split — see feeLines(). serviceId is the real
+  // ServiceMaster ServiceID when one exists (see existingCompanyData.js), so
+  // the Quote's saved line item can be priced/approved on the Quote review page.
+  return feeLines(flow, A, state).lines.map((l) => ({
+    serviceName: l.name,
+    serviceId: l.serviceId,
+    professionalFee: l.professionalFee,
+    governmentFee: l.governmentFee,
+    gstAmount: l.gstAmount,
+    cgst: l.cgst,
+    sgst: l.sgst,
+    igst: l.igst,
+    total: l.total,
+  }));
 }
 
 // Once the applicant completes the Owners/Directors step (right after
@@ -589,7 +675,13 @@ function serviceDetailsFor(flow, A, state) {
 // carries the final, authoritative figures.
 async function createDealForApplication(flow, state, A, bump) {
   if (state.dealId || !state.leadContact) return; // already converted, or no lead captured
-  const companyName = (A.nc_target || A.name1 || "").trim();
+  const companyName = resolveCompanyName(flow, A);
+  // No name yet (e.g. a flow with no owners step — GST/Trademark/MSME/IEC —
+  // attempts this generically after every step, before its own name field is
+  // filled in). Nothing to convert to yet; the Payment-step fallback retries
+  // once one exists.
+  if (!companyName) return;
+  await ensureGstInfo(state).catch(() => {});
   const ServiceDetails = serviceDetailsFor(flow, A, state);
   try {
     const dealRes = await convertLeadToDeal({
@@ -609,8 +701,7 @@ async function createDealForApplication(flow, state, A, bump) {
         // Country is NOT NULL with no default on the backend's company table —
         // must be sent even when the company doesn't exist yet here (e.g. if
         // syncCustomerCompany hasn't created it for some reason).
-        country: A.country || state.leadContact.country,
-        state: A.state || state.leadContact.state,
+        ...resolveAddress(flow, A, state.leadContact),
       },
       franchiseeId: state.leadContact.franchiseeId,
       employeeId: state.leadContact.employeeId,
@@ -637,7 +728,8 @@ async function createQuoteForApplicationStep(flow, state, A) {
   if (state.quoteId || !state.leadContact) return; // already quoted, or no lead captured
   if (!state.dealId) await createDealForApplication(flow, state, A, () => {});
   if (!state.dealId) return;
-  const companyName = (A.nc_target || A.name1 || "").trim();
+  const companyName = resolveCompanyName(flow, A);
+  await ensureGstInfo(state).catch(() => {});
   const ServiceDetails = serviceDetailsFor(flow, A, state);
   try {
     const quoteRes = await createQuoteForApplication({
@@ -653,6 +745,15 @@ async function createQuoteForApplicationStep(flow, state, A) {
       ServiceDetails,
     });
     state.quoteId = quoteRes?.data?.QuoteID || null;
+    syncCachedUserQuote(state.companyId, companyName, {
+      QuoteID: state.quoteId,
+      CompanyID: state.companyId,
+      CustomerID: state.customerId,
+      QuoteStatus: 1, // "Quote Created" — same as the backend sets
+      PackageName: state.serviceType,
+      ServiceDetails: ServiceDetails.map((s) => ({ ...s, Total: s.total })),
+      CreatedDate: new Date().toISOString(),
+    });
   } catch (err) {
     console.error("Create-quote failed (non-fatal):", err);
   }
@@ -692,7 +793,6 @@ function openQuoteForApproval(state, tab) {
 }
 
 async function doPay(flow, state, bump) {
-  const f = feeLines(flow, state.answers);
   state.__paying = true;
   bump();
   // Opened synchronously, still inside the click's call stack — see
@@ -701,6 +801,7 @@ async function doPay(flow, state, bump) {
   const approvalTab = window.open("", "_blank");
   await createQuoteForApplicationStep(flow, state, state.answers);
   openQuoteForApproval(state, approvalTab);
+  const f = feeLines(flow, state.answers, state); // after the quote, so GST info is loaded
   setTimeout(() => {
     const id = newApplicationId(flow.code);
     state.submitted = { id, service: state.serviceType, date: today(), amount: rupee(f.total) };
@@ -710,6 +811,37 @@ async function doPay(flow, state, bump) {
   }, 1100);
 }
 
+// "Request a Call Back" payment option — same Quote as doPay (so the advisor
+// has the exact fee breakdown in front of them), but instead of opening it
+// for approval, raise a "callback" support ticket against it for the team to
+// follow up on. The ticket is non-fatal: the Quote itself (on the Deal) is
+// already enough for sales to pick this up.
+async function doCallback(flow, state, bump) {
+  if (state.__paying) return;
+  state.__paying = true;
+  bump();
+  await createQuoteForApplicationStep(flow, state, state.answers);
+  const f = feeLines(flow, state.answers, state); // after the quote, so GST info is loaded
+  if (state.quoteId || state.companyId) {
+    try {
+      await createSupportTicket({
+        category: "callback",
+        subject: `Call back request — ${state.serviceType}`,
+        description: `Requested from the ${state.serviceType} application's Payment step (quote total ${rupee(f.total)}).`,
+        priority: "medium",
+        quoteId: state.quoteId,
+        ...(state.companyId ? { companyId: state.companyId } : {}),
+      });
+    } catch (err) {
+      console.error("Call back ticket failed (non-fatal):", err);
+    }
+  }
+  state.submitted = { id: newApplicationId(flow.code), service: state.serviceType, date: today(), amount: rupee(f.total), callback: true };
+  state.__paying = false;
+  state.stepIndex = allSteps(state.flowId, state.answers).length - 1;
+  bump();
+}
+
 const LEAD_LANGUAGES = [
   { label: "English", value: "english" }, { label: "Hindi", value: "hindi" },
   { label: "Marathi", value: "marathi" }, { label: "Tamil", value: "tamil" },
@@ -717,6 +849,116 @@ const LEAD_LANGUAGES = [
   { label: "Bengali", value: "bengali" }, { label: "Kannada", value: "kannada" },
   { label: "Malayalam", value: "malayalam" },
 ];
+
+/* ---------------------------------------------------------------------------
+   Details — literal Step 1 for flows with no natural "checking procedure" to
+   gate a lead-capture modal behind (GST/Trademark/MSME/IEC — see
+   flow.autoLeadGate). Just a contact-details form, no OTP/sign-in: the
+   fields live on state.leadForm, validateStep() checks them, and the
+   wizard's own "Continue →" raises the Lead (captureLeadDetails) and moves on.
+--------------------------------------------------------------------------- */
+async function captureLeadDetails(state) {
+  const form = state.leadForm;
+  // Already raised on an earlier pass — just keep the contact details current.
+  if (state.leadCaptured && state.leadContact) {
+    state.leadContact = { ...state.leadContact, ...form };
+    return;
+  }
+  try {
+    const raw = getSecureItem("user");
+    const user = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (user?.CustomerID) state.customerId = user.CustomerID;
+  } catch { /* not signed in — fine */ }
+  try {
+    const assignment = await assignCustomer({ language: form.language, state: form.state, district: form.state });
+    const res = await createLead({
+      name: form.name.trim(),
+      state: form.state,
+      mobile: form.mobile.trim(),
+      email: form.email.trim(),
+      proposed_service: state.serviceType,
+      preferred_language: form.language,
+      lead_source: `startbusiness-${state.flowId}`,
+      franchiseeId: assignment?.franchiseeId,
+    });
+    state.leadContact = {
+      ...form,
+      leadId: res?.lead?.id || null,
+      franchiseeId: assignment?.franchiseeId || null,
+      employeeId: res?.assignedEmployeeId || null,
+    };
+  } catch (err) {
+    console.error("Lead capture failed (non-fatal):", err);
+    state.leadContact = { ...form, leadId: null, franchiseeId: null, employeeId: null };
+  }
+  state.leadCaptured = true;
+}
+
+function LeadDetailsBody({ state, errors, bump }) {
+  const [states, setStates] = useState([]);
+  if (!state.leadForm) {
+    state.leadForm = state.leadContact
+      ? { name: state.leadContact.name || "", mobile: state.leadContact.mobile || "", email: state.leadContact.email || "", country: state.leadContact.country || "India", state: state.leadContact.state || "", language: state.leadContact.language || "" }
+      : { name: "", mobile: "", email: "", country: "India", state: "", language: "" };
+  }
+  const form = state.leadForm;
+
+  useEffect(() => {
+    getAllStates().then(setStates).catch(() => setStates([]));
+  }, []);
+
+  function set(k, v) {
+    form[k] = v;
+    delete errors["lead_" + k];
+    bump();
+  }
+
+  return (
+    <div className="max-w-md space-y-3">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Name<span className="text-red-500 ml-0.5">*</span></label>
+        <input className={inputCls(errors.lead_name)} value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Your full name" />
+        <ErrorText msg={errors.lead_name} />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Mobile<span className="text-red-500 ml-0.5">*</span></label>
+        <input
+          className={inputCls(errors.lead_mobile)}
+          value={form.mobile}
+          onChange={(e) => set("mobile", e.target.value.replace(/\D/g, "").slice(0, 10))}
+          placeholder="10-digit mobile number"
+        />
+        <ErrorText msg={errors.lead_mobile} />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Email<span className="text-red-500 ml-0.5">*</span></label>
+        <input className={inputCls(errors.lead_email)} type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="you@example.com" />
+        <ErrorText msg={errors.lead_email} />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Country<span className="text-red-500 ml-0.5">*</span></label>
+        <input className={inputCls(errors.lead_country)} value={form.country} onChange={(e) => set("country", e.target.value)} placeholder="India" />
+        <ErrorText msg={errors.lead_country} />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">State<span className="text-red-500 ml-0.5">*</span></label>
+        <select className={inputCls(errors.lead_state)} value={form.state} onChange={(e) => set("state", e.target.value)}>
+          <option value="">Select State</option>
+          {states.map((s) => <option key={s.id || s.state_code || s.state_name} value={s.state_name}>{s.state_name}</option>)}
+        </select>
+        <ErrorText msg={errors.lead_state} />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Language<span className="text-red-500 ml-0.5">*</span></label>
+        <select className={inputCls(errors.lead_language)} value={form.language} onChange={(e) => set("language", e.target.value)}>
+          <option value="">Select Language</option>
+          {LEAD_LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+        </select>
+        <ErrorText msg={errors.lead_language} />
+      </div>
+    </div>
+  );
+}
 
 /* ---------------------------------------------------------------------------
    Lead capture gate — shown once per flow session the first time the applicant
@@ -1802,18 +2044,65 @@ function ReviewBody({ flowId, A, state, errors, onConfirm, onJump }) {
   );
 }
 
-function feeLines(flow, A) {
+// Fee breakdown, with GST worked out the same way as every other quote in the
+// app (utils/gstCalc.js): per line, 18% of professional (+ vendor) fee — never
+// on government fees — only when the franchisee is GST-registered and not on
+// the Composition scheme, split CGST+SGST for a same-state customer, else IGST.
+// state.gstInfo comes from ensureGstInfo(); until it's loaded (Payment step
+// display only) GST is shown as applicable — quote creation always awaits it.
+function feeLines(flow, A, state) {
+  const gstEligible = state?.gstInfo ? state.gstInfo.gstEligible : true;
+  const sellerState = state?.gstInfo?.state || "";
+  const buyerState = state?.leadContact?.state || "";
+  const line = (name, serviceId, professionalFee, governmentFee) => {
+    const gstAmount = calcGstAmount(professionalFee, 0, gstEligible);
+    const { cgst, sgst, igst } = splitGst(gstAmount, sellerState, buyerState);
+    return { name, serviceId, professionalFee, governmentFee, gstAmount, cgst, sgst, igst, total: professionalFee + governmentFee + gstAmount };
+  };
+  const serviceId = typeof flow.serviceIdFor === "function" ? flow.serviceIdFor(A) : flow.serviceId || null;
   const addons = Array.isArray(A.additionalServices) ? A.additionalServices : [];
-  const addonLines = addons.map((a) => [a, ADDON_PRICE[a] || 999]);
-  const service = flow.price;
-  const addonTotal = addonLines.reduce((s, l) => s + l[1], 0);
-  const govt = flow.govt;
-  const sub = service + addonTotal + govt;
-  const gst = Math.round((service + addonTotal) * 0.18);
-  return { service, addonLines, addonTotal, govt, gst, total: sub + gst };
+  const lines = [
+    line(state?.serviceType || flow.name, serviceId, flow.price, flow.govt),
+    ...addons.map((a) => line(a, ADDON_SERVICE_ID[a] || null, ADDON_PRICE[a] || 999, 0)),
+  ];
+  const sum = (k) => lines.reduce((s, l) => s + l[k], 0);
+  const addonLines = lines.slice(1).map((l) => [l.name, l.professionalFee]);
+  return {
+    lines,
+    service: flow.price,
+    addonLines,
+    addonTotal: addonLines.reduce((s, l) => s + l[1], 0),
+    govt: flow.govt,
+    gst: sum("gstAmount"),
+    cgst: sum("cgst"),
+    sgst: sum("sgst"),
+    igst: sum("igst"),
+    gstEligible,
+    total: sum("total"),
+  };
 }
-function PaymentBody({ flow, A, state, bump, onPay, onBack }) {
-  const f = feeLines(flow, A);
+
+// Load (once) whether this application's franchisee charges GST, and its state
+// for the CGST/SGST vs IGST split — see feeLines().
+async function ensureGstInfo(state) {
+  const franchiseeId = state.leadContact?.franchiseeId;
+  if (state.gstInfo || !franchiseeId) return;
+  state.gstInfo = await fetchFranchiseeGstInfo(franchiseeId);
+}
+const PAY_METHODS = [
+  ["UPI / QR", "Instant confirmation"],
+  ["Credit or Debit Card", "Visa, Mastercard, RuPay"],
+  ["Net Banking", "All major banks"],
+  ["Wallet", "Paytm, PhonePe, Amazon Pay"],
+  [CALLBACK_METHOD, "Our advisor will call you to go over the quote and payment"],
+];
+
+function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
+  useEffect(() => {
+    if (!state.gstInfo) ensureGstInfo(state).then(bump).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const f = feeLines(flow, A, state);
+  const wantsCallback = A.payMethod === CALLBACK_METHOD;
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-5">
       <div className="border border-gray-200 rounded-xl p-4">
@@ -1827,21 +2116,43 @@ function PaymentBody({ flow, A, state, bump, onPay, onBack }) {
         <div className="text-xs font-bold uppercase text-blue-600 mt-3 mb-1">Government fees</div>
         <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span>Statutory / filing fees{f.govt ? "" : " (none for this service)"}</span><b>{rupee(f.govt)}</b></div>
         <div className="text-xs font-bold uppercase text-blue-600 mt-3 mb-1">Taxes</div>
-        <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span>GST @ 18% on professional fees</span><b>{rupee(f.gst)}</b></div>
+        {!f.gstEligible ? (
+          <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span>GST (not applicable)</span><b>{rupee(0)}</b></div>
+        ) : f.igst > 0 ? (
+          <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span>IGST @ 18% on professional fees</span><b>{rupee(f.igst)}</b></div>
+        ) : f.cgst + f.sgst > 0 ? (
+          <>
+            <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span>CGST @ 9% on professional fees</span><b>{rupee(f.cgst)}</b></div>
+            <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span>SGST @ 9% on professional fees</span><b>{rupee(f.sgst)}</b></div>
+          </>
+        ) : (
+          <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span>GST @ 18% on professional fees</span><b>{rupee(f.gst)}</b></div>
+        )}
         <div className="flex justify-between text-base font-bold pt-3"><span>Total Amount</span><span>{rupee(f.total)}</span></div>
         <p className="text-xs text-gray-400 mt-3">🔒 You'll review and approve this quote (with OTP verification) before any payment is taken.</p>
       </div>
       <div className="border border-gray-200 rounded-xl p-4">
         <h3 className="font-semibold mb-3">Payment method</h3>
         <div className="flex flex-col gap-2">
-          {["UPI / QR", "Credit or Debit Card", "Net Banking", "Wallet"].map((m, i) => (
+          {PAY_METHODS.map(([m, sub]) => (
             <OptionButton key={m} selected={(A.payMethod || "UPI / QR") === m} onClick={() => { A.payMethod = m; bump(); }}>
-              {m}<span className="block font-normal text-xs text-gray-500">{["Instant confirmation", "Visa, Mastercard, RuPay", "All major banks", "Paytm, PhonePe, Amazon Pay"][i]}</span>
+              {m}<span className="block font-normal text-xs text-gray-500">{sub}</span>
             </OptionButton>
           ))}
         </div>
-        <div className="mt-4"><Note variant="info" body="Opens your quote in a new tab to accept, verify, and choose how to pay. A GST invoice is emailed as soon as the payment succeeds." /></div>
-        <button onClick={onPay} className="w-full mt-4 py-2.5 rounded-lg bg-blue-600 text-white font-semibold text-sm">🔒 Review &amp; Approve Quote →</button>
+        {wantsCallback ? (
+          <>
+            <div className="mt-4"><Note variant="info" body="We'll save your quote and one of our advisors will call you shortly. Nothing is charged now." /></div>
+            <button onClick={onCallback} disabled={state.__paying} className="w-full mt-4 py-2.5 rounded-lg bg-blue-600 text-white font-semibold text-sm disabled:opacity-60">
+              {state.__paying ? "Submitting…" : "📞 Request a Call Back →"}
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="mt-4"><Note variant="info" body="Opens your quote in a new tab to accept, verify, and choose how to pay. A GST invoice is emailed as soon as the payment succeeds." /></div>
+            <button onClick={onPay} className="w-full mt-4 py-2.5 rounded-lg bg-blue-600 text-white font-semibold text-sm">🔒 Review &amp; Approve Quote →</button>
+          </>
+        )}
         <button onClick={onBack} className="w-full mt-2 py-2.5 rounded-lg text-gray-500 text-sm font-semibold hover:bg-gray-50">Back</button>
       </div>
     </div>
@@ -1874,13 +2185,17 @@ function SuccessScreen({ state, onExit, onComplete, nextLabel, onRetryPayment })
   return (
     <div className="max-w-xl mx-auto text-center bg-white border border-gray-200 rounded-xl shadow-sm p-8">
       <div className="w-16 h-16 rounded-full bg-green-100 text-green-600 text-3xl flex items-center justify-center mx-auto mb-4">✓</div>
-      <h1 className="text-2xl font-bold text-gray-900">Application Submitted Successfully</h1>
-      <p className="text-gray-500 mt-2">Your application has been received and is being processed. We've emailed a confirmation with your next steps.</p>
+      <h1 className="text-2xl font-bold text-gray-900">{s.callback ? "Call Back Requested" : "Application Submitted Successfully"}</h1>
+      <p className="text-gray-500 mt-2">
+        {s.callback
+          ? "Thanks! Your application and quote are saved. One of our advisors will call you shortly to go over the quote and help you with payment."
+          : "Your application has been received and is being processed. We've emailed a confirmation with your next steps."}
+      </p>
       <div className="text-left border border-gray-200 rounded-lg p-4 mt-5">
         <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span className="text-gray-500">Service</span><b>{s.service || state.serviceType}</b></div>
         <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span className="text-gray-500">Application ID</span><b className="font-mono">{s.id || ""}</b></div>
         <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span className="text-gray-500">Submission Date</span><b>{s.date || today()}</b></div>
-        <div className="flex justify-between text-sm py-2"><span className="text-gray-500">Amount Paid</span><b>{s.amount || ""}</b></div>
+        <div className="flex justify-between text-sm py-2"><span className="text-gray-500">{s.callback ? "Quote Amount" : "Amount Paid"}</span><b>{s.amount || ""}</b></div>
       </div>
       {onComplete ? (
         <div className="flex items-center justify-center gap-3 mt-6">

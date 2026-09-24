@@ -553,6 +553,11 @@ export const TRADEMARK_FLOW = {
   // the most recently created one (344) since there's no other way to tell
   // which is "real".
   serviceId: 344,
+  // No "owners" step, and no address step at all here — see FlowRunner's
+  // autoLeadGate handling. Company/Customer address falls back entirely to
+  // the lead-capture modal's own country/state (no addressPrefix to read).
+  autoLeadGate: true,
+  companyNameFor: (A) => A.tm_ownerName,
   steps: () => [
     { id: "nature", title: "Nature of Business", fields: [cardsField("tm_nature", "What is the nature of your business?", TM_NATURE, { cols: 3 })] },
     { id: "product", title: "Business / Product / Service Details", fields: [
@@ -609,6 +614,10 @@ export const MSME_FLOW = {
   name: "MSME / Udyam Registration", code: "MSME", price: 999, govt: 0,
   // No matching ServiceMaster entry exists yet — its Quote line ships with
   // ServiceID: null until one's created and added here.
+  // No "owners" step — see FlowRunner's autoLeadGate handling.
+  autoLeadGate: true,
+  companyNameFor: (A) => A.msme_name,
+  addressPrefix: "msme",
   steps: () => [
     { id: "biz", title: "Business Details", fields: [
       textField("msme_name", "Enterprise Name", { full: true }),
@@ -657,6 +666,10 @@ export const IEC_FLOW = {
   name: "IEC Registration", code: "IEC", price: 2499, govt: 500,
   // No matching ServiceMaster entry exists yet — its Quote line ships with
   // ServiceID: null until one's created and added here.
+  // No "owners" step — see FlowRunner's autoLeadGate handling.
+  autoLeadGate: true,
+  companyNameFor: (A) => A.iec_bizname,
+  addressPrefix: "iec",
   steps: (A) => {
     const existing = A.iec_has === "Yes";
     return [
@@ -714,6 +727,18 @@ export const FLOWS = {
   "gst": {
     name: "GST Registration", code: "GST", price: 1499, govt: 0, kind: "New Company",
     serviceId: 281, // ServiceMaster "GST Registration" — only exact-name match
+    // No "owners" step here — Step 1 is Lead Details instead (type:
+    // "leadDetails", see FlowRunner's LeadDetailsBody), since a first-time
+    // "New business GST registration" applicant never hits a checking
+    // procedure to gate a lead-capture modal behind otherwise. Customer/
+    // Company + Deal creation attempt after every step for the same reason
+    // (see goNext()).
+    autoLeadGate: true,
+    companyNameFor: (A) => A.gst_bizname,
+    addressPrefix: "gst",
+    // Customer → Company → Deal (and auto sign-in) happen only on Continue
+    // from Business Location — see FlowRunner's goNext().
+    convertAtStep: "location",
     steps: (A) => {
       // "Existing business GST registration" already answers "Do you already hold a
       // GST registration?" — default it to Yes so the GSTIN detail fields below the
@@ -721,6 +746,7 @@ export const FLOWS = {
       // already know the answer to.
       if (A.gst_reason === "Existing business GST registration" && !A.gst_hasReg) A.gst_hasReg = "Yes";
       return [
+      { id: "lead", title: "Details", type: "leadDetails" },
       { id: "bizinfo", title: "Business Information", fields: [
         cardsField("gst_reason", "Why do you need GST registration?", ["New business GST registration", "Existing business GST registration", "Additional place of business", "Interstate business", "Other"], { cols: 2 }),
         textField("gst_bizname", "Legal Business Name", { full: true }),
@@ -766,9 +792,14 @@ export const FLOWS = {
       ];
     },
   },
-  "trademark": { ...TRADEMARK_FLOW, kind: "New Company" },
-  "msme": { ...MSME_FLOW, kind: "New Company" },
-  "iec": { ...IEC_FLOW, kind: "New Company" },
+  // Each prepends a "leadDetails" step (see FlowRunner's LeadDetailsBody) —
+  // done here, not inside TRADEMARK_FLOW/MSME_FLOW/IEC_FLOW's own steps()
+  // directly, since those are also reused as a plain step array elsewhere
+  // (concatenated into an Existing Company flow that already has its own
+  // lead-capture step/modal — see the .steps() calls further down).
+  "trademark": { ...TRADEMARK_FLOW, kind: "New Company", steps: () => [{ id: "lead", title: "Details", type: "leadDetails" }, ...TRADEMARK_FLOW.steps()] },
+  "msme": { ...MSME_FLOW, kind: "New Company", steps: () => [{ id: "lead", title: "Details", type: "leadDetails" }, ...MSME_FLOW.steps()] },
+  "iec": { ...IEC_FLOW, kind: "New Company", steps: (A) => [{ id: "lead", title: "Details", type: "leadDetails" }, ...IEC_FLOW.steps(A)] },
 
   "other-generic": {
     name: "Other Registration", code: "OTH", price: 2999, govt: 1000, kind: "Existing Company",
