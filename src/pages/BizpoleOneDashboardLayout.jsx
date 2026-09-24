@@ -11,6 +11,7 @@ import {
   Wrench,
   Receipt,
   LifeBuoy,
+  Gift,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
@@ -205,6 +206,22 @@ const BizpoleOneDashboardLayout = () => {
                 >
                   <LifeBuoy size={20} />
                   {!isCollapsed && <span>Customer supports</span>}
+                </NavLink>
+              </li>
+
+              {/* Refer & Earn */}
+              <li>
+                <NavLink
+                  to="/dashboard/bizpoleone/referrals"
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-3 rounded-lg font-medium transition-all ${isActive
+                      ? "bg-[#FFC42A] text-white shadow-inner"
+                      : "text-gray-600 hover:bg-gray-50"
+                    }`
+                  }
+                >
+                  <Gift size={20} />
+                  {!isCollapsed && <span>Refer &amp; Earn</span>}
                 </NavLink>
               </li>
             </ul>

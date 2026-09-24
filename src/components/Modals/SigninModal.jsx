@@ -5,12 +5,19 @@ import { motion, AnimatePresence } from "framer-motion";
 import { loginWithPhone, signupWithPhone, verifyOtp } from "../../api/AuthApi";
 import { setSecureItem } from "../../utils/secureStorage";
 import { notifyTokenSet } from "../../utils/authSession";
+import { clearReferralToken, getReferralToken } from "../../utils/referralAttribution";
 
 // Add a mode state for switching between sign-in and sign-up
 
-const SigninModal = ({ isOpen = true, onClose = () => { } }) => {
+const SigninModal = ({ isOpen = true, onClose = () => { }, initialMode = "signin" }) => {
   const navigate = useNavigate();
-  const [mode, setMode] = useState("signin"); // 'signin' or 'signup'
+  const [mode, setMode] = useState(initialMode); // 'signin' or 'signup'
+
+  // Re-apply the requested mode each time the modal is opened (e.g. "Create an account"
+  // from a referral landing page opens straight into sign-up).
+  useEffect(() => {
+    if (isOpen) setMode(initialMode === "signup" ? "signup" : "signin");
+  }, [isOpen, initialMode]);
   const [step, setStep] = useState(1);
   const [isVerifying, setIsVerifying] = useState(false);
   const [signedMessage, setSignedMessage] = useState("");
@@ -52,7 +59,9 @@ const SigninModal = ({ isOpen = true, onClose = () => { } }) => {
     }
     try {
       if (mode === "signup") {
-        await signupWithPhone(signupName, signupEmail, inputValue);
+        // Referral scan token (if any, unexpired) rides along; the server attributes the
+        // signup from it and ignores it if invalid — it never blocks signup.
+        await signupWithPhone(signupName, signupEmail, inputValue, getReferralToken());
       } else {
         await loginWithPhone(inputValue);
       }
@@ -104,6 +113,7 @@ const SigninModal = ({ isOpen = true, onClose = () => { } }) => {
             console.log(tokenData, "token");
             localStorage.setItem('token', tokenData.token);
             notifyTokenSet();
+            if (mode === "signup") clearReferralToken();
             setSignedMessage("Signed in successfully!");
           }
           if (tokenData && tokenData.user) {

@@ -15,7 +15,8 @@ import {
     ChevronRight,
     ChevronLeft,
     HelpCircle,
-    Building2
+    Building2,
+    Gift
 } from 'lucide-react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { getSecureItem } from '../utils/secureStorage';
@@ -52,6 +53,7 @@ const AssociateLayout = () => {
         { id: 'companies', path: '/associate/companies', icon: <Building2 className="w-5 h-5" />, label: 'Companies' },
         { id: 'receipts', path: '/associate/receipts', icon: <Receipt className="w-5 h-5" />, label: 'Receipts' },
         { id: 'explore-services', path: '/associate/explore-services', icon: <FileText className="w-5 h-5" />, label: 'Explore' },
+        { id: 'referrals', path: '/associate/referrals', icon: <Gift className="w-5 h-5" />, label: 'Refer & Earn' },
         // { id: 'invoices', path: '/associate/invoices', icon: <FileSpreadsheet className="w-5 h-5" />, label: 'Invoices' },
     ];
 
@@ -188,7 +190,7 @@ const AssociateLayout = () => {
             <main className="flex-1 overflow-y-auto">
                 <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-10">
                     <div className="flex items-center gap-4 flex-1 max-w-xl">
-                        {location.pathname !== '/associate/profile' && location.pathname !== '/associate/dashboard' && <div className="relative w-full">
+                        {location.pathname !== '/associate/profile' && location.pathname !== '/associate/dashboard' && location.pathname !== '/associate/referrals' && <div className="relative w-full">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                             <input
                                 type="text"

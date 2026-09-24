@@ -2,6 +2,7 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import AOS from "aos";
 import useAutoLogout from "./hooks/useAutoLogout";
+import useLegacyReferral from "./hooks/useLegacyReferral";
 
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -30,6 +31,7 @@ import BizpoleOneServices from "./pages/BizpoleOneServices";
 import BizpoleOneTasks from "./pages/BizpoleOneTasks";
 import Refunds from "./pages/Refunds";
 import SupportTickets from "./pages/SupportTickets";
+import Referrals from "./pages/Referrals";
 
 import ProfileLayout from "./pages/ProfileLayout";
 import ProfilePage from "./pages/ProfilePage";
@@ -82,11 +84,19 @@ import CompanyDetailView from "./pages/associate/CompanyDetailView";
 import AssociateReceipts from "./pages/associate/AssociateReceipts";
 import AssociateInvoices from "./pages/associate/AssociateInvoices";
 import ExploreServices from "./pages/associate/ExploreServices";
+import AssociateReferrals from "./pages/associate/AssociateReferrals";
+
+// Referral & Affiliate Programme (public + affiliate portal)
+import ReferralLanding from "./pages/ReferralLanding";
+import AffiliateLanding from "./pages/affiliate/AffiliateLanding";
+import AffiliateLayout from "./pages/affiliate/AffiliateLayout";
+import AffiliateDashboard from "./pages/affiliate/AffiliateDashboard";
 
 function App() {
   const location = useLocation();
 
   useAutoLogout();
+  useLegacyReferral();
 
   useEffect(() => {
     AOS.init({ duration: 1000 });
@@ -100,6 +110,8 @@ function App() {
     // "/existing-companies",
     "/associate",
     "/dashboard",
+    "/r/",
+    "/affiliate/dashboard",
   ];
 
   const hideLayout = hideLayoutPaths.some((path) =>
@@ -150,6 +162,14 @@ function App() {
           <Route path="/quiz" element={<Quiz />} />
           <Route path="/questions" element={<BusinessQuizWizard />} />
 
+          {/* Referral & Affiliate Programme */}
+          <Route path="/r/:code" element={<ReferralLanding />} />
+          <Route path="/affiliate" element={<AffiliateLanding />} />
+          {/* Affiliate portal: guarded by AffiliateLayout's own affiliateToken check, NOT ProtectedRoute */}
+          <Route path="/affiliate/dashboard" element={<AffiliateLayout />}>
+            <Route index element={<AffiliateDashboard />} />
+          </Route>
+
           {/* Profile */}
           <Route path="/profile" element={<ProfileLayout />}>
             <Route index element={<ProfilePage />} />
@@ -188,6 +208,7 @@ function App() {
                   <Route path="billing" element={<Invoiceprofile showRefundLink />} />
                   <Route path="refunds" element={<Refunds />} />
                   <Route path="support" element={<SupportTickets />} />
+                  <Route path="referrals" element={<Referrals />} />
                 </Route>
               </Route>
 
@@ -210,6 +231,7 @@ function App() {
                 <Route path="receipts" element={<AssociateReceipts />} />
                 <Route path="invoices" element={<AssociateInvoices />} />
                 <Route path="explore-services" element={<ExploreServices />} />
+                <Route path="referrals" element={<AssociateReferrals />} />
               </Route>
 
             </Route>

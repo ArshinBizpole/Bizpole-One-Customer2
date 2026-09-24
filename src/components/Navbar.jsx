@@ -10,6 +10,7 @@ export default function Navbar() {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showSignin, setShowSignin] = useState(false);
+  const [signinMode, setSigninMode] = useState("signin");
   const [hasToken, setHasToken] = useState(false);
 
   const navItems = [
@@ -21,7 +22,8 @@ export default function Navbar() {
 
   // Auto-open Signin Modal
   useEffect(() => {
-    if (location.state?.openSigninModal) {
+    if (location.state?.openSigninModal || location.state?.openSignupModal) {
+      setSigninMode(location.state?.openSignupModal ? "signup" : "signin");
       setShowSignin(true);
       window.history.replaceState({}, document.title);
     }
@@ -47,14 +49,8 @@ export default function Navbar() {
     };
   }, []);
 
-  // Referral tracking
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const ref = params.get("ref");
-    if (ref) {
-      localStorage.setItem("PartnerID", ref);
-    }
-  }, []);
+  // Legacy `?ref=` referral links are handled app-wide by useLegacyReferral (App.jsx) —
+  // they are resolved server-side into a scan token; nothing is copied into PartnerID.
 
   const handleNavigate = (path) => {
     navigate(path);
@@ -212,7 +208,11 @@ export default function Navbar() {
       {/* SIGNIN MODAL */}
       <SigninModal
         isOpen={showSignin}
-        onClose={() => setShowSignin(false)}
+        initialMode={signinMode}
+        onClose={() => {
+          setShowSignin(false);
+          setSigninMode("signin");
+        }}
       />
     </>
   );
