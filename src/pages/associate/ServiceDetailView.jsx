@@ -11,6 +11,7 @@ import { getSecureItem } from '../../utils/secureStorage';
 import jsPDF from 'jspdf';
 import DocumentCollectionTab from '../../components/Modals/DocumentationCollectionTab';
 import ServiceTaskListing from '../../components/associate/ServiceTaskListing';
+import { toCustomerServiceStatus } from '../../utils/orderStatus';
 
 // ── Separate component import ──
 
@@ -241,7 +242,7 @@ const ServiceDetailView = () => {
                                 <DataItem label="Service Name" value={service.ServiceName} />
                                 <DataItem label="Service Type" value={service.ServiceType} />
                                 <DataItem label="Item Name" value={service.ItemName} />
-                                <DataItem label="Service Status" value={service.ServiceStatus || 'pending'} />
+                                <DataItem label="Service Status" value={toCustomerServiceStatus(service.ServiceStatus)} />
                                 <DataItem label="Service Progress %" value={`${service.Progress || '80'}%`} />
                                 <DataItem label="Service End Date" value={service.EndDate ? format(new Date(service.EndDate), 'd MMM yyyy') : '-'} />
                                 <DataItem label="Connected Order (Order ID)" value={service.OrderID} isLink onClick={() => navigate(`/associate/orders/${service.OrderID}`)} />

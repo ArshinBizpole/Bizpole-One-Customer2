@@ -17,17 +17,40 @@
 
 export const YN = ["Yes", "No"];
 
+// Full list of Indian states + union territories, spelled to match
+// `indiastates.state_name` exactly (see LeadWebhookNormalizer.js's STATE_MAP on
+// the server, the canonical source for this spelling). Picking "Other" here
+// sends the literal string "Other" as the Company/Customer state — that never
+// matches a real indiastates row, so the Quote's StateID join comes back null
+// and the bulk service-price lookup on the Quote approval page silently
+// returns no pricing (data: []). Keeping this list complete (all 28 states +
+// 8 UTs) means a real applicant should never need "Other" for their own state.
 export const STATES = [
-  "Andhra Pradesh", "Assam", "Bihar", "Chhattisgarh", "Delhi", "Goa", "Gujarat", "Haryana",
-  "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra",
-  "Odisha", "Punjab", "Rajasthan", "Tamil Nadu", "Telangana", "Uttar Pradesh", "Uttarakhand",
-  "West Bengal", "Other",
+  "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar",
+  "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Goa",
+  "Gujarat", "Haryana", "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand", "Karnataka",
+  "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya",
+  "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
+  "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Other",
 ];
 
 export const BIZ_TYPES = [
   "Private Limited Company", "Limited Liability Partnership (LLP)", "One Person Company (OPC)",
   "Partnership Firm", "Sole Proprietorship", "Other",
 ];
+
+// Maps a chosen business type to its real ServiceMaster.ServiceID (matched by exact
+// Name — the catalog has several near-duplicate/test entries per name, so anything
+// not an exact match is deliberately left out here). Used to tag the Business
+// Registration flow's Quote line item with a real ServiceID, since bulk service-price
+// lookups (on the Quote approval page) key off it and treat a missing one as ServiceID
+// 0 — no match, empty pricing. "Partnership Firm" has no matching catalog entry yet.
+export const BUSINESS_TYPE_SERVICE_ID = {
+  "Private Limited Company": 316,
+  "Limited Liability Partnership (LLP)": 340,
+  "One Person Company (OPC)": 317,
+  "Sole Proprietorship": 294,
+};
 
 export const ACTIVITIES = [
   "Product-based", "Service-based", "Trading", "Manufacturing", "Consultancy", "E-commerce",
@@ -48,6 +71,19 @@ export const ADDON_PRICE = {
   "GST Registration": 1499, "Trademark Registration": 5999, "MSME / Udyam Registration": 999,
   "IEC Registration": 2499, "Professional Tax": 1299, "FSSAI": 2499, "Shops & Establishment": 1999,
   "Other": 999,
+};
+// Maps an addon picked on the "Additional Registrations" step to its real
+// ServiceMaster.ServiceID, same rationale as BUSINESS_TYPE_SERVICE_ID above —
+// an addon Quote line with no serviceId ships with ServiceID: null, and the
+// bulk service-price lookup (Quote approval page) treats that as no match
+// (empty pricing) for that line. Reuses the same IDs the standalone flows for
+// these services already carry (FLOWS.gst.serviceId, TRADEMARK_FLOW.serviceId).
+// MSME / IEC / Professional Tax / FSSAI / Shops & Establishment / Other have
+// no matching ServiceMaster entry yet — same as MSME_FLOW / IEC_FLOW above,
+// they're left out here and ship with ServiceID: null until one exists.
+export const ADDON_SERVICE_ID = {
+  "GST Registration": 281,
+  "Trademark Registration": 344,
 };
 
 export const TM_NATURE = ["Service-based", "Trading", "Manufacturing"];
@@ -71,6 +107,10 @@ export function addressFields(prefix, label) {
     noteField(() => label, { plainLabel: true, full: true }),
     textField(p + "addr1", "Address Line 1", { full: true }),
     textField(p + "addr2", "Address Line 2", { full: true, required: false }),
+    // A company being registered here must have its registered office in
+    // India, so this is a single-option pick rather than free text — explicit
+    // and visible, but not an invitation to enter an invalid country.
+    pickField(p + "country", "Country", ["India"]),
     pickField(p + "state", "State", STATES),
     textField(p + "district", "District"),
     textField(p + "city", "City / Town"),
@@ -509,6 +549,15 @@ export function newcoBusinessSteps(A) {
 
 export const TRADEMARK_FLOW = {
   name: "Trademark Registration", code: "TM", price: 5999, govt: 4500,
+  // ServiceMaster has 3 exact-name "Trademark" duplicates (test data) — using
+  // the most recently created one (344) since there's no other way to tell
+  // which is "real".
+  serviceId: 344,
+  // No "owners" step, and no address step at all here — see FlowRunner's
+  // autoLeadGate handling. Company/Customer address falls back entirely to
+  // the lead-capture modal's own country/state (no addressPrefix to read).
+  autoLeadGate: true,
+  companyNameFor: (A) => A.tm_ownerName,
   steps: () => [
     { id: "nature", title: "Nature of Business", fields: [cardsField("tm_nature", "What is the nature of your business?", TM_NATURE, { cols: 3 })] },
     { id: "product", title: "Business / Product / Service Details", fields: [
@@ -563,6 +612,12 @@ export const TRADEMARK_FLOW = {
 
 export const MSME_FLOW = {
   name: "MSME / Udyam Registration", code: "MSME", price: 999, govt: 0,
+  // No matching ServiceMaster entry exists yet — its Quote line ships with
+  // ServiceID: null until one's created and added here.
+  // No "owners" step — see FlowRunner's autoLeadGate handling.
+  autoLeadGate: true,
+  companyNameFor: (A) => A.msme_name,
+  addressPrefix: "msme",
   steps: () => [
     { id: "biz", title: "Business Details", fields: [
       textField("msme_name", "Enterprise Name", { full: true }),
@@ -609,6 +664,12 @@ export const MSME_FLOW = {
 
 export const IEC_FLOW = {
   name: "IEC Registration", code: "IEC", price: 2499, govt: 500,
+  // No matching ServiceMaster entry exists yet — its Quote line ships with
+  // ServiceID: null until one's created and added here.
+  // No "owners" step — see FlowRunner's autoLeadGate handling.
+  autoLeadGate: true,
+  companyNameFor: (A) => A.iec_bizname,
+  addressPrefix: "iec",
   steps: (A) => {
     const existing = A.iec_has === "Yes";
     return [
@@ -651,6 +712,10 @@ export const FLOWS = {
   "newco": {
     name: "Business Registration", code: "BR", price: 6999, govt: 2100, kind: "New Company",
     steps: (A) => newcoBusinessSteps(A),
+    // Which real service this bills depends on the business type chosen at
+    // step 1 — see BUSINESS_TYPE_SERVICE_ID. Returns null for "Partnership
+    // Firm" / "Other" (no matching catalog entry yet).
+    serviceIdFor: (A) => BUSINESS_TYPE_SERVICE_ID[A.businessType] || null,
   },
   /* Standalone GST/Trademark/MSME/IEC registration, for a customer who lands on the
      "What would you like to register?" menu and picks one of those directly rather
@@ -661,6 +726,19 @@ export const FLOWS = {
      exists, which doesn't fit a brand-new signup). */
   "gst": {
     name: "GST Registration", code: "GST", price: 1499, govt: 0, kind: "New Company",
+    serviceId: 281, // ServiceMaster "GST Registration" — only exact-name match
+    // No "owners" step here — Step 1 is Lead Details instead (type:
+    // "leadDetails", see FlowRunner's LeadDetailsBody), since a first-time
+    // "New business GST registration" applicant never hits a checking
+    // procedure to gate a lead-capture modal behind otherwise. Customer/
+    // Company + Deal creation attempt after every step for the same reason
+    // (see goNext()).
+    autoLeadGate: true,
+    companyNameFor: (A) => A.gst_bizname,
+    addressPrefix: "gst",
+    // Customer → Company → Deal (and auto sign-in) happen only on Continue
+    // from Business Location — see FlowRunner's goNext().
+    convertAtStep: "location",
     steps: (A) => {
       // "Existing business GST registration" already answers "Do you already hold a
       // GST registration?" — default it to Yes so the GSTIN detail fields below the
@@ -668,6 +746,7 @@ export const FLOWS = {
       // already know the answer to.
       if (A.gst_reason === "Existing business GST registration" && !A.gst_hasReg) A.gst_hasReg = "Yes";
       return [
+      { id: "lead", title: "Details", type: "leadDetails" },
       { id: "bizinfo", title: "Business Information", fields: [
         cardsField("gst_reason", "Why do you need GST registration?", ["New business GST registration", "Existing business GST registration", "Additional place of business", "Interstate business", "Other"], { cols: 2 }),
         textField("gst_bizname", "Legal Business Name", { full: true }),
@@ -713,9 +792,14 @@ export const FLOWS = {
       ];
     },
   },
-  "trademark": { ...TRADEMARK_FLOW, kind: "New Company" },
-  "msme": { ...MSME_FLOW, kind: "New Company" },
-  "iec": { ...IEC_FLOW, kind: "New Company" },
+  // Each prepends a "leadDetails" step (see FlowRunner's LeadDetailsBody) —
+  // done here, not inside TRADEMARK_FLOW/MSME_FLOW/IEC_FLOW's own steps()
+  // directly, since those are also reused as a plain step array elsewhere
+  // (concatenated into an Existing Company flow that already has its own
+  // lead-capture step/modal — see the .steps() calls further down).
+  "trademark": { ...TRADEMARK_FLOW, kind: "New Company", steps: () => [{ id: "lead", title: "Details", type: "leadDetails" }, ...TRADEMARK_FLOW.steps()] },
+  "msme": { ...MSME_FLOW, kind: "New Company", steps: () => [{ id: "lead", title: "Details", type: "leadDetails" }, ...MSME_FLOW.steps()] },
+  "iec": { ...IEC_FLOW, kind: "New Company", steps: (A) => [{ id: "lead", title: "Details", type: "leadDetails" }, ...IEC_FLOW.steps(A)] },
 
   "other-generic": {
     name: "Other Registration", code: "OTH", price: 2999, govt: 1000, kind: "Existing Company",

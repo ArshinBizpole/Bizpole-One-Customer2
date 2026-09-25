@@ -29,6 +29,7 @@ const NewCompanyFlow = () => {
         nextLabel="Continue to Account Setup →"
         onExit={() => navigate("/startbusiness/services")}
         onComplete={() => navigate("/startbusiness/about", { state: { type: typeId } })}
+        onSkip={() => navigate("/dashboard/bizpoleone")}
       />
     </div>
   );

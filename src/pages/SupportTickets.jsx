@@ -186,6 +186,10 @@ const SupportTickets = () => {
     if (!callbackForm.state.trim()) return setError("Please enter your state.");
     setSubmitting(true);
     try {
+      // No employeeId here on purpose — leaving it unset lets the backend's
+      // routeLead() resolve an owner itself via the normal Sunday/business-hours
+      // gated, cap-aware round robin, instead of force-owning it to whichever
+      // agent assignCustomer happens to pick.
       const assignment = await assignCustomer({
         language: callbackForm.preferredLanguage || "English",
         state: callbackForm.state,
@@ -200,7 +204,6 @@ const SupportTickets = () => {
         preferred_language: callbackForm.preferredLanguage,
         lead_source: "callback",
         franchiseeId: assignment?.franchiseeId,
-        employeeId: assignment?.agent?.id,
       });
       const leadId = leadRes?.lead?.id;
       if (leadId) {

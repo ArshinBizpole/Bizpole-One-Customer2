@@ -240,10 +240,10 @@ const AssociateQuotes = () => {
         })
     );
 
-    const filteredDeals = deals.filter(d =>
-        d.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        d.DealCode?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // const filteredDeals = deals.filter(d =>
+    //     d.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    //     d.DealCode?.toLowerCase().includes(searchTerm.toLowerCase())
+    // );
 
     const totalPages = Math.ceil(filteredQuotes.length / pageSize);
     const pagedQuotes = filteredQuotes.slice((page - 1) * pageSize, page * pageSize);

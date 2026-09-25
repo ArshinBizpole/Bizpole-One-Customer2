@@ -1,6 +1,7 @@
 import React, { useState, useEffect, createContext } from "react";
 import ConfirmMsg from "../components/ConfirmMsg";
 import { setSecureItem, getSecureItem } from "../utils/secureStorage";
+import axiosInstance from "../api/axiosInstance";
 import { Outlet, NavLink } from "react-router-dom";
 import {
   BookOpen,
@@ -109,6 +110,37 @@ const DashboardLayout = () => {
     } else {
       setQuotes([]);
     }
+    // The cached Quotes above are only as fresh as the last sign-in — anything
+    // created since (e.g. the apply flow's quote) is missing. Refresh from the
+    // server and cache the result. Customer sessions only (the endpoint takes a
+    // website token); on failure the cached list stays.
+    const companyId = company?.CompanyID;
+    if (!companyId || !localStorage.getItem("token") || localStorage.getItem("partnerToken")) return;
+    axiosInstance
+      .get(`/website/company-quotes/${companyId}`)
+      .then((res) => {
+        const serverQuotes = res.data?.data;
+        if (!res.data?.success || !Array.isArray(serverQuotes)) return;
+        // Server rows win; keep any cached quote the server didn't return
+        // (it only scopes by this customer + company).
+        const cached = Array.isArray(company.Quotes) ? company.Quotes : [];
+        const seen = new Set(serverQuotes.map((q) => String(q.QuoteID)));
+        const fresh = [...serverQuotes, ...cached.filter((q) => !seen.has(String(q.QuoteID)))];
+        setQuotes(fresh);
+        try {
+          const raw = getSecureItem("user");
+          const user = typeof raw === "string" ? JSON.parse(raw) : raw;
+          if (user?.Companies) {
+            user.Companies = user.Companies.map((c) =>
+              String(c.CompanyID) === String(companyId) ? { ...c, Quotes: fresh } : c
+            );
+            setSecureItem("user", JSON.stringify(user));
+          }
+        } catch {
+          // cache refresh is best-effort
+        }
+      })
+      .catch(() => {});
   };
 
   // Re-read quotes from localStorage whenever a quote is created/updated

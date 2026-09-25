@@ -4,6 +4,11 @@ import CryptoJS from 'crypto-js';
 import { getInvoiceDetails } from '../api/Companyinvoice';
 import { initPayment } from '../api/Orders/Order';
 import { getSecureItem } from '../utils/secureStorage';
+import {
+  getOrderStatusLabel as customerOrderStatusLabel,
+  toCustomerOrderStatus,
+  toCustomerServiceStatus,
+} from '../utils/orderStatus';
 import { motion } from 'framer-motion';
 import {
   Download,
@@ -22,17 +27,9 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-// Order status list — matches the mapping used in MyIndividualservices.jsx
-export const orderStatusList = [
-  { value: 1, label: 'Not Started' },
-  { value: 2, label: 'Action Required' },
-  { value: 3, label: 'In Process' },
-  { value: 4, label: 'Completed' },
-  { value: 5, label: 'On Hold' },
-  { value: 6, label: 'Dropped' },
-  { value: 7, label: 'Cancelled' },
-  { value: 8, label: 'Expired' },
-];
+// Order status list — shared with the rest of the portal. Expired(8) is an
+// internal signal and is presented to customers as In Process.
+export { orderStatusList } from '../utils/orderStatus';
 
 // Status chip styling — mirrors StatusChip in MyIndividualservices.jsx
 const statusChipConfig = {
@@ -43,7 +40,8 @@ const statusChipConfig = {
   5: { icon: AlertCircle, label: 'On Hold', color: 'text-yellow-600', bg: 'bg-yellow-50' },
   6: { icon: XCircle, label: 'Dropped', color: 'text-gray-500', bg: 'bg-gray-50' },
   7: { icon: XCircle, label: 'Cancelled', color: 'text-red-500', bg: 'bg-red-50' },
-  8: { icon: XCircle, label: 'Expired', color: 'text-red-600', bg: 'bg-red-50' },
+  // No entry for 8 (Expired): it is internal-only and toCustomerOrderStatus
+  // maps it to 3 before it ever reaches this table.
 };
 
 const MyOrderDetails = () => {
@@ -57,7 +55,10 @@ const MyOrderDetails = () => {
   const isIndividualService = IsIndividual === 1; // Check if it's individual service
 
   // Timeline steps by status value
-  const getTimelineSteps = (statusValue) => {
+  const getTimelineSteps = (rawStatusValue) => {
+    // Normalize first so Expired(8) and the legacy 9 land on In Process rather
+    // than falling through every branch and pinning the timeline at step 0.
+    const statusValue = toCustomerOrderStatus(rawStatusValue);
     const steps = [
       { stage: 'Order Placed', key: 1 },
       { stage: 'Processing Started', key: 2 },
@@ -73,7 +74,6 @@ const MyOrderDetails = () => {
     else if (statusValue === 5) completedIdx = 2; // On Hold -> stalled mid-progress
     else if (statusValue === 6) completedIdx = 1; // Dropped
     else if (statusValue === 7) completedIdx = 0; // Cancelled
-    else if (statusValue === 8) completedIdx = 0; // Expired
 
     return steps.map((step, idx) => ({
       ...step,
@@ -89,7 +89,7 @@ const MyOrderDetails = () => {
       return order.ServiceDetails.map((service, index) => ({
         id: index,
         name: service.ServiceName || service.ItemName || `Service ${index + 1}`,
-        status: service.StatusRemark || 'Pending',
+        status: toCustomerServiceStatus(service.StatusRemark),
         price: `₹${service.Total || 'N/A'}`,
         total: parseFloat(service.Total) || 0,
         description: service.Description || '',
@@ -132,10 +132,7 @@ const MyOrderDetails = () => {
   const timelineSteps = getTimelineSteps(order.OrderStatus || order.Status);
 
   // Helper to get status label from value
-  const getOrderStatusLabel = (statusValue) => {
-    const found = orderStatusList.find((s) => s.value === statusValue);
-    return found ? found.label : (order.OrderStatus || order.Status || 'Unknown');
-  };
+  const getOrderStatusLabel = (statusValue) => customerOrderStatusLabel(statusValue);
 
   // Animation variants
   const containerVariants = {
@@ -307,7 +304,7 @@ const MyOrderDetails = () => {
 
   if (isIndividualService) {
     const item = orderItems[0] || {};
-    const statusValue = order.OrderStatus || order.Status;
+    const statusValue = toCustomerOrderStatus(order.OrderStatus || order.Status);
     const statusLabel = getOrderStatusLabel(statusValue);
     const chip = statusChipConfig[statusValue] || { icon: AlertCircle, label: 'Unknown', color: 'text-gray-500', bg: 'bg-gray-50' };
     const StatusIcon = chip.icon;

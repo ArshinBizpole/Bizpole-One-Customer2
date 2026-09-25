@@ -3,24 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { getOrdersByCompanyId } from "../api/Orders/Order";
 import { getSecureItem } from "../utils/secureStorage";
 import DataTable from "../components/Datatable";
+import { orderStatusList, getOrderStatusLabel, toCustomerOrderStatus } from "../utils/orderStatus";
 import { DollarSign, CheckCircle, FileText, CheckCircle2, XCircle, AlertCircle, Clock, MoreHorizontal } from "lucide-react";
 
-/* ── Order status mapping ── */
-const orderStatusList = [
-  { value: 1, label: "Not Started" },
-  { value: 2, label: "Action Required" },
-  { value: 3, label: "In Process" },
-  { value: 4, label: "Completed" },
-  { value: 5, label: "On Hold" },
-  { value: 6, label: "Dropped" },
-  { value: 7, label: "Cancelled" },
-  { value: 8, label: "Expired" },
-];
-
-const getOrderStatusLabel = (statusValue) => {
-  const found = orderStatusList.find((s) => s.value === statusValue);
-  return found ? found.label : 'Unknown';
-};
+/* ── Order status mapping ──
+   Shared with the rest of the portal. Expired(8) is internal-only and is
+   presented as In Process — see utils/orderStatus.js. */
 
 const PAGE_SIZE = 10;
 const VISIBLE_TAB_COUNT = 5;
@@ -49,9 +37,9 @@ const StatusChip = ({ status }) => {
     5: { icon: AlertCircle,  label: 'On Hold',         color: 'text-yellow-600', bg: 'bg-yellow-50' },
     6: { icon: XCircle,      label: 'Dropped',         color: 'text-gray-500',   bg: 'bg-gray-50' },
     7: { icon: XCircle,      label: 'Cancelled',       color: 'text-red-500',    bg: 'bg-red-50' },
-    8: { icon: XCircle,      label: 'Expired',         color: 'text-red-600',    bg: 'bg-red-50' },
+    // No 8 (Expired): internal-only, mapped to In Process below.
   };
-  const cfg = map[status] || { icon: AlertCircle, label: 'Unknown', color: 'text-gray-500', bg: 'bg-gray-50' };
+  const cfg = map[toCustomerOrderStatus(status)] || { icon: AlertCircle, label: 'Unknown', color: 'text-gray-500', bg: 'bg-gray-50' };
   const Icon = cfg.icon;
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${cfg.color} ${cfg.bg}`}>

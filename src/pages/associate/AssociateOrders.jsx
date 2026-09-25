@@ -4,6 +4,7 @@ import { getSecureItem } from '../../utils/secureStorage';
 import { format, differenceInDays } from 'date-fns';
 import { initPayment, listOrders } from '../../api/Orders/Order';
 import { useNavigate } from 'react-router-dom';
+import { toCustomerOrderStatus } from '../../utils/orderStatus';
 
 const ORDER_STATUSES = [
     { value: 1, label: "Not Started" },
@@ -13,8 +14,8 @@ const ORDER_STATUSES = [
     { value: 5, label: "On Hold" },
     { value: 6, label: "Dropped" },
     { value: 7, label: "Cancelled" },
-    { value: 8, label: "Expired" },
-    { value: 9, label: "Unknown" },
+    // 8 (Expired) and the legacy 9 are deliberately absent: toCustomerOrderStatus
+    // maps both to In Process before they reach this list.
 ];
 
 const getStatusStyle = (status) => {
@@ -26,7 +27,9 @@ const getStatusStyle = (status) => {
     if (s.includes('onhold') || s.includes('hold')) return { bg: '#FEF3C7', color: '#B45309', label: 'On Hold' };
     if (s.includes('drop')) return { bg: '#FEE2E2', color: '#DC2626', label: 'Dropped' };
     if (s.includes('cancel')) return { bg: '#FCE7F3', color: '#9D174D', label: 'Cancelled' };
-    if (s.includes('expir')) return { bg: '#FEE2E2', color: '#B91C1C', label: 'Expired' };
+    // 'expired' is internal (a team missed its 48h acceptance SLA); the work is
+    // still outstanding, so the customer sees it as In Process.
+    if (s.includes('expir')) return { bg: '#DBEAFE', color: '#1D4ED8', label: 'In Process' };
     return { bg: '#F1F5F9', color: '#64748B', label: status || 'Unknown' };
 };
 
@@ -429,7 +432,7 @@ const AssociateOrders = () => {
                                 </tr>
                             ) : orders.map((order, index) => {
                                 const pendingAmount = Number(order.PendingAmount || 0);
-                                const statusNum = Number(order.OrderStatusID || order.OrderStatus_ID || order.OrderStatus || 0);
+                                const statusNum = toCustomerOrderStatus(order.OrderStatusID || order.OrderStatus_ID || order.OrderStatus);
                                 const statusObj = ORDER_STATUSES.find(s => s.value === statusNum);
                                 const statusLabel = statusObj
                                     ? statusObj.label
