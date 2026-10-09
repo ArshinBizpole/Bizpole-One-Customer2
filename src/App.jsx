@@ -218,7 +218,7 @@ function App() {
 
         {!hideLayout && <Footer />}
         {/* Global floating cart — only on public marketing/service pages, not inside dashboard/profile/associate */}
-        {!hideLayout && location.pathname !== "/" && <GlobalCart />}
+        {!hideLayout && location.pathname !== "/" && !location.pathname.startsWith("/startbusiness/apply") && <GlobalCart />}
       </div>
     </CartProvider>
   );

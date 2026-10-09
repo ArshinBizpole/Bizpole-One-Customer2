@@ -15,6 +15,7 @@ import { notifyTokenSet } from "../../utils/authSession";
 import { signedInContact, belongsToOtherCustomer } from "../../utils/applicationPrefill";
 import { districtsFor } from "../../utils/districts";
 import SigninModal from "../Modals/SigninModal";
+import VoiceSpecifyInput from "./VoiceSpecifyInput";
 import {
   FLOWS, ownerConfig, ownerBaseFields, newOwner, visibleFields, docItems, docGroups, isMinor,
   fieldError, today, rupee, newApplicationId, ADDON_PRICE, ADDON_SERVICE_ID, STATES,
@@ -1598,8 +1599,10 @@ function LeadDetailsBody({ state, errors, bump }) {
   const [states, setStates] = useState([]);
   if (!state.leadForm) {
     // Prefill from the signed-in Customer's profile when there's no earlier entry.
+    // State falls back to the one picked on the service page (answers.leadState,
+    // passed in by ServiceDetails' "Proceed to Quote").
     const src = state.leadContact || signedInContact() || {};
-    state.leadForm = { name: src.name || "", mobile: src.mobile || "", email: src.email || "", country: src.country || "India", state: src.state || "", language: src.language || "" };
+    state.leadForm = { name: src.name || "", mobile: src.mobile || "", email: src.email || "", country: src.country || "India", state: src.state || state.answers?.leadState || "", language: src.language || "" };
   }
   const form = state.leadForm;
 
@@ -2034,7 +2037,7 @@ function Field({ f, A, errors, setAnswer, state, bump, liveStateNames }) {
         {!multi && cur === "Other" && f.otherText !== false && (
           <div className="mt-2">
             <label className="block text-xs font-medium text-gray-600 mb-1">Please specify<span className="text-red-500">*</span></label>
-            <input className={inputCls(errors[f.k + "__other"])} value={A[f.k + "__other"] || ""} onChange={(e) => setAnswer(f.k + "__other", e.target.value)} placeholder="Tell us more" />
+            <VoiceSpecifyInput className={inputCls(errors[f.k + "__other"])} value={A[f.k + "__other"] || ""} onChange={(v) => setAnswer(f.k + "__other", v)} placeholder="Tell us more" />
             <ErrorText msg={errors[f.k + "__other"]} />
           </div>
         )}
@@ -2424,37 +2427,94 @@ function DocsBody({ step, A, state, errors, bump }) {
 /* ---------------------------------------------------------------------------
    Help Me Choose (business type recommender) — rendered as a card field
 --------------------------------------------------------------------------- */
+const HC_QUESTIONS = [
+  { k: "hc_owners", label: "How many owners will the business have?", opts: ["Just me", "2 or more"] },
+  { k: "hc_liability", label: "Do you want to limit your personal liability?", opts: ["Yes, limit my liability", "No preference"] },
+  { k: "hc_investment", label: "Do you plan to raise outside investment / funding?", opts: ["Yes", "No"] },
+  { k: "hc_legal", label: "Do you need the business to have a separate legal identity from you?", opts: ["Yes", "No, keep it simple"] },
+];
+const HC_TAGLINES = {
+  "Sole Proprietorship": "Simple & quick to start on your own",
+  "One Person Company (OPC)": "Solo ownership with limited liability",
+  "Partnership Firm": "Easy setup for business with partners",
+  "Limited Liability Partnership (LLP)": "Safer for partnership with protection",
+  "Private Limited Company": "Best for growth and raising investment",
+};
+
 function HelpChoose({ A, setAnswer, state, bump }) {
-  if (!state.helpChooseOpen) {
-    return <button type="button" onClick={() => { state.helpChooseOpen = true; bump(); }} className="text-sm font-semibold text-blue-600 hover:underline">🧭 Not sure which one to choose? Help Me Choose</button>;
-  }
-  const rec = recommendBusinessType(A);
-  const Q = ({ k, label, opts }) => (
-    <div className="mt-3">
-      <div className="text-sm font-medium text-gray-700">{label}</div>
-      <div className="flex gap-2 flex-wrap mt-1.5">
-        {opts.map((o) => (
-          <button key={o} type="button" onClick={() => setAnswer(k, o)}
-            className={`px-3 py-1.5 rounded-lg border text-sm ${A[k] === o ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200"}`}>{o}</button>
-        ))}
-      </div>
-    </div>
-  );
   return (
-    <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-      <b className="text-sm">Help Me Choose</b> — answer a few quick questions and we'll recommend a suitable structure.
-      <Q k="hc_owners" label="How many owners will the business have?" opts={["Just me", "2 or more"]} />
-      <Q k="hc_liability" label="Do you want to limit your personal liability?" opts={["Yes, limit my liability", "No preference"]} />
-      <Q k="hc_investment" label="Do you plan to raise outside investment / funding?" opts={["Yes", "No"]} />
-      <Q k="hc_legal" label="Do you need the business to have a separate legal identity from you?" opts={["Yes", "No, keep it simple"]} />
-      {rec && (
-        <div className="mt-3 p-3 bg-white border-2 border-blue-500 rounded-lg">
-          <b className="text-blue-700">Recommended: {rec}</b>
-          <p className="text-xs text-gray-500 mt-1">Based on your answers. Our advisor will verify the appropriate structure before filing.</p>
-          <button type="button" onClick={() => setAnswer("businessType", rec)} className="mt-2 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold">✓ Use This Structure</button>
+    <>
+      <button type="button" onClick={() => { state.helpChooseOpen = true; bump(); }} className="text-sm font-semibold text-blue-600 hover:underline">🧭 Not sure which one to choose? Help Me Choose</button>
+      {state.helpChooseOpen && <HelpChooseModal A={A} setAnswer={setAnswer} onClose={() => { state.helpChooseOpen = false; bump(); }} />}
+    </>
+  );
+}
+
+function HelpChooseModal({ A, setAnswer, onClose }) {
+  const [phase, setPhase] = useState("quiz"); // quiz → result
+  const [step, setStep] = useState(0);
+
+  const q = HC_QUESTIONS[step];
+  const isLast = step === HC_QUESTIONS.length - 1;
+  const rec = recommendBusinessType(A);
+
+  function pick(o) {
+    setAnswer(q.k, o);
+    if (!isLast) setTimeout(() => setStep((s) => Math.min(s + 1, HC_QUESTIONS.length - 1)), 250);
+  }
+  function submit() {
+    if (!A[q.k] || !rec) return;
+    setPhase("result");
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+      <style>{`
+        @keyframes hc-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+      `}</style>
+
+      <div className="relative w-full max-w-md min-h-[330px] bg-[#FDFDFD] rounded-[28px] shadow-xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-4 pt-4 pb-2 border-b border-gray-200">
+          <div className="w-32 h-2.5 rounded-full bg-gray-200 overflow-hidden">
+            <div className="h-full rounded-full bg-[#F2CB2E] transition-all duration-300" style={{ width: phase === "result" ? "100%" : `${((step + 1) / HC_QUESTIONS.length) * 100}%` }} />
+          </div>
         </div>
-      )}
-      <button type="button" onClick={() => { state.helpChooseOpen = false; bump(); }} className="mt-3 text-sm text-gray-500 hover:underline">Close</button>
+
+        {phase === "quiz" ? (
+          <div key={step} className="flex-1 flex flex-col items-center px-6 pt-8 pb-6" style={{ animation: "hc-in .3s ease-out" }}>
+            <h3 className="text-xl text-gray-900 text-center leading-snug max-w-xs">{q.label}</h3>
+            <div className="w-full max-w-[300px] mt-6 flex flex-col gap-3">
+              {q.opts.map((o, i) => {
+                const on = A[q.k] === o;
+                return (
+                  <button key={o} type="button" onClick={() => pick(o)}
+                    className={`flex items-center gap-4 px-4 py-4 rounded-md text-left text-sm font-semibold text-gray-900 transition-colors ${on ? "bg-[#FFF3C4] ring-1 ring-[#F2CB2E]" : i === 0 ? "bg-[#FFFCEE] hover:bg-[#FFF6D6]" : "bg-gray-100 hover:bg-gray-200"}`}>
+                    <span className={`w-4 h-4 rounded-full border-[1.5px] flex items-center justify-center shrink-0 ${on ? "border-gray-900" : "border-gray-500"}`}>
+                      {on && <span className="w-2 h-2 rounded-full bg-gray-900" />}
+                    </span>
+                    {o}
+                  </button>
+                );
+              })}
+            </div>
+            {isLast && (
+              <button type="button" onClick={submit} disabled={!A[q.k]}
+                className="mt-5 px-6 py-1.5 rounded-full bg-[#F2CB2E] text-xs font-semibold text-gray-900 disabled:opacity-50">Submit</button>
+            )}
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 text-center" style={{ animation: "hc-in .3s ease-out" }}>
+            <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: "radial-gradient(circle, rgba(242,203,46,.25), transparent 70%)" }}>
+              <svg viewBox="0 0 24 24" className="w-9 h-9" fill="none" stroke="#F2CB2E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+            </div>
+            <div className="mt-1 text-3xl text-[#F2CB2E]">{rec}</div>
+            <div className="mt-3 text-lg text-gray-900">Great !</div>
+            <div className="mt-1 text-lg text-gray-900 max-w-[260px] leading-relaxed">{HC_TAGLINES[rec]}</div>
+            <p className="mt-2 text-xs text-gray-500 max-w-[280px]">Our advisor will verify the appropriate structure before filing.</p>
+            <button type="button" onClick={() => { setAnswer("businessType", rec); onClose(); }} className="mt-4 px-6 py-1.5 rounded-full bg-[#F2CB2E] text-xs font-semibold text-gray-900">✓ Use This Structure</button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

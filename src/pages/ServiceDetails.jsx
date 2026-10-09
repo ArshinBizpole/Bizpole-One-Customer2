@@ -4,6 +4,10 @@ import { getServiceById, getServicePrice } from "../api/ServicesApi";
 import { upsertQuote } from "../api/Quote";
 import { getSecureItem } from "../utils/secureStorage";
 import { fetchFranchiseeGstInfo, calcGstAmount, splitGst } from "../utils/gstCalc";
+import { proceedToQuote } from "../utils/proceedToQuote";
+import { BUSINESS_TYPE_SERVICE_ID, STATES } from "../components/ExixistingCompany/existingCompanyData";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { getAllStates } from "../api/States";
 import SigninModal from "../components/Modals/SigninModal";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,13 +22,58 @@ import {
   FaFolderOpen,
   FaCogs,
   FaRupeeSign,
-  FaTimes,
   // FaPlus,
   FaCheck,
-  FaPhoneAlt
+  FaPhoneAlt,
+  FaChevronDown
 } from "react-icons/fa";
 // import { HiOutlineLocationMarker, HiOutlineCheckCircle } from "react-icons/hi";
 import { HiOutlineLocationMarker } from "react-icons/hi";
+const parsePriceResponse = (res) => {
+  if (Array.isArray(res?.data)) return res.data[0] || null;
+  if (typeof res?.data === 'object') return res.data;
+  return res?.data?.Price || null;
+};
+
+// A new customer has no customer/company data to quote against yet, so
+// "Proceed to Quote" opens the Start New Company application matching the
+// service on this page (it collects their details and makes the quote at the
+// end). Returns the route state for /startbusiness/apply, or null when no
+// application fits — the "What would you like to register?" menu then.
+const BUSINESS_TYPE_BY_SERVICE_ID = Object.fromEntries(
+  Object.entries(BUSINESS_TYPE_SERVICE_ID).map(([type, id]) => [id, type])
+);
+const newCustomerFlowFor = (service) => {
+  const id = Number(service?.ServiceID);
+  const name = String(service?.ServiceName || service?.Name || "");
+  const category = String(service?.Category?.CategoryName || "");
+  if (BUSINESS_TYPE_BY_SERVICE_ID[id]) {
+    return { flowId: "newco", initialSet: { businessType: BUSINESS_TYPE_BY_SERVICE_ID[id] } };
+  }
+  if (id === 281 || /gst\s*regist/i.test(name)) return { flowId: "gst" };
+  if (id === 344 || /trade\s*mark/i.test(name)) return { flowId: "trademark" };
+  if (/msme|udyam/i.test(name)) return { flowId: "msme" };
+  if (/\biec\b|import\s*(&|and|\/)?\s*export/i.test(name)) return { flowId: "iec" };
+  if (/fssai|food/i.test(name)) return { flowId: "fssai" };
+  if (/business\s*regist|incorporat/i.test(category)) return { flowId: "newco" };
+  return null;
+};
+
+// The address State field of each application (addressFields prefix + "state").
+const ADDRESS_STATE_KEY = { newco: "state", gst: "gst_state", msme: "msme_state", iec: "iec_state", fssai: "other_state" };
+
+// Carries the state picked on this page into the application: the Details
+// tab's State (leadState) and the address step's State. Only names spelled as
+// the application's own state list are passed on.
+const withPickedState = (flow, stateName) => {
+  if (!STATES.includes(stateName) || stateName === "Other") return flow;
+  const addressKey = ADDRESS_STATE_KEY[flow.flowId];
+  return {
+    ...flow,
+    initialSet: { ...flow.initialSet, leadState: stateName, ...(addressKey && { [addressKey]: stateName }) },
+  };
+};
+
 const ServiceDetails = () => {
   const navigate = useNavigate();
   const { id: SERVICE_ID } = useParams();
@@ -42,9 +91,12 @@ const ServiceDetails = () => {
   const [allStates, setAllStates] = useState([]);
   const [statesLoading, setStatesLoading] = useState(false);
   const [selectedStateForModal, setSelectedStateForModal] = useState("");
+  // Set when "Add to Selection" is clicked before a state is chosen — the
+  // service is added once the state is picked in the modal.
+  const [pendingAdd, setPendingAdd] = useState(false);
   const [activeTab, setActiveTab] = useState("eligibility");
 
-  const { cart, addToCart, removeFromCart } = useContext(CartContext);
+  const { cart, addToCart } = useContext(CartContext);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [showSigninModal, setShowSigninModal] = useState(false);
 
@@ -80,15 +132,7 @@ const ServiceDetails = () => {
           ServiceId: service.ServiceID,
           StateId: stateId
         });
-        let priceObj = null;
-        if (Array.isArray(res?.data)) {
-          priceObj = res.data[0] || null;
-        } else if (typeof res?.data === 'object') {
-          priceObj = res.data;
-        } else {
-          priceObj = res?.data?.Price || null;
-        }
-        setPrice(priceObj);
+        setPrice(parsePriceResponse(res));
       } catch {
         setPrice(null);
       } finally {
@@ -165,10 +209,49 @@ const ServiceDetails = () => {
 
   const isSelected = !!cart[service?.ServiceID];
 
-  const handleAddToSelection = () => {
-    if (!service?.ServiceID) return;
+  const openStateModal = async () => {
+    setShowStateModal(true);
+    setSelectedStateForModal(stateId || "");
+    if (allStates.length === 0) {
+      setStatesLoading(true);
+      try {
+        const states = await getAllStates();
+        setAllStates(states || []);
+      } catch (error) {
+        console.error("Error fetching states:", error);
+        setAllStates([]);
+      } finally {
+        setStatesLoading(false);
+      }
+    }
+  };
+
+  const closeStateModal = () => {
+    setShowStateModal(false);
+    setPendingAdd(false);
+  };
+
+  const handleStateModalSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedStateForModal) return;
+    localStorage.setItem("StateID", selectedStateForModal);
+    setStateId(selectedStateForModal);
+    setShowStateModal(false);
+    if (pendingAdd && service?.ServiceID) {
+      setPendingAdd(false);
+      let statePrice = null;
+      try {
+        statePrice = parsePriceResponse(await getServicePrice({ ServiceId: service.ServiceID, StateId: selectedStateForModal }));
+      } catch {
+        statePrice = null;
+      }
+      addToSelection(statePrice);
+    }
+  };
+
+  const addToSelection = (priceForState) => {
     // If price is not available, use a default object
-    const priceObj = price || {
+    const priceObj = priceForState || {
       ProfessionalFee: 0,
       VendorFee: 0,
       GovtFee: 0,
@@ -183,11 +266,42 @@ const ServiceDetails = () => {
       TotalFee: 0,
       AdvanceAmount: 0
     };
-    if (isSelected) {
-      removeFromCart(service.ServiceID);
-    } else {
-      addToCart(service.ServiceID, { ...priceObj, ServiceName: service?.Name || service?.ServiceName });
+    addToCart(service.ServiceID, { ...priceObj, ServiceName: service?.Name || service?.ServiceName });
+  };
+
+  // Same as "Proceed to Quote" on the Services page: quotes the whole selection
+  // and opens the quote preview in a new tab.
+  const handleProceedToQuote = async () => {
+    // New customer (not signed in, or no company yet) — collect their details
+    // through the matching Start New Company application instead.
+    if (!localStorage.getItem('token') || !getSecureItem("selectedCompany")?.CompanyID) {
+      const flow = newCustomerFlowFor(service);
+      const stateName = allStates.find((s) => String(s.id || s.StateID) === String(stateId))?.state_name || "";
+      navigate(flow ? "/startbusiness/apply" : "/startbusiness/services", flow ? { state: withPickedState(flow, stateName) } : undefined);
+      return;
     }
+    setQuoteLoading(true);
+    try {
+      await proceedToQuote({ cart, services: service ? [{ ...service, ServiceName: service.ServiceName || service.Name }] : [] });
+    } finally {
+      setQuoteLoading(false);
+    }
+  };
+
+  const handleAddToSelection = () => {
+    if (!service?.ServiceID) return;
+    // Once added, the button becomes "Proceed to Quote"
+    if (isSelected) {
+      handleProceedToQuote();
+      return;
+    }
+    // No state yet — ask for it first, then add with that state's price
+    if (!stateId) {
+      setPendingAdd(true);
+      openStateModal();
+      return;
+    }
+    addToSelection(price);
   };
 
   // Handle Request Quote
@@ -295,6 +409,7 @@ const ServiceDetails = () => {
 
   return (
     <>
+      <ToastContainer position="top-right" autoClose={3000} />
       <SigninModal isOpen={showSigninModal} onClose={() => setShowSigninModal(false)} />
       <div className="bg-gray-100 min-h-screen pt-10 pb-20 font-sans mt-26">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -394,22 +509,7 @@ const ServiceDetails = () => {
                     <motion.button
                       whileHover={{ scale: 1.01 }}
                       whileTap={{ scale: 0.99 }}
-                      onClick={async () => {
-                        setShowStateModal(true);
-                        setSelectedStateForModal(stateId || "");
-                        if (allStates.length === 0) {
-                          setStatesLoading(true);
-                          try {
-                            const states = await getAllStates();
-                            setAllStates(states || []);
-                          } catch (error) {
-                            console.error("Error fetching states:", error);
-                            setAllStates([]);
-                          } finally {
-                            setStatesLoading(false);
-                          }
-                        }
-                      }}
+                      onClick={openStateModal}
                       className="w-full flex items-center gap-3 bg-[#FDF4D6] hover:bg-[#fbecc0] transition-colors rounded-2xl px-4 py-3 mb-5"
                     >
                       <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
@@ -451,14 +551,23 @@ const ServiceDetails = () => {
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={handleAddToSelection}
-                        disabled={!service?.ServiceID}
-                        className={`w-full font-bold py-3 px-4 rounded-2xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 text-sm ${isSelected
+                        disabled={!service?.ServiceID || quoteLoading}
+                        className={`w-full font-bold py-3 px-4 rounded-2xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-70 ${isSelected
                           ? "bg-green-500 text-white hover:bg-green-600"
                           : "bg-gradient-to-r from-yellow-400 to-yellow-500 text-black"
                           }`}
                       >
-                        <span>{isSelected ? "Added to Selection" : "Add to Selection"}</span>
-                        {isSelected ? <FaCheck size={12} /> : <FaArrowRight className="text-xs" />}
+                        {quoteLoading ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Processing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>{isSelected ? "Proceed to Quote" : "Add to Selection"}</span>
+                            <FaArrowRight className="text-xs" />
+                          </>
+                        )}
                       </motion.button>
 
                       <motion.a
@@ -633,93 +742,86 @@ const ServiceDetails = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-                onClick={() => setShowStateModal(false)}
+                className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                onClick={closeStateModal}
               >
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.9, y: 20 }}
                   transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                  className="bg-white rounded-2xl shadow-2xl max-w-md w-full"
+                  className="relative bg-white rounded-[2rem] shadow-2xl max-w-md w-full p-8 overflow-hidden"
                   onClick={e => e.stopPropagation()}
                 >
-                  {/* Modal Header */}
-                  <div className="flex items-center justify-between p-5 border-b border-gray-100">
-                    <div className="flex items-center gap-2">
-                      <HiOutlineLocationMarker className="text-yellow-500" size={20} />
-                      <h3 className="text-lg font-bold text-gray-900">Select Your State</h3>
-                    </div>
-                    <button
-                      onClick={() => setShowStateModal(false)}
-                      className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                      <FaTimes className="text-gray-500" size={16} />
-                    </button>
+                  {/* Decorative corner glow */}
+                  <div className="pointer-events-none absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br from-amber-50 to-transparent rounded-full" />
+
+                  {/* Icon */}
+                  <div className="w-16 h-16 rounded-2xl bg-[#F3C625] flex items-center justify-center mb-6">
+                    <HiOutlineLocationMarker className="text-gray-900" size={28} />
                   </div>
 
-                  {/* Modal Body */}
-                  <div className="p-5">
-                    <p className="text-sm text-gray-600 mb-4">
-                      Please select your state to get accurate pricing for this service.
-                    </p>
+                  {/* Heading */}
+                  <h2 className="text-3xl font-extrabold text-gray-900 mb-3">
+                    Where are you located?
+                  </h2>
 
-                    <form onSubmit={(e) => {
-                      e.preventDefault();
-                      if (selectedStateForModal) {
-                        localStorage.setItem("StateID", selectedStateForModal);
-                        setStateId(selectedStateForModal);
-                        setShowStateModal(false);
-                      }
-                    }}>
-                      <div className="mb-5">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Select State <span className="text-red-500">*</span>
-                        </label>
+                  {/* Subtext */}
+                  <p className="text-gray-500 text-sm leading-relaxed">
+                    Where would you like to avail this service?<br />
+                    Please select your state to get accurate pricing.
+                  </p>
+                  <p className="text-amber-400 font-semibold text-sm mt-1 mb-6">
+                    Service availability and pricing may vary by location
+                  </p>
+
+                  <form onSubmit={handleStateModalSubmit}>
+                    <div className="mb-6">
+                      <label className="block text-sm font-bold text-gray-900 mb-2">
+                        Select your state <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
                         <select
                           value={selectedStateForModal}
                           onChange={(e) => setSelectedStateForModal(e.target.value)}
                           required
-                          className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:border-yellow-400 focus:ring-2 focus:ring-yellow-200 outline-none transition-all text-sm"
+                          className="w-full appearance-none pl-4 pr-14 py-3.5 rounded-2xl border border-gray-200 text-sm text-gray-700 focus:ring-1 focus:ring-[#f7d761] focus:border-[#f7d761] outline-none disabled:opacity-60"
                           disabled={statesLoading}
                         >
-                          <option value="">Choose your state</option>
+                          <option value="">{statesLoading ? "Loading states..." : "Choose your state"}</option>
                           {allStates.map((state) => (
                             <option key={state.id || state.StateID} value={state.id || state.StateID}>
                               {state.state_name}
                             </option>
                           ))}
                         </select>
+                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-[#F3C625] flex items-center justify-center pointer-events-none">
+                          <FaChevronDown className="text-gray-900" size={12} />
+                        </div>
                       </div>
+                    </div>
 
-                      {/* Modal Actions */}
-                      <div className="flex gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setShowStateModal(false)}
-                          className="flex-1 px-4 py-3 border-2 border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-all text-sm"
-                        >
-                          Cancel
-                        </button>
-                        <motion.button
-                          type="submit"
-                          disabled={!selectedStateForModal || statesLoading}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          className="flex-1 px-4 py-3 bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 font-medium rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm"
-                        >
-                          {statesLoading ? (
-                            <span className="flex items-center justify-center gap-2">
-                              <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
-                              Loading...
-                            </span>
-                          ) : (
-                            "Apply State"
-                          )}
-                        </motion.button>
-                      </div>
-                    </form>
-                  </div>
+                    {/* Modal Actions */}
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={closeStateModal}
+                        className="flex-1 px-6 py-3.5 border-2 border-gray-200 text-gray-900 text-sm font-bold rounded-2xl hover:border-gray-300 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={!selectedStateForModal || statesLoading}
+                        className={`flex-1 px-6 py-3.5 text-sm font-bold rounded-2xl transition-colors ${selectedStateForModal && !statesLoading
+                          ? "bg-[#F3C625] text-gray-900 hover:bg-[#e0b420]"
+                          : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          }`}
+                      >
+                        Get Price
+                      </button>
+                    </div>
+                  </form>
                 </motion.div>
               </motion.div>
             )}
