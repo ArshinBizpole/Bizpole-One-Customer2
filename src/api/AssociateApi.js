@@ -189,6 +189,20 @@ export const getReceiptsForOrder = async (orderId) => {
     }
 };
 
+/**
+ * Get associate dashboard stats, performance series and recent activity
+ * @param {Object} params - { AssociateID, range: '7d' | '30d' | 'year' }
+ */
+export const getAssociateDashboard = async (params) => {
+    try {
+        const response = await axiosInstance.post("/associate/dashboard", params);
+        return response.data;
+    } catch (error) {
+        console.error("Error fetching associate dashboard:", error);
+        throw error;
+    }
+};
+
 export default {
     createAssociate,
     updateAssociate,
@@ -199,7 +213,8 @@ export default {
     listAssociateReceipts,
     getAssociateReceiptDetails,
     getInvoicesForService,
-    getReceiptsForOrder
+    getReceiptsForOrder,
+    getAssociateDashboard
 };
 
 

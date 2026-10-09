@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Loader2, Download, X, Calendar, } from 'lucide-react';
+import { Search, Filter, Loader2, Download, X, Calendar, Link2, ExternalLink, Check } from 'lucide-react';
 import { getSecureItem } from '../../utils/secureStorage';
 import { format } from 'date-fns';
 import { getQuoteStatus } from '../../api/QuoteStatusApi';
@@ -57,6 +57,7 @@ const AssociateQuotes = () => {
     const [showFilters, setShowFilters] = useState(false);
     const [filters, setFilters] = useState(DEFAULT_FILTERS);
     const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
+    const [dateRangeError, setDateRangeError] = useState('');
 
     const activeFilterCount = [
         appliedFilters.quoteType.length > 0,
@@ -144,11 +145,30 @@ const AssociateQuotes = () => {
         return CryptoJS.AES.encrypt(String(id), secret).toString();
     };
 
-    const handleViewQuote = (quote) => {
-        if (!quote?.QuoteID) return;
-        if (typeof CryptoJS === "undefined") { alert("Unable to open quote preview."); return; }
+    const getQuoteLink = (quote) => {
+        if (!quote?.QuoteID || typeof CryptoJS === "undefined") return null;
         const encryptedId = encodeURIComponent(encrypt(quote.QuoteID));
-        window.open(`https://test.bizpole.io/quotes/saved-preview/${encryptedId}`, "_blank");
+        return `https://test.bizpole.io/quotes/saved-preview/${encryptedId}`;
+    };
+
+    const handleViewQuote = (quote) => {
+        const link = getQuoteLink(quote);
+        if (!link) { alert("Unable to open quote preview."); return; }
+        window.open(link, "_blank");
+    };
+
+    const [copiedQuoteId, setCopiedQuoteId] = useState(null);
+
+    const handleCopyQuoteLink = async (quote) => {
+        const link = getQuoteLink(quote);
+        if (!link) { alert("Unable to create quote link."); return; }
+        try {
+            await navigator.clipboard.writeText(link);
+            setCopiedQuoteId(quote.QuoteID);
+            setTimeout(() => setCopiedQuoteId((id) => (id === quote.QuoteID ? null : id)), 2000);
+        } catch {
+            window.prompt("Copy this quote link:", link);
+        }
     };
 
     const handleDownloadQuote = (quote) => {
@@ -178,6 +198,11 @@ const AssociateQuotes = () => {
     };
 
     const handleApplyFilters = () => {
+        if (filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo) {
+            setDateRangeError('"From" date cannot be after "To" date');
+            return;
+        }
+        setDateRangeError('');
         setAppliedFilters({ ...filters });
         setPage(1);
         setShowFilters(false);
@@ -185,10 +210,12 @@ const AssociateQuotes = () => {
 
     const handleResetFilters = () => {
         setFilters(DEFAULT_FILTERS);
+        setDateRangeError('');
     };
 
     const handleOpenFilters = () => {
         setFilters({ ...appliedFilters });
+        setDateRangeError('');
         setShowFilters(prev => !prev);
     };
 
@@ -215,6 +242,7 @@ const AssociateQuotes = () => {
             const matchSearch =
                 q.QuoteCodeId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 q.QuoteCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                q.DealCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 q.QuoteName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 q.CompanyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 q.CustomerName?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -311,11 +339,11 @@ const AssociateQuotes = () => {
                     onClick={handleOpenFilters}
                     style={{
                         display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
-                        border: `1px solid ${showFilters || activeFilterCount > 0 ? '#4B49AC' : '#E5E7EB'}`,
+                        border: `1px solid ${showFilters || activeFilterCount > 0 ? '#CA8A04' : '#E5E7EB'}`,
                         borderRadius: 8,
-                        background: showFilters || activeFilterCount > 0 ? '#F0F0FF' : '#fff',
+                        background: showFilters || activeFilterCount > 0 ? '#FEFCE8' : '#fff',
                         fontSize: 13, fontWeight: 500,
-                        color: showFilters || activeFilterCount > 0 ? '#4B49AC' : '#374151',
+                        color: showFilters || activeFilterCount > 0 ? '#CA8A04' : '#374151',
                         cursor: 'pointer', transition: 'all 0.15s', position: 'relative'
                     }}
                 >
@@ -323,8 +351,8 @@ const AssociateQuotes = () => {
                     {activeFilterCount > 0 && (
                         <span style={{
                             marginLeft: 4,
-                            background: '#4B49AC',
-                            color: 'white',
+                            background: '#FACC15',
+                            color: '#111827',
                             fontSize: 10,
                             fontWeight: 'bold',
                             borderRadius: '50%',
@@ -346,11 +374,11 @@ const AssociateQuotes = () => {
                     {appliedFilters.quoteType.map(type => (
                         <span key={type} style={{
                             display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px',
-                            background: '#F0F0FF', border: '1px solid #C7D2FE', color: '#4338CA',
+                            background: '#FEFCE8', border: '1px solid #FEF08A', color: '#A16207',
                             borderRadius: 100, fontSize: 12, fontWeight: 500
                         }}>
                             {type === 'individual' ? 'Individual' : 'Package'}
-                            <button onClick={() => removeChip('quoteType', type)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#4338CA', display: 'flex' }}>
+                            <button onClick={() => removeChip('quoteType', type)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#A16207', display: 'flex' }}>
                                 <X style={{ width: 12, height: 12 }} />
                             </button>
                         </span>
@@ -358,13 +386,13 @@ const AssociateQuotes = () => {
                     {(appliedFilters.dateFrom || appliedFilters.dateTo) && (
                         <span style={{
                             display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px',
-                            background: '#F0F0FF', border: '1px solid #C7D2FE', color: '#4338CA',
+                            background: '#FEFCE8', border: '1px solid #FEF08A', color: '#A16207',
                             borderRadius: 100, fontSize: 12, fontWeight: 500
                         }}>
                             Date: {appliedFilters.dateFrom ? format(new Date(appliedFilters.dateFrom), 'dd/MM/yyyy') : '...'}
                             {' → '}
                             {appliedFilters.dateTo ? format(new Date(appliedFilters.dateTo), 'dd/MM/yyyy') : '...'}
-                            <button onClick={() => removeChip('date')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#4338CA', display: 'flex' }}>
+                            <button onClick={() => removeChip('date')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#A16207', display: 'flex' }}>
                                 <X style={{ width: 12, height: 12 }} />
                             </button>
                         </span>
@@ -390,7 +418,7 @@ const AssociateQuotes = () => {
                         padding: '14px 20px', borderBottom: '1px solid #F3F4F6'
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ width: 3, height: 18, background: '#4B49AC', borderRadius: 2 }} />
+                            <div style={{ width: 3, height: 18, background: '#FACC15', borderRadius: 2 }} />
                             <span style={{ fontWeight: 700, fontSize: 14, color: '#1A1D23' }}>Comprehensive Filters</span>
                         </div>
                         <button
@@ -421,14 +449,14 @@ const AssociateQuotes = () => {
                                             onClick={() => handleQuoteTypeToggle(opt.value)}
                                             style={{
                                                 width: 16, height: 16, borderRadius: '50%',
-                                                border: `2px solid ${filters.quoteType.includes(opt.value) ? '#4B49AC' : '#D1D5DB'}`,
-                                                background: filters.quoteType.includes(opt.value) ? '#4B49AC' : '#fff',
+                                                border: `2px solid ${filters.quoteType.includes(opt.value) ? '#CA8A04' : '#D1D5DB'}`,
+                                                background: filters.quoteType.includes(opt.value) ? '#FACC15' : '#fff',
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s'
                                             }}
                                         >
                                             {filters.quoteType.includes(opt.value) && (
-                                                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />
+                                                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#111827' }} />
                                             )}
                                         </div>
                                         <span onClick={() => handleQuoteTypeToggle(opt.value)}>{opt.label}</span>
@@ -445,7 +473,8 @@ const AssociateQuotes = () => {
                                     <input
                                         type="date"
                                         value={filters.dateFrom}
-                                        onChange={e => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+                                        max={filters.dateTo || undefined}
+                                        onChange={e => { setFilters(prev => ({ ...prev, dateFrom: e.target.value })); setDateRangeError(''); }}
                                         style={{
                                             padding: '7px 36px 7px 10px', border: '1px solid #E5E7EB',
                                             borderRadius: 8, fontSize: 13, color: '#374151',
@@ -453,7 +482,7 @@ const AssociateQuotes = () => {
                                             width: 140, boxSizing: 'border-box'
                                         }}
                                     />
-                                    <Calendar style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', width: 14, height: 14, color: '#4B49AC' }} />
+                                    <Calendar style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', width: 14, height: 14, color: '#CA8A04' }} />
                                 </div>
                                 <svg width="16" height="8" viewBox="0 0 16 8" fill="none">
                                     <path d="M0 4h14M10 1l4 3-4 3" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -463,7 +492,7 @@ const AssociateQuotes = () => {
                                         type="date"
                                         value={filters.dateTo}
                                         min={filters.dateFrom || undefined}
-                                        onChange={e => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+                                        onChange={e => { setFilters(prev => ({ ...prev, dateTo: e.target.value })); setDateRangeError(''); }}
                                         style={{
                                             padding: '7px 36px 7px 10px', border: '1px solid #E5E7EB',
                                             borderRadius: 8, fontSize: 13, color: '#374151',
@@ -471,9 +500,10 @@ const AssociateQuotes = () => {
                                             width: 140, boxSizing: 'border-box'
                                         }}
                                     />
-                                    <Calendar style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', width: 14, height: 14, color: '#4B49AC' }} />
+                                    <Calendar style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', width: 14, height: 14, color: '#CA8A04' }} />
                                 </div>
                             </div>
+                            {dateRangeError && <p style={{ fontSize: 12, color: '#EF4444', marginTop: 4, marginBottom: 0 }}>{dateRangeError}</p>}
                         </div>
                     </div>
 
@@ -498,11 +528,11 @@ const AssociateQuotes = () => {
                             onClick={handleApplyFilters}
                             style={{
                                 padding: '8px 20px', borderRadius: 8, border: 'none',
-                                background: '#4B49AC', fontSize: 13, fontWeight: 600, color: '#fff',
+                                background: '#FACC15', fontSize: 13, fontWeight: 600, color: '#111827',
                                 cursor: 'pointer', transition: 'all 0.15s'
                             }}
-                            onMouseEnter={e => { e.currentTarget.style.background = '#3f3e9a'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = '#4B49AC'; }}
+                            onMouseEnter={e => { e.currentTarget.style.background = '#EAB308'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = '#FACC15'; }}
                         >
                             Apply Filters
                         </button>
@@ -516,7 +546,7 @@ const AssociateQuotes = () => {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                         <thead>
                             <tr style={{ background: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
-                                {['S.NO', 'QUOTE ID', 'QUOTE DATE', 'COMPANY NAME', 'PRIMARY CUSTOMER', 'ORIGIN', 'SERVICES TYPE', 'QUOTE DESC', 'QUOTE VALUE', 'QUOTE STATUS', 'ISAPPROVED', 'ACTIONS'].map(h => (
+                                {['S.NO', 'QUOTE ID', 'DEAL ID', 'QUOTE DATE', 'COMPANY NAME', 'PRIMARY CUSTOMER', 'ORIGIN', 'SERVICES TYPE', 'QUOTE DESC', 'QUOTE VALUE', 'QUOTE STATUS', 'ISAPPROVED', 'ACTIONS'].map(h => (
                                     <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#9CA3AF', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
                                 ))}
                             </tr>
@@ -524,7 +554,7 @@ const AssociateQuotes = () => {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={12} style={{ padding: '48px 0', textAlign: 'center', color: '#9CA3AF' }}>
+                                    <td colSpan={13} style={{ padding: '48px 0', textAlign: 'center', color: '#9CA3AF' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
                                             <Loader2 style={{ width: 22, height: 22, color: '#F5A623', animation: 'spin 1s linear infinite' }} />
                                             <span>Loading quotes...</span>
@@ -533,7 +563,7 @@ const AssociateQuotes = () => {
                                 </tr>
                             ) : pagedQuotes.length === 0 ? (
                                 <tr>
-                                    <td colSpan={12} style={{ padding: '48px 0', textAlign: 'center', color: '#9CA3AF', fontSize: 13 }}>
+                                    <td colSpan={13} style={{ padding: '48px 0', textAlign: 'center', color: '#9CA3AF', fontSize: 13 }}>
                                         No quotes found
                                     </td>
                                 </tr>
@@ -559,6 +589,18 @@ const AssociateQuotes = () => {
                                             >
                                                 {quote.QuoteCodeId}
                                             </span>
+                                        </td>
+                                        <td style={{ padding: '11px 14px', whiteSpace: 'nowrap' }}>
+                                            {quote.DealID ? (
+                                                <span
+                                                    onClick={() => navigate(`/associate/deals/${quote.DealID}`)}
+                                                    style={{ color: '#3B82F6', fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}
+                                                    onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                                                    onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                                                >
+                                                    {quote.DealCode || `#${quote.DealID}`}
+                                                </span>
+                                            ) : <span style={{ color: '#9CA3AF' }}>--</span>}
                                         </td>
                                         <td style={{ padding: '11px 14px', color: '#374151', whiteSpace: 'nowrap' }}>
                                             {quote.QuoteDate ? format(new Date(quote.QuoteDate), "dd/MM/yyyy") : '--'}
@@ -602,6 +644,35 @@ const AssociateQuotes = () => {
                                                     >
                                                         Approve
                                                     </button>
+                                                )}
+                                                {!!quote.IsApproved && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleCopyQuoteLink(quote)}
+                                                            title="Copy quote link"
+                                                            style={{
+                                                                padding: '5px 10px', borderRadius: 6, border: '1px solid #E5E7EB',
+                                                                background: copiedQuoteId === quote.QuoteID ? '#ECFDF5' : '#fff',
+                                                                fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                                                                color: copiedQuoteId === quote.QuoteID ? '#10B981' : '#374151',
+                                                                display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap'
+                                                            }}
+                                                        >
+                                                            {copiedQuoteId === quote.QuoteID
+                                                                ? <><Check style={{ width: 13, height: 13 }} /> Copied</>
+                                                                : <><Link2 style={{ width: 13, height: 13 }} /> Copy link</>}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleViewQuote(quote)}
+                                                            title="Open quote link"
+                                                            style={{
+                                                                padding: '5px 8px', borderRadius: 6, border: '1px solid #E5E7EB',
+                                                                background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center'
+                                                            }}
+                                                        >
+                                                            <ExternalLink style={{ width: 14, height: 14, color: '#6B7280' }} />
+                                                        </button>
+                                                    </>
                                                 )}
                                                 <button
                                                     onClick={() => handleDownloadQuote(quote)}

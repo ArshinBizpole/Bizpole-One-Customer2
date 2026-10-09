@@ -94,6 +94,19 @@ const CustomerDetailView = () => {
         const file = e.target.files[0];
         if (!file || !selectedDocType) return;
 
+        if (!/\.(pdf|jpe?g|png)$/i.test(file.name)) {
+            alert("Only PDF, JPG and PNG files are allowed.");
+            setSelectedDocType(null);
+            e.target.value = '';
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            alert("File is too large. Maximum size is 2MB.");
+            setSelectedDocType(null);
+            e.target.value = '';
+            return;
+        }
+
         setUploading(true);
 
         const formData = new FormData();
@@ -145,7 +158,7 @@ const CustomerDetailView = () => {
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px]">
-                <Loader2 className="w-10 h-10 text-[#4b49ac] animate-spin mb-4" />
+                <Loader2 className="w-10 h-10 text-yellow-600 animate-spin mb-4" />
                 <p className="text-slate-500 font-medium">Loading customer details...</p>
             </div>
         );
@@ -160,7 +173,7 @@ const CustomerDetailView = () => {
                 <div>
                     <button
                         onClick={() => navigate('/associate/customers')}
-                        className="text-[#4b49ac] font-bold hover:underline"
+                        className="text-yellow-600 font-bold hover:underline"
                     >
                         Back to Customers
                     </button>
@@ -284,7 +297,7 @@ const CustomerDetailView = () => {
                                             <p className="text-sm font-bold text-slate-700">
                                                 {uploading && selectedDocType === doc.type ? 'Uploading...' : 'Click to upload'}
                                             </p>
-                                            <p className="text-[10px] text-slate-400 mt-1">JPG, PNG (Max 2MB)</p>
+                                            <p className="text-[10px] text-slate-400 mt-1">PDF, JPG, PNG (Max 2MB)</p>
                                         </div>
                                     </div>
                                 )}

@@ -23,6 +23,7 @@ const AssociateServices = () => {
     const [showFilters, setShowFilters] = useState(false);
     const [filters, setFilters] = useState(DEFAULT_FILTERS);
     const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
+    const [dateRangeError, setDateRangeError] = useState('');
     const [pageSize, setPageSize] = useState(30);
 
     const activeFilterCount = [
@@ -88,6 +89,11 @@ const AssociateServices = () => {
     }, [fetchServices]);
 
     const handleApplyFilters = () => {
+        if (filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo) {
+            setDateRangeError('"From" date cannot be after "To" date');
+            return;
+        }
+        setDateRangeError('');
         setAppliedFilters({ ...filters });
         setCurrentPage(1);
         setShowFilters(false);
@@ -95,10 +101,12 @@ const AssociateServices = () => {
 
     const handleResetFilters = () => {
         setFilters(DEFAULT_FILTERS);
+        setDateRangeError('');
     };
 
     const handleOpenFilters = () => {
         setFilters({ ...appliedFilters });
+        setDateRangeError('');
         setShowFilters(prev => !prev);
     };
 
@@ -271,7 +279,8 @@ const AssociateServices = () => {
                                         <input
                                             type="date"
                                             value={filters.dateFrom}
-                                            onChange={e => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+                                            max={filters.dateTo || undefined}
+                                            onChange={e => { setFilters(prev => ({ ...prev, dateFrom: e.target.value })); setDateRangeError(''); }}
                                             className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-400 transition-all"
                                         />
                                         <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500 pointer-events-none" />
@@ -282,12 +291,13 @@ const AssociateServices = () => {
                                             type="date"
                                             value={filters.dateTo}
                                             min={filters.dateFrom}
-                                            onChange={e => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+                                            onChange={e => { setFilters(prev => ({ ...prev, dateTo: e.target.value })); setDateRangeError(''); }}
                                             className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-400 transition-all"
                                         />
                                         <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500 pointer-events-none" />
                                     </div>
                                 </div>
+                                {dateRangeError && <p className="text-xs text-red-500 mt-1">{dateRangeError}</p>}
                             </div>
                         </div>
                         <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3">
@@ -368,7 +378,7 @@ const AssociateServices = () => {
                                         <tr key={`${info.OrderID}_${service.ServiceID}_${index}`} className="hover:bg-slate-50/50 transition-colors group">
                                             <td className="px-4 py-3 text-center text-slate-400 font-medium">{index + 1}</td>
                                             <td
-                                                className="px-4 py-3 font-bold text-[#4b49ac] hover:underline cursor-pointer"
+                                                className="px-4 py-3 font-bold text-yellow-600 hover:underline cursor-pointer"
                                                 onClick={() => navigate(`/associate/services/${service.ServiceDetailID}`)}
                                             >
                                                 {service.service_code || `SV${String(service.ServiceID).padStart(4, '0')}`}
@@ -402,7 +412,7 @@ const AssociateServices = () => {
                                             <td className="px-4 py-3 text-slate-700 font-medium">{info.CustomerName}</td>
                                             <td className="px-4 py-3 text-center font-bold text-slate-600">{getAgeing(info.OrderCreatedAt)}</td>
                                             <td className="px-4 py-3 text-right font-bold text-slate-800">₹{(service.Total || 0).toLocaleString()}</td>
-                                            <td className="px-4 py-3 text-right font-bold text-[#4b49ac]">₹{amountReceived.toLocaleString()}</td>
+                                            <td className="px-4 py-3 text-right font-bold text-yellow-600">₹{amountReceived.toLocaleString()}</td>
                                             <td className="px-4 py-3 text-slate-400 text-[9px]">
                                                 {info.OrderCreatedAt ? format(new Date(info.OrderCreatedAt), "yyyy-MM-dd HH:mm:ss") : "--"}
                                             </td>

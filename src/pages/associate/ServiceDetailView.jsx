@@ -218,7 +218,7 @@ const ServiceDetailView = () => {
                                 key={tab.name}
                                 onClick={() => setActiveTab(tab.name)}
                                 className={`flex items-center gap-2 px-5 py-2.5 rounded-t-xl text-[11px] font-bold transition-all whitespace-nowrap border-b-2 ${activeTab === tab.name
-                                    ? 'bg-[#fffbeb] text-[#4b49ac] border-[#4b49ac]'
+                                    ? 'bg-[#fffbeb] text-yellow-600 border-yellow-400'
                                     : 'text-slate-400 border-transparent hover:text-slate-600 bg-slate-50/50 mr-1'
                                     }`}
                             >
@@ -327,7 +327,7 @@ const ServiceDetailView = () => {
                         <div className="p-0">
                             {deliverablesLoading ? (
                                 <div className="py-20 text-center">
-                                    <Loader2 className="w-10 h-10 animate-spin text-[#4b49ac] mx-auto mb-4" />
+                                    <Loader2 className="w-10 h-10 animate-spin text-yellow-600 mx-auto mb-4" />
                                     <p className="text-slate-500 font-medium tracking-tight">Loading deliverables...</p>
                                 </div>
                             ) : deliverables.length === 0 ? (

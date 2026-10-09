@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Filter, Loader2, ChevronLeft, ChevronRight, Download, X, Calendar, RotateCcw } from 'lucide-react';
 import { getSecureItem } from '../../utils/secureStorage';
 import { format } from 'date-fns';
@@ -15,6 +16,7 @@ const DEFAULT_FILTERS = {
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 50];
 
 const AssociateReceipts = () => {
+    const navigate = useNavigate();
     const [receipts, setReceipts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -24,6 +26,7 @@ const AssociateReceipts = () => {
     const [showFilters, setShowFilters] = useState(false);
     const [filters, setFilters] = useState(DEFAULT_FILTERS);
     const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
+    const [dateRangeError, setDateRangeError] = useState('');
 
     // Modal state
     const [modalOpen, setModalOpen] = useState(false);
@@ -75,6 +78,11 @@ const AssociateReceipts = () => {
     };
 
     const handleApplyFilters = () => {
+        if (filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo) {
+            setDateRangeError('"From" date cannot be after "To" date');
+            return;
+        }
+        setDateRangeError('');
         setAppliedFilters({ ...filters });
         setCurrentPage(1);
         setShowFilters(false);
@@ -82,10 +90,12 @@ const AssociateReceipts = () => {
 
     const handleResetFilters = () => {
         setFilters(DEFAULT_FILTERS);
+        setDateRangeError('');
     };
 
     const handleOpenFilters = () => {
         setFilters({ ...appliedFilters });
+        setDateRangeError('');
         setShowFilters(prev => !prev);
     };
 
@@ -347,7 +357,8 @@ const AssociateReceipts = () => {
                                         <input
                                             type="date"
                                             value={filters.dateFrom}
-                                            onChange={e => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+                                            max={filters.dateTo || undefined}
+                                            onChange={e => { setFilters(prev => ({ ...prev, dateFrom: e.target.value })); setDateRangeError(''); }}
                                             className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-400 transition-all"
                                         />
                                         <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500 pointer-events-none" />
@@ -358,12 +369,13 @@ const AssociateReceipts = () => {
                                             type="date"
                                             value={filters.dateTo}
                                             min={filters.dateFrom}
-                                            onChange={e => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+                                            onChange={e => { setFilters(prev => ({ ...prev, dateTo: e.target.value })); setDateRangeError(''); }}
                                             className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-400 transition-all"
                                         />
                                         <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500 pointer-events-none" />
                                     </div>
                                 </div>
+                                {dateRangeError && <p className="text-xs text-red-500 mt-1">{dateRangeError}</p>}
                             </div>
                         </div>
                         <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3">
@@ -388,7 +400,6 @@ const AssociateReceipts = () => {
                                 <th className="px-4 py-4 text-right">Total Amount</th>
                                 <th className="px-4 py-4">Transaction ID</th>
                                 <th className="px-4 py-4 text-center">Payment Status</th>
-                                <th className="px-4 py-4">Created By</th>
                                 <th className="px-4 py-4 whitespace-nowrap">Created At</th>
                                 <th className="px-4 py-4 whitespace-nowrap">Transaction Date</th>
                                 <th className="px-4 py-4 text-right">Actions</th>
@@ -397,7 +408,7 @@ const AssociateReceipts = () => {
                         <tbody className="divide-y divide-slate-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="12" className="px-6 py-12 text-center text-slate-400">
+                                    <td colSpan="11" className="px-6 py-12 text-center text-slate-400">
                                         <div className="flex flex-col items-center gap-2">
                                             <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
                                             <span>Loading receipts...</span>
@@ -406,15 +417,31 @@ const AssociateReceipts = () => {
                                 </tr>
                             ) : receipts.length === 0 ? (
                                 <tr>
-                                    <td colSpan="12" className="px-6 py-12 text-center text-slate-400">No receipts found</td>
+                                    <td colSpan="11" className="px-6 py-12 text-center text-slate-400">No receipts found</td>
                                 </tr>
                             ) : (
                                 receipts.map((receipt, index) => (
                                     <tr key={receipt.PaymentID} className="hover:bg-slate-50/50 transition-colors">
                                         <td className="px-4 py-4 text-center text-slate-400">{(currentPage - 1) * pageSize + index + 1}</td>
                                         <td className="px-4 py-4 font-bold text-slate-700">{receipt.PaymentID}</td>
-                                        <td className="px-4 py-4 text-slate-500">{receipt.QuoteID}</td>
-                                        <td className="px-4 py-4 text-slate-500 font-medium">{receipt.OrderID || "N/A"}</td>
+                                        <td className="px-4 py-4 whitespace-nowrap">
+                                            <span
+                                                onClick={() => navigate(`/associate/quotes/${receipt.QuoteID}`)}
+                                                className="text-blue-500 cursor-pointer hover:underline"
+                                            >
+                                                {receipt.QuoteCodeId || receipt.QuoteID}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-4 whitespace-nowrap">
+                                            {receipt.OrderID ? (
+                                                <span
+                                                    onClick={() => navigate(`/associate/orders/${receipt.OrderID}`)}
+                                                    className="text-blue-500 cursor-pointer hover:underline"
+                                                >
+                                                    {receipt.OrderCodeId || receipt.OrderID}
+                                                </span>
+                                            ) : <span className="text-slate-500">N/A</span>}
+                                        </td>
                                         <td className="px-4 py-4"><span className="px-2 py-1 bg-blue-50 text-blue-700 font-semibold rounded-md text-xs">{receipt.CompanyName || "N/A"}</span></td>
                                         <td className="px-4 py-4 text-right font-bold text-slate-800">₹{parseFloat(receipt.TotalAmount || 0).toFixed(2)}</td>
                                         <td className="px-4 py-4 text-slate-600">{receipt.TransactionID}</td>
@@ -423,7 +450,6 @@ const AssociateReceipts = () => {
                                                 {receipt.PaymentStatus || "pending"}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-4 text-slate-600">{receipt.CreatedByName || "N/A"}</td>
                                         <td className="px-4 py-4 text-slate-500 whitespace-nowrap">{receipt.PaymentDate ? format(new Date(receipt.PaymentDate), "dd/MM/yyyy") : "--"}</td>
                                         <td className="px-4 py-4 text-slate-500 whitespace-nowrap">
                                             {receipt.TransactionDate ? format(new Date(receipt.TransactionDate), "dd/MM/yyyy") : (receipt.PaymentDate ? format(new Date(receipt.PaymentDate), "dd/MM/yyyy") : "--")}

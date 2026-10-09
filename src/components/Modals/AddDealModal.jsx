@@ -6,6 +6,7 @@ import DealsApi from "../../api/DealsApi";
 import { getSecureItem } from "../../utils/secureStorage";
 import { assignCustomer } from "../../api/CustomerApi";
 import Select, { components } from "react-select";
+import { sanitize, validate, isIndia } from "../../utils/formValidation";
 
 // ── Step Indicator ──────────────────────────────────────────────────────────
 const StepIndicator = ({ currentStep }) => {
@@ -241,6 +242,25 @@ const ServiceDetailsPopup = ({ category, services, onClose }) => {
 };
 
 // ── Main Modal ──────────────────────────────────────────────────────────────
+const customerDisplayName = (c) =>
+    (c.CustomerName || c.name || `${c.FirstName || ""} ${c.LastName || ""}`).trim();
+
+const customerMatchesSearch = (c, search) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [customerDisplayName(c), c.CustomerCode, c.Email, c.Mobile]
+        .some((v) => String(v || "").toLowerCase().includes(q));
+};
+
+const todayISO = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+// IDs can be strings (URL params, some deal payloads) or numbers (API rows)
+const isServiceSelected = (selectedIds, serviceId) =>
+    (selectedIds || []).some((id) => Number(id) === Number(serviceId));
+
 const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) => {
     const [step, setStep] = useState(1);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -281,6 +301,9 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
     const [servicePricing, setServicePricing] = useState([]);
     const [availablePackages, setAvailablePackages] = useState([]);
     const [categoryServicesCache, setCategoryServicesCache] = useState({});
+    // Name of the chosen category, taken from the per-category fetch so the label
+    // doesn't depend on the full category list having loaded
+    const [selectedCategoryName, setSelectedCategoryName] = useState("");
 
 
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -444,8 +467,9 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                         ...prev, serviceType: initialData.serviceType || "individual",
                         serviceCategory: initialData.serviceCategory || "",
                         serviceState: initialData.serviceState || "",
-                        selectedServices: initialData.selectedServices || [],
-                        selectedPackage: initialData.packageId || null,
+                        // URL params arrive as strings; services/packages from the API use numeric IDs
+                        selectedServices: (initialData.selectedServices || []).map(Number).filter(Boolean),
+                        selectedPackage: initialData.packageId ? Number(initialData.packageId) : null,
                     }));
                     setDealType(initialData.serviceType === "package" ? "Package" : "Individual");
                     setStep(1);
@@ -483,6 +507,7 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                 if (d.success && d.data) {
                     const svcs = d.data.Services || [];
                     setAvailableServices(svcs);
+                    if (d.data.CategoryName) setSelectedCategoryName(d.data.CategoryName);
                     setCategoryServicesCache(prev => ({ ...prev, [formData.serviceCategory]: svcs }));
                 }
             } catch { setAvailableServices([]); }
@@ -561,9 +586,17 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
             const data = await r.json();
             if (data.success && data.data) {
                 const c = data.data;
-                const firstName = c.FirstName || "";
-                const lastName = c.LastName || "";
+                // The company's customer list may carry a recovered name where the
+                // customer record itself is blank — don't let the blank overwrite it
+                const firstName = c.FirstName?.trim() || customer.FirstName || "";
+                const lastName = c.LastName?.trim() || (c.FirstName?.trim() ? "" : customer.LastName) || "";
                 setFormData(prev => ({ ...prev, firstName: firstName, lastName: lastName, mobile: c.Mobile || c.mobile || "", email: c.Email || c.email || "", country: c.Country || c.country || "India", pincode: c.PinCode || c.Pincode || c.pincode || "", state: c.State || c.state || "", district: c.District || c.district || "", preferredLanguage: c.PreferredLanguage || c.preferredLanguage || "", communication: c.communication === 1 || c.communication === true || false }));
+                // Autofilled fields are no longer missing
+                setErrors(prev => {
+                    const n = { ...prev };
+                    ["firstName", "lastName", "mobile", "email", "state", "district"].forEach(k => delete n[k]);
+                    return n;
+                });
             }
         } catch (error) {
             console.error("Error fetching customer details:", error);
@@ -604,16 +637,33 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
         if (useExistingCompany) { setUseExistingCompany(false); setShowCompanyDropdown(false); setSelectedExistingCompany(null); setFormData(prev => ({ ...prev, companyName: "", companyGST: "", companyMobile: "", companyEmail: "", companyCountry: "India", companyState: "", companyDistrict: "", companyPincode: "", companyPreferredLanguage: "" })); }
         else { setUseExistingCompany(true); setShowCompanyDropdown(true); }
     };
+    // Characters each field can never contain are dropped as the user types
+    const FIELD_SANITIZERS = {
+        companyName: sanitize.text(150),
+        companyGST: sanitize.gstin,
+        companyMobile: sanitize.mobile,
+        companyEmail: sanitize.email,
+        companyCountry: sanitize.country,
+        companyPincode: (v) => sanitize.postal(v, formData.companyCountry),
+        firstName: sanitize.personName,
+        lastName: sanitize.personName,
+        mobile: sanitize.mobile,
+        email: sanitize.email,
+        country: sanitize.country,
+        pincode: (v) => sanitize.postal(v, formData.country),
+    };
+
     const handleChange = (e) => {
-        const { name, value } = e.target;
+        const { name } = e.target;
+        const value = FIELD_SANITIZERS[name] ? FIELD_SANITIZERS[name](e.target.value) : e.target.value;
         setFormData((prev) => { const u = { ...prev, [name]: value }; if (name === "serviceType") u.dealType = value === "individual" ? "Individual" : "Package"; return u; });
         if (errors[name]) setErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
     };
 
     const handleServiceToggle = (serviceId) => {
         setFormData(prev => {
-            const already = prev.selectedServices.includes(serviceId);
-            return { ...prev, selectedServices: already ? prev.selectedServices.filter(id => id !== serviceId) : [...prev.selectedServices, serviceId] };
+            const already = isServiceSelected(prev.selectedServices, serviceId);
+            return { ...prev, selectedServices: already ? prev.selectedServices.filter(id => Number(id) !== Number(serviceId)) : [...prev.selectedServices, Number(serviceId)] };
         });
         if (errors.selectedServices) setErrors(prev => { const n = { ...prev }; delete n.selectedServices; return n; });
     };
@@ -621,8 +671,20 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
     const validateStep1 = () => {
         const e = {};
         if (!formData.companyName.trim()) e.companyName = "Required";
+        else if (formData.companyName.trim().length < 2) e.companyName = "Company name must be at least 2 characters";
         if (!formData.companyState) e.companyState = "Required";
         if (!formData.companyDistrict) e.companyDistrict = "Required";
+        // An existing company's details are loaded from its record, not typed here
+        if (!useExistingCompany) {
+            const checks = {
+                companyGST: validate.gstin(formData.companyGST),
+                companyMobile: validate.mobile(formData.companyMobile),
+                companyEmail: validate.email(formData.companyEmail),
+                companyCountry: validate.country(formData.companyCountry),
+                companyPincode: validate.postal(formData.companyPincode, formData.companyCountry),
+            };
+            Object.entries(checks).forEach(([k, msg]) => { if (msg) e[k] = msg; });
+        }
         setErrors(e); return Object.keys(e).length === 0;
     };
     const validateStep2 = () => {
@@ -636,9 +698,16 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
     };
     const validateStep3 = () => {
         const e = {};
-        if (!formData.firstName.trim()) e.firstName = "Required";
-        if (!formData.mobile.trim()) e.mobile = "Required";
-        if (!formData.email.trim()) e.email = "Required";
+        const checks = {
+            firstName: validate.personName(formData.firstName, { required: true, label: "First name" }),
+            lastName: validate.personName(formData.lastName, { label: "Last name", min: 1 }),
+            mobile: validate.mobile(formData.mobile, { required: true }),
+            email: validate.email(formData.email, { required: true }),
+            country: validate.country(formData.country),
+            pincode: validate.postal(formData.pincode, formData.country),
+        };
+        Object.entries(checks).forEach(([k, msg]) => { if (msg) e[k] = msg; });
+        if (!deal && formData.closureDate && formData.closureDate < todayISO()) e.closureDate = "Closure date can't be in the past";
         if (!formData.state) e.state = "Required";
         if (!formData.district) e.district = "Required";
         if (!formData.closureDate) e.closureDate = "Required";
@@ -936,7 +1005,7 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                                                     )}
                                                 </div>
                                             ) : (
-                                                <input type="text" name="companyName" value={formData.companyName} onChange={handleChange} placeholder="Enter company name" className={inputCls(errors.companyName)} />
+                                                <input type="text" name="companyName" value={formData.companyName} onChange={handleChange} maxLength={150} placeholder="Enter company name" className={inputCls(errors.companyName)} />
                                             )}
                                             {errors.companyName && <p className="text-xs text-red-500 mt-1">{errors.companyName}</p>}
                                         </div>
@@ -944,25 +1013,29 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                                         {/* Company GST */}
                                         <div className="col-span-2">
                                             <FieldLabel icon={Hash} label="Company GST" />
-                                            <input type="text" name="companyGST" value={formData.companyGST} onChange={handleChange} placeholder="Enter company GST number" className={inputCls(false)} />
+                                            <input type="text" name="companyGST" value={formData.companyGST} onChange={handleChange} placeholder="e.g. 32ABCDE1234F1Z5" maxLength={15} className={inputCls(errors.companyGST)} />
+                                            {errors.companyGST && <p className="text-xs text-red-500 mt-1">{errors.companyGST}</p>}
                                         </div>
 
                                         {/* Company Mobile */}
                                         <div>
                                             <FieldLabel icon={Phone} label="Company Mobile" />
-                                            <input type="text" name="companyMobile" value={formData.companyMobile} onChange={handleChange} placeholder="Enter company mobile number" className={inputCls(false)} />
+                                            <input type="text" name="companyMobile" value={formData.companyMobile} onChange={handleChange} placeholder="10-digit mobile number" inputMode="numeric" maxLength={10} className={inputCls(errors.companyMobile)} />
+                                            {errors.companyMobile && <p className="text-xs text-red-500 mt-1">{errors.companyMobile}</p>}
                                         </div>
 
                                         {/* Company Email */}
                                         <div>
                                             <FieldLabel icon={Mail} label="Company Email" />
-                                            <input type="email" name="companyEmail" value={formData.companyEmail} onChange={handleChange} placeholder="Enter company email address" className={inputCls(false)} />
+                                            <input type="email" name="companyEmail" value={formData.companyEmail} onChange={handleChange} placeholder="Enter company email address" className={inputCls(errors.companyEmail)} />
+                                            {errors.companyEmail && <p className="text-xs text-red-500 mt-1">{errors.companyEmail}</p>}
                                         </div>
 
                                         {/* Company Country */}
                                         <div>
                                             <FieldLabel icon={Globe} label="Company Country" />
-                                            <input type="text" name="companyCountry" value={formData.companyCountry} onChange={handleChange} className={inputCls(false)} />
+                                            <input type="text" name="companyCountry" value={formData.companyCountry} onChange={handleChange} className={inputCls(errors.companyCountry)} />
+                                            {errors.companyCountry && <p className="text-xs text-red-500 mt-1">{errors.companyCountry}</p>}
                                         </div>
 
                                         {/* Company State */}
@@ -1005,7 +1078,8 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                                         {/* Company Pin Code */}
                                         <div className="col-span-2">
                                             <FieldLabel icon={MapPin} label="Company Pin Code" />
-                                            <input type="text" name="companyPincode" value={formData.companyPincode} onChange={handleChange} placeholder="Enter company pin code" className={inputCls(false)} />
+                                            <input type="text" name="companyPincode" value={formData.companyPincode} onChange={handleChange} placeholder={isIndia(formData.companyCountry) ? "6-digit PIN code" : "Enter postal / ZIP code"} inputMode={isIndia(formData.companyCountry) ? "numeric" : "text"} className={inputCls(errors.companyPincode)} />
+                                            {errors.companyPincode && <p className="text-xs text-red-500 mt-1">{errors.companyPincode}</p>}
                                         </div>
                                     </div>
                                 </motion.div>
@@ -1051,7 +1125,7 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                                                 <FieldLabel icon={Tag} label="Service Category" required />
                                                 <Select
                                                     options={serviceCategories.map((c) => ({ value: c.CategoryID, label: c.CategoryName }))}
-                                                    value={formData.serviceCategory ? { value: formData.serviceCategory, label: serviceCategories.find((c) => parseInt(c.CategoryID) === parseInt(formData.serviceCategory))?.CategoryName || "Selected Category" } : null}
+                                                    value={formData.serviceCategory ? { value: formData.serviceCategory, label: serviceCategories.find((c) => parseInt(c.CategoryID) === parseInt(formData.serviceCategory))?.CategoryName || selectedCategoryName || "Loading..." } : null}
                                                     onChange={(sel) => setFormData({ ...formData, serviceType: "individual", serviceCategory: sel?.value || "", selectedServices: String(sel?.value || "") === String(formData.serviceCategory) ? formData.selectedServices : [] })}
                                                     placeholder="" isSearchable isDisabled={!formData.serviceState}
                                                     styles={rsStyles(errors.serviceCategory)}
@@ -1066,7 +1140,7 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                                                 {availableServices.length > 0 ? (
                                                     <div className="flex flex-wrap gap-2">
                                                         {availableServices.map((service) => {
-                                                            const isSelected = formData.selectedServices.includes(service.ServiceID);
+                                                            const isSelected = isServiceSelected(formData.selectedServices, service.ServiceID);
                                                             return (
                                                                 <button key={service.ServiceID} type="button"
                                                                     onClick={() => handleServiceToggle(service.ServiceID)}
@@ -1082,6 +1156,18 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                                                 ) : (
                                                     <p className="text-sm text-gray-400">{!formData.serviceCategory ? "Please select a service category first" : "No services available"}</p>
                                                 )}
+                                                {(() => {
+                                                    const chosen = availableServices.filter((s) => isServiceSelected(formData.selectedServices, s.ServiceID));
+                                                    return chosen.length > 0 && (
+                                                        <div className="mt-3 flex items-start gap-2 bg-yellow-50 border border-yellow-200 rounded-xl px-3 py-2">
+                                                            <CheckCircle className="w-4 h-4 text-yellow-600 mt-0.5 shrink-0" />
+                                                            <p className="text-xs text-gray-700">
+                                                                <span className="font-semibold">Selected: </span>
+                                                                {chosen.map((s) => s.ServiceName).join(", ")}
+                                                            </p>
+                                                        </div>
+                                                    );
+                                                })()}
                                                 {errors.selectedServices && <p className="text-xs text-red-500 mt-1">{errors.selectedServices}</p>}
                                             </div>
                                         </>
@@ -1100,6 +1186,20 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                                                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                                                 </div>
                                                 {errors.selectedPackage && <p className="text-xs text-red-500 mt-1">{errors.selectedPackage}</p>}
+                                                {(() => {
+                                                    const pkg = availablePackages.find((p) => Number(p.PackageID) === Number(formData.selectedPackage));
+                                                    if (!pkg) return null;
+                                                    const included = (pkg.services || []).map((s) => s.ServiceName || s.name).filter(Boolean);
+                                                    return (
+                                                        <div className="mt-3 flex items-start gap-2 bg-yellow-50 border border-yellow-200 rounded-xl px-3 py-2">
+                                                            <CheckCircle className="w-4 h-4 text-yellow-600 mt-0.5 shrink-0" />
+                                                            <p className="text-xs text-gray-700">
+                                                                <span className="font-semibold">Selected: </span>{pkg.PackageName}
+                                                                {included.length > 0 && <span className="text-gray-500"> · Includes {included.join(", ")}</span>}
+                                                            </p>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
 
                                             {/* Billing Period */}
@@ -1176,9 +1276,9 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                                                                     </div>
                                                                 </div>
                                                                 <div className="max-h-52 overflow-y-auto">
-                                                                    {associateCustomersForCompany.filter(c => (c.CustomerName || c.name || "").toLowerCase().includes(customerSearch.toLowerCase())).length === 0 ? (
+                                                                    {associateCustomersForCompany.filter(c => customerMatchesSearch(c, customerSearch)).length === 0 ? (
                                                                         <div className="flex flex-col items-center py-6 text-gray-400"><Users className="w-7 h-7 mb-1 opacity-30" /><p className="text-sm">No customers found</p></div>
-                                                                    ) : associateCustomersForCompany.filter(c => (c.CustomerName || c.name || "").toLowerCase().includes(customerSearch.toLowerCase())).map((customer, idx) => (
+                                                                    ) : associateCustomersForCompany.filter(c => customerMatchesSearch(c, customerSearch)).map((customer, idx) => (
                                                                         <button key={customer.CustomerID || idx} type="button" onClick={() => { handleSelectExistingCustomer(customer); setShowCustomerDropdown(false); setCustomerSearch(""); }}
                                                                             className="w-full px-4 py-2.5 text-left hover:bg-gray-50 border-b border-gray-50 last:border-0 flex items-center gap-3">
                                                                             <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center"><Users className="w-3.5 h-3.5 text-gray-500" /></div>
@@ -1205,13 +1305,14 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                                         {/* Last Name */}
                                         <div className="col-span-2">
                                             <FieldLabel icon={Users} label="Last Name" />
-                                            <input type="text" name="lastName" value={formData.lastName} onChange={handleChange} placeholder="Enter last name" className={inputCls(false)} />
+                                            <input type="text" name="lastName" value={formData.lastName} onChange={handleChange} placeholder="Enter last name" className={inputCls(errors.lastName)} />
+                                            {errors.lastName && <p className="text-xs text-red-500 mt-1">{errors.lastName}</p>}
                                         </div>
 
                                         {/* Mobile */}
                                         <div>
                                             <FieldLabel icon={Phone} label="Customer Mobile" required />
-                                            <input type="text" name="mobile" value={formData.mobile} onChange={handleChange} placeholder="Enter customer mobile number" className={inputCls(errors.mobile)} />
+                                            <input type="text" name="mobile" value={formData.mobile} onChange={handleChange} placeholder="10-digit mobile number" inputMode="numeric" maxLength={10} className={inputCls(errors.mobile)} />
                                             {errors.mobile && <p className="text-xs text-red-500 mt-1">{errors.mobile}</p>}
                                         </div>
 
@@ -1225,7 +1326,8 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                                         {/* Country */}
                                         <div>
                                             <FieldLabel icon={Globe} label="Customer Country" />
-                                            <input type="text" name="country" value={formData.country} onChange={handleChange} className={inputCls(false)} />
+                                            <input type="text" name="country" value={formData.country} onChange={handleChange} className={inputCls(errors.country)} />
+                                            {errors.country && <p className="text-xs text-red-500 mt-1">{errors.country}</p>}
                                         </div>
 
                                         {/* State */}
@@ -1266,13 +1368,14 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                                         {/* Pin Code */}
                                         <div>
                                             <FieldLabel icon={MapPin} label="Customer Pin Code" />
-                                            <input type="text" name="pincode" value={formData.pincode} onChange={handleChange} placeholder="Enter customer pin code" className={inputCls(false)} />
+                                            <input type="text" name="pincode" value={formData.pincode} onChange={handleChange} placeholder={isIndia(formData.country) ? "6-digit PIN code" : "Enter postal / ZIP code"} inputMode={isIndia(formData.country) ? "numeric" : "text"} className={inputCls(errors.pincode)} />
+                                            {errors.pincode && <p className="text-xs text-red-500 mt-1">{errors.pincode}</p>}
                                         </div>
 
                                         {/* Closure Date */}
                                         <div className="col-span-2">
                                             <FieldLabel icon={Calendar} label="Closure Date" required />
-                                            <input type="date" name="closureDate" value={formData.closureDate} onChange={handleChange} className={inputCls(errors.closureDate)} />
+                                            <input type="date" name="closureDate" value={formData.closureDate} onChange={handleChange} min={deal ? undefined : todayISO()} className={inputCls(errors.closureDate)} />
                                             {errors.closureDate && <p className="text-xs text-red-500 mt-1">{errors.closureDate}</p>}
                                         </div>
                                     </div>

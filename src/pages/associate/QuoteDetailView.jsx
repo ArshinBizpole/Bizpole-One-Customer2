@@ -64,7 +64,7 @@ const QuoteDetailView = () => {
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px]">
-                <Loader2 className="w-10 h-10 text-[#4b49ac] animate-spin mb-4" />
+                <Loader2 className="w-10 h-10 text-yellow-600 animate-spin mb-4" />
                 <p className="text-slate-500 font-medium">Loading quote details...</p>
             </div>
         );
@@ -79,7 +79,7 @@ const QuoteDetailView = () => {
                 <div>
                     <button
                         onClick={() => navigate('/associate/quotes')}
-                        className="text-[#4b49ac] font-bold hover:underline"
+                        className="text-yellow-600 font-bold hover:underline"
                     >
                         Back to Quotes
                     </button>
@@ -113,8 +113,8 @@ const QuoteDetailView = () => {
             <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-[#4b49ac]/10 rounded-2xl flex items-center justify-center">
-                            <FileText className="w-6 h-6 text-[#4b49ac]" />
+                        <div className="w-12 h-12 bg-yellow-400/10 rounded-2xl flex items-center justify-center">
+                            <FileText className="w-6 h-6 text-yellow-600" />
                         </div>
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900">{quote.QuoteCodeId}</h1>
@@ -162,6 +162,20 @@ const QuoteDetailView = () => {
                         <div>
                             <p className="text-xs text-slate-400 mb-1">QUOTE CODE</p>
                             <p className="text-sm font-medium text-slate-900">{quote.QuoteCode || "--"}</p>
+                        </div>
+
+                        <div>
+                            <p className="text-xs text-slate-400 mb-1">DEAL ID</p>
+                            {quote.DealID ? (
+                                <p
+                                    onClick={() => navigate(`/associate/deals/${quote.DealID}`)}
+                                    className="text-sm font-medium text-blue-500 cursor-pointer hover:underline uppercase"
+                                >
+                                    {quote.DealCode || `#${quote.DealID}`}
+                                </p>
+                            ) : (
+                                <p className="text-sm font-medium text-slate-900">--</p>
+                            )}
                         </div>
 
                         <div>

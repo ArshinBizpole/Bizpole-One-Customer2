@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 import { getAssociateReceiptDetails, getInvoicesForService, getReceiptsForOrder } from '../../api/AssociateApi';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { toCustomerServiceStatus } from '../../utils/orderStatus';
+import { toCustomerServiceStatus, getOrderStatusLabel } from '../../utils/orderStatus';
 
 const OrderDetailView = () => {
     const { id } = useParams();
@@ -268,7 +268,7 @@ const OrderDetailView = () => {
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-                <Loader2 className="w-10 h-10 animate-spin text-[#4b49ac]" />
+                <Loader2 className="w-10 h-10 animate-spin text-yellow-600" />
                 <p className="text-slate-500 font-medium tracking-tight">Accessing order records...</p>
             </div>
         );
@@ -287,7 +287,7 @@ const OrderDetailView = () => {
                     <p className="text-slate-500 mb-6 font-medium">The order you are looking for could not be found or you don't have access.</p>
                     <button
                         onClick={() => navigate('/associate/orders')}
-                        className="px-6 py-2 bg-[#4b49ac] text-white rounded-xl font-bold hover:bg-[#3f3da0] transition-colors"
+                        className="px-6 py-2 bg-yellow-400 text-black rounded-xl font-bold hover:bg-yellow-500 transition-colors"
                     >
                         Return to Orders
                     </button>
@@ -310,8 +310,8 @@ const OrderDetailView = () => {
                             Back to Orders
                         </button>
                         <div className="flex items-center gap-3">
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${order.OrderStatus === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
-                                {order.OrderStatus || 'In Progress'}
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${getOrderStatusLabel(order.OrderStatus) === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                                {getOrderStatusLabel(order.OrderStatus)}
                             </span>
                             <span className="text-slate-400 font-bold text-xs">{order.OrderCodeId}</span>
                         </div>
@@ -342,8 +342,20 @@ const OrderDetailView = () => {
                         <InfoCard icon={<FileText className="w-4 h-4" />} title="Basic Information">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                 <DataItem label="Order ID" value={order.OrderCodeId} />
+                                <DataItem
+                                    label="Quote ID"
+                                    value={order.QuoteCodeId || (order.QuoteID ? `#${order.QuoteID}` : '--')}
+                                    isLink={!!order.QuoteID}
+                                    onClick={order.QuoteID ? () => navigate(`/associate/quotes/${order.QuoteID}`) : undefined}
+                                />
+                                <DataItem
+                                    label="Deal ID"
+                                    value={order.DealCode || (order.DealID ? `#${order.DealID}` : '--')}
+                                    isLink={!!order.DealID}
+                                    onClick={order.DealID ? () => navigate(`/associate/deals/${order.DealID}`) : undefined}
+                                />
                                 <DataItem label="Order Date" value={order.quote?.RealOrderCreatedAt ? format(new Date(order.quote?.RealOrderCreatedAt), 'dd MMM yyyy HH:mm:ss') : '--'} />
-                                <DataItem label="Order Status" value={toCustomerServiceStatus(order.OrderStatus)} />
+                                <DataItem label="Order Status" value={getOrderStatusLabel(order.OrderStatus)} />
                                 <DataItem label="Order Source" value={order.SourceOfSale || 'Associate'} />
                                 <DataItem label="Company Name" value={order.CompanyName} isBold />
                                 <DataItem label="Customer Name" value={order.CustomerName} isBold />
@@ -373,10 +385,10 @@ const OrderDetailView = () => {
                         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
                                 <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                                    <ListChecks className="w-4 h-4 text-[#4b49ac]" />
+                                    <ListChecks className="w-4 h-4 text-yellow-600" />
                                     Service Summary ({order.ServiceDetails?.length || 0})
                                 </h3>
-                                {/* <button className="text-[10px] font-bold text-[#4b49ac] hover:underline">VIEW ALL SERVICES</button> */}
+                                {/* <button className="text-[10px] font-bold text-yellow-600 hover:underline">VIEW ALL SERVICES</button> */}
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse text-[11px]">
@@ -416,7 +428,7 @@ const OrderDetailView = () => {
                         {receiptsLoading ? (
                             <div className="px-6 py-12 text-center text-slate-400">
                                 <div className="flex flex-col items-center gap-2">
-                                    <Loader2 className="w-6 h-6 animate-spin text-[#4b49ac]" />
+                                    <Loader2 className="w-6 h-6 animate-spin text-yellow-600" />
                                     <span>Loading receipts...</span>
                                 </div>
                             </div>
@@ -506,7 +518,7 @@ const OrderDetailView = () => {
 
                         {invoiceLoading ? (
                             <div className="px-6 py-12 text-center text-slate-400">
-                                <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#4b49ac]" />
+                                <Loader2 className="w-6 h-6 animate-spin mx-auto text-yellow-600" />
                                 <p className="mt-2">Loading invoices...</p>
                             </div>
                         ) : invoices.length === 0 ? (
@@ -635,7 +647,7 @@ const OrderDetailView = () => {
                                     <div key={sIdx} className="border border-slate-100 rounded-2xl p-6 bg-slate-50/20">
                                         <div className="flex items-center justify-between mb-4">
                                             <h3 className="text-sm font-bold text-slate-800">{service.ServiceName}</h3>
-                                            <span className="text-[10px] bg-[#4b49ac]/10 text-[#4b49ac] px-3 py-1 rounded-full font-black uppercase">{toCustomerServiceStatus(service.ServiceStatus)}</span>
+                                            <span className="text-[10px] bg-yellow-400/10 text-yellow-600 px-3 py-1 rounded-full font-black uppercase">{toCustomerServiceStatus(service.ServiceStatus)}</span>
                                         </div>
                                         <div className="space-y-3">
                                             {/* Static tasks for now until dynamic task data is available */}
@@ -661,7 +673,7 @@ const OrderDetailView = () => {
                                 <h2 className="text-xl font-bold text-slate-900 mb-1">Order Notes</h2>
                                 <p className="text-xs text-slate-500 font-medium">Internal communications and status updates</p>
                             </div>
-                            <button className="bg-[#4b49ac] text-white px-6 py-2 rounded-xl text-xs font-bold hover:bg-[#3f3e91] transition-all shadow-sm">
+                            <button className="bg-yellow-400 text-black px-6 py-2 rounded-xl text-xs font-bold hover:bg-[#3f3e91] transition-all shadow-sm">
                                 ADD NOTE
                             </button>
                         </div>
@@ -819,7 +831,7 @@ const OrderDetailView = () => {
 const InfoCard = ({ icon, title, children }) => (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col">
         <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 flex items-center gap-2.5">
-            <span className="text-[#4b49ac]">{icon}</span>
+            <span className="text-yellow-600">{icon}</span>
             <h3 className="text-[11px] font-black text-slate-800 tracking-tight uppercase tracking-widest">{title}</h3>
         </div>
         <div className="p-7 flex-1">
@@ -828,10 +840,10 @@ const InfoCard = ({ icon, title, children }) => (
     </div>
 );
 
-const DataItem = ({ label, value, isLink, isBold }) => (
+const DataItem = ({ label, value, isLink, isBold, onClick }) => (
     <div className="space-y-1">
         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
-        <p className={`text-[12px] ${isBold ? 'font-bold' : 'font-medium'} ${isLink ? 'text-blue-500 cursor-pointer hover:underline' : 'text-slate-600'}`}>
+        <p onClick={onClick} className={`text-[12px] ${isBold ? 'font-bold' : 'font-medium'} ${isLink ? 'text-blue-500 cursor-pointer hover:underline' : 'text-slate-600'}`}>
             {value}
         </p>
     </div>
