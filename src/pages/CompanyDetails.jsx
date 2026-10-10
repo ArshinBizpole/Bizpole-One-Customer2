@@ -15,7 +15,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { getCompanyDetails, updateCompanyDetails } from "../api/CompanyApi";
+import { getCompanyDetails } from "../api/CompanyApi";
+import { updateMyCompanyDetails } from "../api/CompanyChangeApi";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { ProfileCompanyContext } from "./ProfileLayout";
@@ -246,28 +247,39 @@ const CompanyDetails = () => {
   const cancelEditCompany = () => setIsEditingCompany(false);
 
   const handleSaveCompany = async () => {
+    const next = {
+      ConstitutionCategory: companyForm.businessType,
+      BusinessName:         companyForm.businessName,
+      CompanyPAN:           companyForm.pan,
+      GSTNumber:            companyForm.gstNumber,
+      CIN:                  companyForm.cin,
+      Sector:               companyForm.sector,
+      BusinessNature:       companyForm.businessActivity,
+      CompanyFoundingDate:  companyForm.foundingDate || null,
+      CompanyEmail:         companyForm.companyEmail,
+      CompanyMobile:        companyForm.companyMobile,
+      Website:              companyForm.website,
+      AddressLine1:         companyForm.addressLine1,
+      AddressLine2:         companyForm.addressLine2,
+      District:             companyForm.district,
+      City:                 companyForm.city,
+      State:                companyForm.state,
+      PinCode:              companyForm.pincode,
+      Country:              companyForm.country,
+    };
+    // Send only what was edited — an untouched field is never re-sent, so an
+    // old value saved before today's format checks can't block the save.
+    const changed = Object.fromEntries(
+      Object.entries(next).filter(([k, v]) => String(v ?? "").trim() !== String(company?.[k] ?? "").trim()),
+    );
+    if (!Object.keys(changed).length) {
+      setIsEditingCompany(false);
+      toast.success("No changes to save");
+      return;
+    }
     setSaving(true);
     try {
-      await updateCompanyDetails(selectedCompanyId, {
-        ConstitutionCategory: companyForm.businessType,
-        BusinessName:         companyForm.businessName,
-        CompanyPAN:           companyForm.pan,
-        GSTNumber:            companyForm.gstNumber,
-        CIN:                  companyForm.cin,
-        Sector:               companyForm.sector,
-        BusinessNature:       companyForm.businessActivity,
-        CompanyFoundingDate:  companyForm.foundingDate || null,
-        CompanyEmail:         companyForm.companyEmail,
-        CompanyMobile:        companyForm.companyMobile,
-        Website:              companyForm.website,
-        AddressLine1:         companyForm.addressLine1,
-        AddressLine2:         companyForm.addressLine2,
-        District:             companyForm.district,
-        City:                 companyForm.city,
-        State:                companyForm.state,
-        PinCode:              companyForm.pincode,
-        Country:              companyForm.country,
-      });
+      await updateMyCompanyDetails(selectedCompanyId, changed);
       setCompany((prev) => ({
         ...prev,
         ConstitutionCategory: companyForm.businessType,
@@ -294,7 +306,7 @@ const CompanyDetails = () => {
       toast.success("Company details updated");
     } catch (err) {
       console.error(err);
-      toast.error("Failed to update company details");
+      toast.error(err.message || "Failed to update company details");
     } finally {
       setSaving(false);
     }

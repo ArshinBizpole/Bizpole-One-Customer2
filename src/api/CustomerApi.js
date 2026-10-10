@@ -1,11 +1,12 @@
 import axios from "axios";
 import axiosInstance from "./axiosInstance";
 //
-export const assignCustomer = async ({ language, state, district }) => {
+export const assignCustomer = async ({ language, state, district, salesOnly = false }) => {
   const res = await axiosInstance.post("/assignCustomer", {
     language,
     state,
     district,
+    salesOnly,
   });
   return res.data;
 };

@@ -23,6 +23,17 @@ export const getInvoiceDetails = async (orderIds) => {
 	}
 };
 
+// Email the customer a link to view this invoice (server: /send-link-email-invoice)
+export const sendInvoiceLinkEmail = async ({ email, link }) => {
+	try {
+		const res = await axios.post("/send-link-email-invoice", { email, link });
+		return res.data;
+	} catch (error) {
+		console.error("Error sending invoice email:", error);
+		return { success: false, message: error.response?.data?.message || "Failed to send invoice email" };
+	}
+};
+
 // Utility: Get invoice details for all orders of a company
 export const getCompanyInvoices = async ({ companyId, limit = 10, page = 1 }) => {
 	const ordersRes = await getCompanyOrders({ companyId, limit, page });

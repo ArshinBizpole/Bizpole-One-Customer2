@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FiFileText,
@@ -14,6 +14,7 @@ import { getCompanyInvoices, getCompanyOrders } from '../api/Companyinvoice';
 import { getCompanyIdFromStorage } from '../api/Orders/Order';
 import CryptoJS from "crypto-js";
 import { ProfileCompanyContext } from './ProfileLayout';
+import useSelectedCompany from '../hooks/useSelectedCompany';
 import { useNavigate } from 'react-router-dom';
 
 // showRefundLink: set true when this page is rendered outside the Profile section
@@ -22,9 +23,11 @@ import { useNavigate } from 'react-router-dom';
 const InvoiceProfile = ({ showRefundLink = false }) => {
   const navigate = useNavigate();
   // Outside the Profile section there's no ProfileCompanyContext.Provider, so fall
-  // back to the same storage-derived company id the other dashboard pages use.
+  // back to the dashboard's selected company (useSelectedCompany re-reads it on
+  // "company-switched", so switching companies in the header reloads invoices).
   const { selectedCompanyId: contextCompanyId } = useContext(ProfileCompanyContext) || {};
-  const selectedCompanyId = contextCompanyId || getCompanyIdFromStorage();
+  const { companyId: dashboardCompanyId } = useSelectedCompany();
+  const selectedCompanyId = contextCompanyId || dashboardCompanyId || getCompanyIdFromStorage();
   const [activeTab, setActiveTab] = useState('overview');
   const [expandedFaq, setExpandedFaq] = useState(null);
   const [invoices, setInvoices] = useState([]);
@@ -41,6 +44,8 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
   });
 
   useEffect(() => {
+    // Close the previous company's invoice panel on a company switch.
+    setSelectedInvoice(null);
     if (selectedCompanyId) {
       fetchInvoices(selectedCompanyId);
     }
@@ -63,7 +68,11 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
     );
   };
 
+  // Only the latest fetch may update state — on a reload the first fetch can be
+  // for the previously stored company, and its response mustn't land last.
+  const fetchSeq = useRef(0);
   const fetchInvoices = async (companyId) => {
+    const seq = ++fetchSeq.current;
     setLoading(true);
     setError(null);
     try {
@@ -71,6 +80,7 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
         getCompanyInvoices({ companyId, limit: 50, page: 1 }),
         getCompanyOrders({ companyId, limit: 50, page: 1 }),
       ]);
+      if (seq !== fetchSeq.current) return;
 
       if (response.success && Array.isArray(response.data)) {
         // o.OrderID is the display code (e.g. "OR000588"); invoice.OrderID from
@@ -99,11 +109,12 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
         calculateStats([]);
       }
     } catch (err) {
+      if (seq !== fetchSeq.current) return;
       console.error("Error fetching invoices:", err);
       setError(err.message || "Failed to fetch invoices. Please try again.");
       setInvoices([]);
     } finally {
-      setLoading(false);
+      if (seq === fetchSeq.current) setLoading(false);
     }
   };
 

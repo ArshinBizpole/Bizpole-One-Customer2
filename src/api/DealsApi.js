@@ -97,9 +97,9 @@ export const getCompanyDetails = async (companyId) => {
     }
 };
 
-export const requestQuote = async (id) => {
+export const requestQuote = async (id, franchiseeId = null) => {
     try {
-        const response = await axiosInstance.post("/request-quote", { id, associate_request: 1 });
+        const response = await axiosInstance.post("/request-quote", { id, associate_request: 1, franchiseeId });
         return response.data;
     } catch (error) {
         console.error("Error requesting quote:", error);

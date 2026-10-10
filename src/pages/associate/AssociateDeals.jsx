@@ -90,9 +90,13 @@ const AssociateDeals = () => {
         setLoading(true);
         try {
             const user = getSecureItem("partnerUser") || {};
+            // Deals are assigned by round-robin, so filter by the associate only
+            // (not by the associate's BDE/franchisee).
+            if (!user.id) {
+                setDeals([]);
+                return;
+            }
             const result = await DealsApi.listDeals({
-                employeeId: user.EmployeeID,
-                franchiseId: user.FranchiseeID,
                 isAssociate: true,
                 AssociateID: user.id || null
             });
@@ -174,7 +178,8 @@ const AssociateDeals = () => {
         setCreatingQuote(deal.id);
         setOpenMenuId(null);
         try {
-            const result = await DealsApi.requestQuote(deal.id);
+            const user = getSecureItem("partnerUser") || {};
+            const result = await DealsApi.requestQuote(deal.id, user.FranchiseeID || null);
             if (result.success) {
                 setDeals(prev => prev.map(d =>
                     d.id === deal.id ? { ...d, associate_request: 1 } : d

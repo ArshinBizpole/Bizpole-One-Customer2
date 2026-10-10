@@ -1,0 +1,83 @@
+/* Colour-only recolor of the Existing Company needs menu + FlowRunner wizard from
+   their Tailwind blue classes to the Bizpole yellow/black used by the Start New
+   Company wizard (see ../newco-theme.css). Unlike newco-theme this changes colours
+   only — no width/height/layout overrides. Every rule is scoped under .exco-theme. */
+
+.exco-theme {
+  --brand: #F5C518;
+  --brand-dark: #1a1a1a;
+  --brand-soft: #FFFBEA;
+  --brand-text: #92620a;
+}
+
+/* Primary solid buttons (bg-blue-600 + text-white together) */
+.exco-theme .bg-blue-600.text-white {
+  background-color: var(--brand) !important;
+  color: var(--brand-dark) !important;
+}
+.exco-theme .hover\:bg-blue-700:hover {
+  background-color: var(--brand-dark) !important;
+  color: var(--brand) !important;
+}
+
+/* Bare accent text (links, edit/jump buttons, +/- counters, step "now" label) */
+.exco-theme .text-blue-500,
+.exco-theme .text-blue-600,
+.exco-theme .text-blue-700 {
+  color: var(--brand-text) !important;
+}
+.exco-theme .hover\:text-blue-600:hover {
+  color: var(--brand-dark) !important;
+}
+
+/* Soft tinted backgrounds / badges / notes */
+.exco-theme .bg-blue-50 {
+  background-color: var(--brand-soft) !important;
+}
+.exco-theme .bg-blue-100 {
+  background-color: #FFF3C4 !important;
+}
+.exco-theme .bg-blue-100.text-blue-700 {
+  color: var(--brand-dark) !important;
+}
+.exco-theme .border-blue-100,
+.exco-theme .border-blue-200 {
+  border-color: #F5E7A8 !important;
+}
+.exco-theme .text-blue-900 {
+  color: #7a5a12 !important;
+}
+
+/* Selected option cards / step rail */
+.exco-theme .border-blue-500 {
+  border-color: var(--brand) !important;
+}
+.exco-theme .ring-blue-200 {
+  --tw-ring-color: rgba(245, 197, 24, 0.45) !important;
+}
+.exco-theme .border-blue-300,
+.exco-theme .hover\:border-blue-300:hover {
+  border-color: var(--brand) !important;
+}
+
+/* Progress bar + step dots */
+.exco-theme .bg-blue-500 {
+  background-color: var(--brand) !important;
+}
+
+/* Inputs */
+.exco-theme .focus\:ring-blue-200:focus {
+  --tw-ring-color: rgba(245, 197, 24, 0.45) !important;
+}
+.exco-theme .focus\:border-blue-400:focus {
+  border-color: var(--brand) !important;
+}
+.exco-theme .accent-blue-600 {
+  accent-color: var(--brand) !important;
+}
+
+/* Hover-only tints (Cancel application, needs-menu option cards) */
+.exco-theme .hover\:bg-blue-50:hover,
+.exco-theme .hover\:bg-blue-50\/60:hover {
+  background-color: var(--brand-soft) !important;
+}

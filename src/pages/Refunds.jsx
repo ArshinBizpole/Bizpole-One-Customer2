@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAllOrdersByCompany } from "../api/Orders/Order";
 import {
@@ -31,25 +31,39 @@ const Refunds = () => {
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Only the latest load may update state: on a reload this runs once for the
+  // previously stored company and again after the dashboard settles on the
+  // real one, and the older response mustn't land last.
+  const loadSeq = useRef(0);
   const loadAll = async () => {
+    const seq = ++loadSeq.current;
     setLoading(true);
+    let nextOrders = [];
+    let nextRefunds = [];
     try {
       const ordRes = await getAllOrdersByCompany({ page: 1, limit: 50 });
-      setOrders(ordRes.data || ordRes.orders || []);
+      nextOrders = ordRes.data || ordRes.orders || [];
     } catch {
-      setOrders([]);
+      nextOrders = [];
     }
     try {
       const refRes = await getMyRefunds({ page: 1, limit: 50 });
-      setRefunds(refRes.data || []);
+      nextRefunds = refRes.data || [];
     } catch {
-      setRefunds([]);
+      nextRefunds = [];
     }
+    if (seq !== loadSeq.current) return;
+    setOrders(nextOrders);
+    setRefunds(nextRefunds);
     setLoading(false);
   };
 
+  // Refunds and orders are per company (read from storage), so reload them
+  // when the header's company dropdown switches.
   useEffect(() => {
     loadAll();
+    window.addEventListener("company-switched", loadAll);
+    return () => window.removeEventListener("company-switched", loadAll);
   }, []);
 
   // Compute the refundable amount for the chosen scope (whole order / a service).

@@ -176,16 +176,5 @@ export const getComplianceEvents = async (companyId) => {
   }
 };
 
-export const updateCompanyDetails = async (companyId, fields) => {
-  try {
-    const response = await axiosInstance.post("/company/update-details", {
-      CompanyId: companyId,
-      ...fields,
-    });
-    console.log("✅ Response from updateCompanyDetails:", response.data);
-    return response.data;
-  } catch (error) {
-    console.error("❌ Error in updateCompanyDetails:", error);
-    throw error;
-  }
-};
+// Saving company details: use updateMyCompanyDetails (api/CompanyChangeApi.js).
+// /company/update-details is staff-only.

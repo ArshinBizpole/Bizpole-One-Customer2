@@ -8,13 +8,18 @@ import { notifyTokenSet } from "../../utils/authSession";
 
 // Add a mode state for switching between sign-in and sign-up
 
-const SigninModal = ({ isOpen = true, onClose = () => { } }) => {
+// initialValue: prefill the phone/email box. onSuccess(tokenData): run after
+// sign-in instead of the default redirect to the dashboard (e.g. an
+// application flow that should stay on its current step). onSignup: replaces the
+// "Sign up" link's default jump to /startbusiness (e.g. so an application flow
+// can switch to its own sign-up form without leaving the current step).
+const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", onSuccess, onSignup }) => {
   const navigate = useNavigate();
   const [mode, setMode] = useState("signin"); // 'signin' or 'signup'
   const [step, setStep] = useState(1);
   const [isVerifying, setIsVerifying] = useState(false);
   const [signedMessage, setSignedMessage] = useState("");
-  const [inputValue, setInputValue] = useState("");
+  const [inputValue, setInputValue] = useState(initialValue);
   const [isHovered, setIsHovered] = useState(false);
   const [timer, setTimer] = useState(30);
   const [otpValues, setOtpValues] = useState(["", "", "", ""]);
@@ -113,6 +118,10 @@ const SigninModal = ({ isOpen = true, onClose = () => { } }) => {
           setStep(3);
           console.log("Token Data:", tokenData);
           setTimeout(() => {
+            if (onSuccess) {
+              onSuccess(tokenData);
+              return;
+            }
             onClose();
             navigate("/dashboard/bizpoleone");
           }, 1200); // short delay for user feedback
@@ -305,7 +314,7 @@ const SigninModal = ({ isOpen = true, onClose = () => { } }) => {
                     Don't Have An Account ? {" "}
                     <span
                       className="font-semibold underline cursor-pointer text-gray-800 hover:text-yellow-600 transition-colors"
-                      onClick={() => navigate("/startbusiness")}
+                      onClick={() => (onSignup ? onSignup() : navigate("/startbusiness"))}
                     >
                       Sign up
                     </span>

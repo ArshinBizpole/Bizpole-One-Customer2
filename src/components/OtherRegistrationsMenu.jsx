@@ -24,7 +24,7 @@ const OTHER_SERVICES = [
     title: "FSSAI / Food License",
     desc: "Mandatory for any food business.",
     icon: UtensilsCrossed,
-    flowId: "other-generic",
+    flowId: "fssai",
     initialSet: { other_service: "FSSAI / Food License" },
   },
 ];
