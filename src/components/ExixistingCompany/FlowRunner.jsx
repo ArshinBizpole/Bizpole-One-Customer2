@@ -9,6 +9,7 @@ import { createSupportTicket } from "../../api/SupportTickets/SupportTicket";
 import { fetchFranchiseeGstInfo, calcGstAmount, splitGst } from "../../utils/gstCalc";
 import { loginWithPhone, signupWithPhone, verifyOtp } from "../../api/AuthApi";
 import { notifyTokenSet } from "../../utils/authSession";
+import { clearReferralToken, getReferralToken } from "../../utils/referralAttribution";
 import {
   FLOWS, ownerConfig, ownerBaseFields, newOwner, visibleFields, docItems, docGroups, isMinor,
   fieldError, today, rupee, newApplicationId, ADDON_PRICE, ADDON_SERVICE_ID, STATES,
@@ -1043,7 +1044,8 @@ function LeadCaptureModal({ state, bump }) {
       } catch (err) {
         if (/not found/i.test(err?.message || "")) {
           mode = "signup";
-          await signupWithPhone(form.name.trim(), form.email.trim(), form.mobile.trim());
+          // Referral scan token (if any) rides along so the server can attribute the signup.
+          await signupWithPhone(form.name.trim(), form.email.trim(), form.mobile.trim(), getReferralToken());
         } else {
           throw err;
         }
@@ -1119,6 +1121,7 @@ function LeadCaptureModal({ state, bump }) {
         if (tokenData?.token) {
           localStorage.setItem("token", tokenData.token);
           notifyTokenSet();
+          if (accountMode === "signup") clearReferralToken();
         }
         if (tokenData?.user) setSecureItem("user", JSON.stringify(tokenData.user));
         await completeLeadCapture(tokenData?.user);
