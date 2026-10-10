@@ -1,6 +1,7 @@
 // src/layouts/ProfileLayout.jsx
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { setSecureItem, getSecureItem } from "../utils/secureStorage";
+import { clearStorageKeepingApplications } from "../utils/applicationPrefill";
 import {
   LayoutGrid,
   Calendar,
@@ -106,7 +107,7 @@ const ProfileLayout = () => {
   // Handle logout
   const [showConfirm, setShowConfirm] = useState(false);
   const handleLogout = () => {
-    localStorage.clear();
+    clearStorageKeepingApplications();
     navigate("/");
   };
 

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { Shield, Settings, Pin, Calendar, Search, Download, Bell } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Shield, Settings, Pin, Calendar, Search, Download, Bell, FileText, ArrowRight } from "lucide-react";
 import useSelectedCompany from "../hooks/useSelectedCompany";
 import { getDashboardStats } from "../api/DashboardApi";
+import { flowRoute, inProgressApplications } from "../utils/applicationPrefill";
 
 const CARD_META = {
   complianceScore: { icon: Shield, label: "Compliance Score", barColor: "bg-yellow-500" },
@@ -64,6 +66,10 @@ const HeaderStats = () => {
   const { companyId, companyName } = useSelectedCompany();
   const [stats, setStats] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  // Applications started but not finished (FlowRunner's saved progress) —
+  // surfaced up front so they're not only reachable from the company switcher.
+  const [inProgress] = useState(inProgressApplications);
 
   useEffect(() => {
     if (!companyId) {
@@ -117,6 +123,44 @@ const HeaderStats = () => {
           </button>
         </div>
       </div>
+
+      {/* Continue an in-progress application */}
+      {inProgress.length > 0 && (
+        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+          {inProgress.map((app) => {
+            const { path, state } = flowRoute(app.flowId);
+            return (
+              <div
+                key={app.flowId}
+                className="flex items-center justify-between gap-4 rounded-xl border border-yellow-200 bg-white p-4 shadow-md"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-yellow-100">
+                    <FileText className="h-5 w-5 text-yellow-600" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                      Continue your application
+                    </p>
+                    <p className="text-sm font-semibold text-gray-800">{app.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {app.kind} · step {app.step}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate(path, { state: { ...state, companyId } })}
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black transition hover:bg-yellow-500"
+                >
+                  Continue
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">

@@ -1,7 +1,8 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { getCompanyInvoices, getFranchiseeById } from "../api/Companyinvoice";
+import { getCompanyInvoices, getFranchiseeById, sendInvoiceLinkEmail } from "../api/Companyinvoice";
 import { getSecureItem } from "../utils/secureStorage";
+import { signedInContact } from "../utils/applicationPrefill";
 import { ProfileCompanyContext } from "./ProfileLayout";
 import CryptoJS from "crypto-js";
 import jsPDF from "jspdf";
@@ -26,6 +27,8 @@ const InvoicePreview = () => {
   const [error, setError] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [franchiseeDetails, setFranchiseeDetails] = useState(null);
+  const [emailStatus, setEmailStatus] = useState("idle"); // idle | sending | sent | error
+  const [emailMessage, setEmailMessage] = useState("");
 
   // Decrypt the encrypted orderId
   const decryptOrderId = () => {
@@ -396,9 +399,40 @@ const InvoicePreview = () => {
     window.print();
   };
 
-  const handleSendEmail = () => {
-    // Implement email functionality
-    window.location.href = `mailto:?subject=Invoice ${invoice?.InvoiceCode}&body=Please find the invoice details attached.`;
+  // The customer's email as frozen on the invoice (PartySnapshot.buyer), falling
+  // back to the company's email and then the signed-in customer's own.
+  const invoiceRecipientEmail = () => {
+    let snap = invoice?.PartySnapshot;
+    if (typeof snap === "string") {
+      try { snap = JSON.parse(snap); } catch { snap = null; }
+    }
+    return (
+      snap?.buyer?.customer?.Email ||
+      snap?.buyer?.company?.CompanyEmail ||
+      signedInContact()?.email ||
+      ""
+    ).trim();
+  };
+
+  const handleSendEmail = async () => {
+    if (emailStatus === "sending") return;
+    const email = invoiceRecipientEmail();
+    if (!email) {
+      setEmailStatus("error");
+      setEmailMessage("No email address found for this invoice.");
+      return;
+    }
+    setEmailStatus("sending");
+    setEmailMessage("");
+    const link = `${window.location.origin}/profile/invoice-preview/${encrypted}`;
+    const res = await sendInvoiceLinkEmail({ email, link });
+    if (res?.success) {
+      setEmailStatus("sent");
+      setEmailMessage(`Invoice link sent to ${email}`);
+    } else {
+      setEmailStatus("error");
+      setEmailMessage(res?.message || "Couldn't send the email. Please try again.");
+    }
   };
 
   const formatDate = (dateString) => {
@@ -548,10 +582,14 @@ const InvoicePreview = () => {
             
             <button
               onClick={handleSendEmail}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-md hover:shadow-lg transition-all border-2 border-yellow-100"
+              disabled={emailStatus === "sending"}
+              title={emailMessage || "Email me a link to this invoice"}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-md hover:shadow-lg transition-all border-2 border-yellow-100 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FiMail className="w-4 h-4 text-yellow-600" />
-              <span className="text-sm font-medium text-gray-700">Email</span>
+              <span className="text-sm font-medium text-gray-700">
+                {emailStatus === "sending" ? "Sending…" : emailStatus === "sent" ? "Sent ✓" : "Email"}
+              </span>
             </button>
             
             <button
@@ -573,6 +611,12 @@ const InvoicePreview = () => {
             </button>
           </div>
         </motion.div>
+
+        {emailMessage && (
+          <div className={`mb-4 text-sm text-right print:hidden ${emailStatus === "error" ? "text-red-600" : "text-green-700"}`}>
+            {emailMessage}
+          </div>
+        )}
 
         {/* Invoice Content */}
         <motion.div

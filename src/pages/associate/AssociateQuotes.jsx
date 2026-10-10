@@ -148,7 +148,7 @@ const AssociateQuotes = () => {
         if (!quote?.QuoteID) return;
         if (typeof CryptoJS === "undefined") { alert("Unable to open quote preview."); return; }
         const encryptedId = encodeURIComponent(encrypt(quote.QuoteID));
-        window.open(`https://dev.bizpoleindia.in/quotes/saved-preview/${encryptedId}`, "_blank");
+        window.open(`https://test.bizpole.io/quotes/saved-preview/${encryptedId}`, "_blank");
     };
 
     const handleDownloadQuote = (quote) => {

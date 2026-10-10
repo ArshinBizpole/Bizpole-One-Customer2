@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { getAllOrdersByCompany } from "../api/Orders/Order";
 import {
   createSupportTicket,
@@ -85,25 +85,39 @@ const SupportTickets = () => {
   const [checkingQuote, setCheckingQuote] = useState(false);
   const [selectedService, setSelectedService] = useState(null);
 
+  // Only the latest load may update state: on a reload this runs once for the
+  // previously stored company and again after the dashboard settles on the
+  // real one, and the older response mustn't land last.
+  const loadSeq = useRef(0);
   const loadAll = async () => {
+    const seq = ++loadSeq.current;
     setLoading(true);
+    let nextTickets = [];
+    let nextOrders = [];
     try {
       const tRes = await getMyTickets({ page: 1, limit: 50 });
-      setTickets(tRes.data || []);
+      nextTickets = tRes.data || [];
     } catch {
-      setTickets([]);
+      nextTickets = [];
     }
     try {
       const ordRes = await getAllOrdersByCompany({ page: 1, limit: 50 });
-      setOrders(ordRes.data || ordRes.orders || []);
+      nextOrders = ordRes.data || ordRes.orders || [];
     } catch {
-      setOrders([]);
+      nextOrders = [];
     }
+    if (seq !== loadSeq.current) return;
+    setTickets(nextTickets);
+    setOrders(nextOrders);
     setLoading(false);
   };
 
+  // Tickets and orders are per company (both APIs read the selected company
+  // from storage), so reload them when the header's company dropdown switches.
   useEffect(() => {
     loadAll();
+    window.addEventListener("company-switched", loadAll);
+    return () => window.removeEventListener("company-switched", loadAll);
   }, []);
 
   const openModal = () => {
@@ -349,7 +363,10 @@ const SupportTickets = () => {
           (o) => String(o.OrderID || o.id) === String(form.orderKey)
         );
         if (order) {
-          orderId = order.OrderID || order.id;
+          // order.OrderID is the display code (e.g. "OR000622"); the ticket's
+          // OrderID column is the numeric key, so send OrderPK (same as
+          // ServiceCatalogPicker / Companyinvoice).
+          orderId = order.OrderPK ?? order.id;
           quoteId = order.QuoteID;
         }
       }

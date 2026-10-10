@@ -4,6 +4,7 @@ import { X, ChevronDown, Loader2, Eye, Phone, Tag, FileText, CheckCircle, Users,
 import locationData from "../../utils/statesAndDistricts.json";
 import DealsApi from "../../api/DealsApi";
 import { getSecureItem } from "../../utils/secureStorage";
+import { assignCustomer } from "../../api/CustomerApi";
 import Select, { components } from "react-select";
 
 // ── Step Indicator ──────────────────────────────────────────────────────────
@@ -91,7 +92,7 @@ const ExistingEntityDropdown = ({ type, onSelect, onClose, apiBaseUrl }) => {
                 ? `${apiBaseUrl}/customers?search=${encodeURIComponent(searchQuery)}&page=${pageNum}&limit=10`
                 : `${apiBaseUrl}/companies?search=${encodeURIComponent(searchQuery)}&page=${pageNum}&limit=10`;
             const response = await fetch(endpoint, {
-                headers: { Authorization: `Bearer ${getSecureItem("partnerToken")}` },
+                headers: { Authorization: `Bearer ${localStorage.getItem("partnerToken")}` },
             });
             const data = await response.json();
             if (data.success) {
@@ -321,7 +322,7 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
         setIsFetchingCustomers(true);
         try {
             const resp = await fetch(`${API_BASE_URL}/company/get-details`, {
-                method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getSecureItem("partnerToken")}` },
+                method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("partnerToken")}` },
                 body: JSON.stringify({ CompanyId: companyId }),
             });
             const data = await resp.json();
@@ -342,7 +343,7 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
     useEffect(() => {
         const fetch_ = async () => {
             try {
-                const r = await fetch(`${API_BASE_URL}/service-category?page=1&limit=100`, { headers: { Authorization: `Bearer ${getSecureItem("partnerToken")}` } });
+                const r = await fetch(`${API_BASE_URL}/service-category?page=1&limit=100`, { headers: { Authorization: `Bearer ${localStorage.getItem("partnerToken")}` } });
                 const d = await r.json();
                 if (d.success) setServiceCategories(d.data || []);
             } catch (error) {
@@ -373,7 +374,7 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                             try {
                                 const cr = await fetch(`${API_BASE_URL}/customer/get`, {
                                     method: "POST",
-                                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getSecureItem("partnerToken")}` },
+                                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("partnerToken")}` },
                                     body: JSON.stringify({ CustomerID: custId }),
                                 });
                                 const cData = await cr.json();
@@ -387,7 +388,7 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                             try {
                                 const comR = await fetch(`${API_BASE_URL}/company/get-details`, {
                                     method: "POST",
-                                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getSecureItem("partnerToken")}` },
+                                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("partnerToken")}` },
                                     body: JSON.stringify({ CompanyId: compId }),
                                 });
                                 const comData = await comR.json();
@@ -477,7 +478,7 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
         const fetch_ = async () => {
             if (!formData.serviceCategory || isNaN(formData.serviceCategory)) { setAvailableServices([]); return; }
             try {
-                const r = await fetch(`${API_BASE_URL}/service-categories/${formData.serviceCategory}?limit=100`, { headers: { Authorization: `Bearer ${getSecureItem("partnerToken")}` } });
+                const r = await fetch(`${API_BASE_URL}/service-categories/${formData.serviceCategory}?limit=100`, { headers: { Authorization: `Bearer ${localStorage.getItem("partnerToken")}` } });
                 const d = await r.json();
                 if (d.success && d.data) {
                     const svcs = d.data.Services || [];
@@ -510,8 +511,8 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                 if (!selectedState) return;
                 const r = await fetch(`${API_BASE_URL}/service-price-currency/bulk`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getSecureItem("partnerToken")}` },
-                    body: JSON.stringify({ StateID: selectedState.ID, ServiceIDs: formData.selectedServices, isIndividual: formData.serviceType === 'individual' ? 1 : 0, packageId: formData.selectedPackage, yearly: formData.billingPeriod === 'yearly' ? 1 : 0 }),
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("partnerToken")}` },
+                    body: JSON.stringify({ StateID: selectedState.id ?? selectedState.ID, ServiceIDs: formData.selectedServices, isIndividual: formData.serviceType === 'individual' ? 1 : 0, packageId: formData.selectedPackage, yearly: formData.billingPeriod === 'yearly' ? 1 : 0 }),
                 });
                 const d = await r.json();
                 if (d.success) setServicePricing(d.data || []);
@@ -526,7 +527,7 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
             try {
                 const selectedState = availableStates.find((s) => s.state_name === formData.serviceState);
                 if (!selectedState) return;
-                const r = await fetch(`${API_BASE_URL}/getPackage`, { headers: { Authorization: `Bearer ${getSecureItem("partnerToken")}` } });
+                const r = await fetch(`${API_BASE_URL}/getPackage`, { headers: { Authorization: `Bearer ${localStorage.getItem("partnerToken")}` } });
                 const d = await r.json();
                 if (d.data) setAvailablePackages(d.data || []);
             } catch { setAvailablePackages([]); }
@@ -538,7 +539,7 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
         const catId = categoryOption.value;
         if (categoryServicesCache[catId]) { setServicePopup({ open: true, category: categoryOption, services: categoryServicesCache[catId] }); return; }
         try {
-            const r = await fetch(`${API_BASE_URL}/service-categories/${catId}?limit=100`, { headers: { Authorization: `Bearer ${getSecureItem("partnerToken")}` } });
+            const r = await fetch(`${API_BASE_URL}/service-categories/${catId}?limit=100`, { headers: { Authorization: `Bearer ${localStorage.getItem("partnerToken")}` } });
             const d = await r.json();
             const svcs = (d.success && d.data) ? (d.data.Services || []) : [];
             setCategoryServicesCache(prev => ({ ...prev, [catId]: svcs }));
@@ -554,7 +555,7 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
         try {
             const r = await fetch(`${API_BASE_URL}/customer/get`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${getSecureItem("partnerToken")}` },
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("partnerToken")}` },
                 body: JSON.stringify({ CustomerID: customerId }),
             });
             const data = await r.json();
@@ -577,7 +578,7 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
         try {
             const r = await fetch(`${API_BASE_URL}/company/get-details`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${getSecureItem("partnerToken")}` },
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("partnerToken")}` },
                 body: JSON.stringify({ CompanyId: companyId }),
             });
             const data = await r.json();
@@ -652,14 +653,67 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
         setIsSubmitting(true);
         try {
             const user = getSecureItem("partnerUser") || {};
+            // Edit: keep the deal's franchisee/employee.
+            // Create: round-robin by customer language/state/district (same as /assignCustomer),
+            // falling back to the associate's BDE and franchisee (resolved at login).
+            let franchiseeId = deal?.id ? (deal.franchiseId || user.FranchiseeID || null) : null;
+            let employeeId = deal?.id ? (deal.employeeId || user.EmployeeID || null) : null;
+            if (!deal?.id) {
+                const language = formData.preferredLanguage || formData.companyPreferredLanguage;
+                const state = formData.state || formData.companyState;
+                const district = formData.district || formData.companyDistrict;
+                if (language && state && district) {
+                    try {
+                        const assignment = await assignCustomer({ language, state, district, salesOnly: true });
+                        if (assignment?.success && assignment.franchiseeId && assignment.agent?.id) {
+                            franchiseeId = assignment.franchiseeId;
+                            employeeId = assignment.agent.id;
+                        }
+                    } catch (err) {
+                        console.warn("Franchisee round-robin failed, using associate's BDE:", err);
+                    }
+                }
+                franchiseeId = franchiseeId || user.FranchiseeID || null;
+                employeeId = employeeId || user.EmployeeID || null;
+            }
+            if (!franchiseeId || !employeeId) {
+                setErrors({ api: "Your account is not mapped to a BDE/franchisee yet. Please log out and log in again." });
+                return;
+            }
             // const selectedState = availableStates.find((s) => s.state_name === formData.serviceState);
             const selectedCategory = serviceCategories.find(c => c.CategoryID === parseInt(formData.serviceCategory));
             let servicesPayload = [];
             if (formData.serviceType === "individual") {
+                // Fetch pricing fresh at submit so a slow/failed background fetch can't zero the deal value
+                const rowTotal = (p) => Number(p?.TotalFee || p?.Total) || ((Number(p?.ProfessionalFee) || 0) + (Number(p?.VendorFee) || 0) + (Number(p?.ContractFee) || 0) + (Number(p?.GovernmentFee) || 0));
+                let pricingRows = servicePricing;
+                const selectedState = availableStates.find((s) => s.state_name === formData.serviceState);
+                if (selectedState) {
+                    try {
+                        const pr = await fetch(`${API_BASE_URL}/service-price-currency/bulk`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("partnerToken")}` },
+                            body: JSON.stringify({ StateID: selectedState.id ?? selectedState.ID, ServiceIDs: formData.selectedServices, isIndividual: 1 }),
+                        });
+                        const pd = await pr.json();
+                        if (pd.success && Array.isArray(pd.data)) pricingRows = pd.data;
+                    } catch (err) {
+                        console.error("Error fetching service pricing:", err);
+                    }
+                }
+                const unpriced = formData.selectedServices.filter((serviceId) => {
+                    const p = pricingRows.find((row) => Number(row.ServiceID) === Number(serviceId));
+                    return !(rowTotal(p) > 0);
+                });
+                if (unpriced.length > 0) {
+                    const names = unpriced.map((id) => availableServices.find((s) => Number(s.ServiceID) === Number(id))?.ServiceName || `Service ${id}`).join(", ");
+                    setErrors({ api: `No price is set for ${names} in ${formData.serviceState}. Please choose another service or state.` });
+                    return;
+                }
                 servicesPayload = formData.selectedServices.map((serviceId) => {
-                    const service = availableServices.find((s) => s.ServiceID === serviceId);
-                    const pricing = servicePricing.find((p) => p.ServiceID === serviceId);
-                    return { serviceId, serviceName: service?.ServiceName || pricing?.ServiceName || "", serviceCategoryId: formData.serviceCategory, serviceCategory: selectedCategory?.CategoryName || "", professionalFee: pricing?.ProfessionalFee || 0, vendorFee: pricing?.VendorFee || 0, contractorFee: pricing?.ContractFee || 0, govtFee: pricing?.GovernmentFee || 0, total: pricing?.TotalFee || pricing?.Total || 0, dealType: "Individual" };
+                    const service = availableServices.find((s) => Number(s.ServiceID) === Number(serviceId));
+                    const pricing = pricingRows.find((p) => Number(p.ServiceID) === Number(serviceId));
+                    return { serviceId, serviceName: service?.ServiceName || pricing?.ServiceName || "", serviceCategoryId: formData.serviceCategory, serviceCategory: selectedCategory?.CategoryName || "", professionalFee: pricing?.ProfessionalFee || 0, vendorFee: pricing?.VendorFee || 0, contractorFee: pricing?.ContractFee || 0, govtFee: pricing?.GovernmentFee || 0, total: rowTotal(pricing), dealType: "Individual" };
                 });
             } else if (formData.serviceType === "package") {
                 const selectedPackage = availablePackages.find((pkg) => pkg.PackageID === parseInt(formData.selectedPackage));
@@ -676,8 +730,8 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                     mobile: formData.mobile,
                     email: formData.email,
                     state: formData.state,
-                    franchiseId: user.FranchiseeID || 1,
-                    employeeId: user.EmployeeID || 9,
+                    franchiseId: franchiseeId,
+                    employeeId: employeeId,
                     converted_at: deal.converted_at || new Date().toISOString(),
                     CompanyID: deal.CompanyID,
                     CustomerID: deal.CustomerID,
@@ -764,8 +818,8 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                     packageName: isIndividual ? null : (selectedPackageObj?.PackageName || null),
                     billingPeriod: isIndividual ? null : formData.billingPeriod,
                     serviceType: formData.serviceType,
-                    franchiseeId: user.FranchiseeID || 1,
-                    employeeId: user.EmployeeID || 9,
+                    franchiseeId: franchiseeId,
+                    employeeId: employeeId,
                     isAssociate: true,
                     AssociateID: user.id || null,
                     sourceOfSale: "Associate",
@@ -998,7 +1052,7 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                                                 <Select
                                                     options={serviceCategories.map((c) => ({ value: c.CategoryID, label: c.CategoryName }))}
                                                     value={formData.serviceCategory ? { value: formData.serviceCategory, label: serviceCategories.find((c) => parseInt(c.CategoryID) === parseInt(formData.serviceCategory))?.CategoryName || "Selected Category" } : null}
-                                                    onChange={(sel) => setFormData({ ...formData, serviceType: "individual", serviceCategory: sel?.value || "" })}
+                                                    onChange={(sel) => setFormData({ ...formData, serviceType: "individual", serviceCategory: sel?.value || "", selectedServices: String(sel?.value || "") === String(formData.serviceCategory) ? formData.selectedServices : [] })}
                                                     placeholder="" isSearchable isDisabled={!formData.serviceState}
                                                     styles={rsStyles(errors.serviceCategory)}
                                                     components={{ Option: CategoryOption }}

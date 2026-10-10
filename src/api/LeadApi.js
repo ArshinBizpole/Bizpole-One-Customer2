@@ -66,9 +66,9 @@ export const uploadApplicationDocument = async ({ file, leadId, companyId, docLa
 
 /**
  * Remove a previously uploaded Documents-step file.
- * @param {Object} params - { leadId, docLabel }
+ * @param {Object} params - { leadId, companyId, docLabel } — leadId, or companyId when there's no Lead
  */
-export const removeApplicationDocument = async ({ leadId, docLabel }) => {
-  const res = await axiosInstance.post("/lead-generation/application-document/remove", { leadId, docLabel });
+export const removeApplicationDocument = async ({ leadId, companyId, docLabel }) => {
+  const res = await axiosInstance.post("/lead-generation/application-document/remove", leadId ? { leadId, docLabel } : { companyId, docLabel });
   return res.data;
 };
