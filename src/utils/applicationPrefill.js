@@ -28,6 +28,7 @@ export function signedInContact() {
     country: user.Country || "India",
     state: STATES.includes(user.State) ? user.State : "",
     language: user.PreferredLanguage || user.Language || "",
+    pan: String(user.PANNumber || "").trim().toUpperCase(),
   };
 }
 

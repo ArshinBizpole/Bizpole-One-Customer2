@@ -267,6 +267,7 @@ export function fillExistingCompanyAnswers(A, record) {
   };
   put("ex_name", record.BusinessName);
   put("ex_regno", record.CIN);
+  put("ex_gstin", record.GSTNumber);
   put("ex_biztype", bizTypeFor(record.ConstitutionCategory));
   put("ex_addr1", record.AddressLine1);
   put("ex_addr2", record.AddressLine2);
