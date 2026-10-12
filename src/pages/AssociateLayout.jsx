@@ -15,7 +15,8 @@ import {
     ChevronRight,
     ChevronLeft,
     HelpCircle,
-    Building2
+    Building2,
+    ArrowLeft
 } from 'lucide-react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { getSecureItem } from '../utils/secureStorage';
@@ -29,6 +30,17 @@ const AssociateLayout = () => {
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const user = getSecureItem("partnerUser") || { username: "Associate" };
+
+    // Detail pages (/associate/<section>/:id) render their own "Back to ..." button,
+    // so the header one is only for top-level pages other than the dashboard
+    const pathSegments = location.pathname.split('/').filter(Boolean);
+    const showHeaderBack = pathSegments.length === 2 && location.pathname !== '/associate/dashboard';
+
+    const handleBack = () => {
+        // location.key is 'default' when this is the first entry (e.g. opened in a new tab)
+        if (location.key !== 'default') navigate(-1);
+        else navigate('/associate/dashboard');
+    };
 
     const handleLogoutClick = () => {
         setShowLogoutModal(true);
@@ -188,6 +200,16 @@ const AssociateLayout = () => {
             <main className="flex-1 overflow-y-auto">
                 <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-10">
                     <div className="flex items-center gap-4 flex-1 max-w-xl">
+                        {showHeaderBack && (
+                            <button
+                                onClick={handleBack}
+                                title="Back"
+                                aria-label="Back"
+                                className="w-10 h-10 flex items-center justify-center shrink-0 text-slate-600 hover:text-slate-900 border border-slate-200 rounded-full bg-white shadow-sm hover:shadow transition-all"
+                            >
+                                <ArrowLeft className="w-5 h-5" />
+                            </button>
+                        )}
                         {location.pathname !== '/associate/profile' && location.pathname !== '/associate/dashboard' && <div className="relative w-full">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                             <input
@@ -203,7 +225,12 @@ const AssociateLayout = () => {
                             <Bell className="w-6 h-6" />
                             <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full"></span>
                         </button>
-                        <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/associate/profile')}
+                            title="View profile"
+                            className="flex items-center gap-3 pl-4 border-l border-slate-200 rounded-r-xl py-1 pr-1 hover:opacity-80 transition-opacity cursor-pointer"
+                        >
                             <div className="text-right">
                                 <p className="text-sm font-bold text-slate-900">{user.username}</p>
                                 <p className="text-xs text-slate-500 capitalize">{user.type || 'Associate'}</p>
@@ -211,7 +238,7 @@ const AssociateLayout = () => {
                             <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full flex items-center justify-center font-bold text-black border-2 border-white shadow-sm">
                                 {user.username?.charAt(0)}
                             </div>
-                        </div>
+                        </button>
                     </div>
                 </header>
 

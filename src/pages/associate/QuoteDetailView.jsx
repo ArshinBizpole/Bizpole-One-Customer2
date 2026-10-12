@@ -8,9 +8,11 @@ import {
     FileText,
     CreditCard,
     Calendar,
+    Download,
 } from 'lucide-react';
 import axiosInstance from '../../api/axiosInstance';
 import { format, isValid } from 'date-fns';
+import { downloadQuote } from '../../components/associate/quote/downloadQuote';
 
 const safeFormat = (dateValue, formatStr, fallback = "--") => {
     if (!dateValue) return fallback;
@@ -25,6 +27,21 @@ const QuoteDetailView = () => {
     const [quote, setQuote] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [downloading, setDownloading] = useState(false);
+
+    // Same QUOTATION document admin downloads (ported QuoteDocument), via the print dialog
+    const handleDownload = async () => {
+        if (!quote || downloading) return;
+        setDownloading(true);
+        try {
+            await downloadQuote(quote);
+        } catch (err) {
+            console.error("Quote download error", err);
+            alert("Failed to download the quote. Please try again.");
+        } finally {
+            setDownloading(false);
+        }
+    };
 
     useEffect(() => {
         const fetchQuoteDetails = async () => {
@@ -64,7 +81,7 @@ const QuoteDetailView = () => {
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px]">
-                <Loader2 className="w-10 h-10 text-[#4b49ac] animate-spin mb-4" />
+                <Loader2 className="w-10 h-10 text-yellow-600 animate-spin mb-4" />
                 <p className="text-slate-500 font-medium">Loading quote details...</p>
             </div>
         );
@@ -79,7 +96,7 @@ const QuoteDetailView = () => {
                 <div>
                     <button
                         onClick={() => navigate('/associate/quotes')}
-                        className="text-[#4b49ac] font-bold hover:underline"
+                        className="text-yellow-600 font-bold hover:underline"
                     >
                         Back to Quotes
                     </button>
@@ -113,8 +130,8 @@ const QuoteDetailView = () => {
             <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-[#4b49ac]/10 rounded-2xl flex items-center justify-center">
-                            <FileText className="w-6 h-6 text-[#4b49ac]" />
+                        <div className="w-12 h-12 bg-yellow-400/10 rounded-2xl flex items-center justify-center">
+                            <FileText className="w-6 h-6 text-yellow-600" />
                         </div>
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900">{quote.QuoteCodeId}</h1>
@@ -135,6 +152,17 @@ const QuoteDetailView = () => {
                             </div>
                         </div>
                     </div>
+                    <button
+                        onClick={handleDownload}
+                        disabled={downloading}
+                        title="Download quote PDF"
+                        className="flex items-center gap-2 w-fit border border-slate-200 px-4 py-2 rounded-lg bg-white text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                        {downloading
+                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                            : <Download className="w-4 h-4" />}
+                        Download
+                    </button>
                 </div>
 
                 {/* Tabs */}
@@ -162,6 +190,20 @@ const QuoteDetailView = () => {
                         <div>
                             <p className="text-xs text-slate-400 mb-1">QUOTE CODE</p>
                             <p className="text-sm font-medium text-slate-900">{quote.QuoteCode || "--"}</p>
+                        </div>
+
+                        <div>
+                            <p className="text-xs text-slate-400 mb-1">DEAL ID</p>
+                            {quote.DealID ? (
+                                <p
+                                    onClick={() => navigate(`/associate/deals/${quote.DealID}`)}
+                                    className="text-sm font-medium text-blue-500 cursor-pointer hover:underline uppercase"
+                                >
+                                    {quote.DealCode || `#${quote.DealID}`}
+                                </p>
+                            ) : (
+                                <p className="text-sm font-medium text-slate-900">--</p>
+                            )}
                         </div>
 
                         <div>
