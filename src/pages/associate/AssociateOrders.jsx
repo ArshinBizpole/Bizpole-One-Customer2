@@ -53,6 +53,7 @@ const AssociateOrders = () => {
     const [showFilters, setShowFilters] = useState(false);
     const [filters, setFilters] = useState(DEFAULT_FILTERS);
     const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
+    const [dateRangeError, setDateRangeError] = useState('');
 
     const activeFilterCount = [
         appliedFilters.orderType.length > 0,
@@ -105,6 +106,11 @@ const AssociateOrders = () => {
     useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
     const handleApplyFilters = () => {
+        if (filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo) {
+            setDateRangeError('"From" date cannot be after "To" date');
+            return;
+        }
+        setDateRangeError('');
         setAppliedFilters({ ...filters });
         setCurrentPage(1);
         setShowFilters(false);
@@ -112,10 +118,12 @@ const AssociateOrders = () => {
 
     const handleResetFilters = () => {
         setFilters(DEFAULT_FILTERS);
+        setDateRangeError('');
     };
 
     const handleOpenFilters = () => {
         setFilters({ ...appliedFilters });
+        setDateRangeError('');
         setShowFilters(prev => !prev);
     };
 
@@ -232,8 +240,8 @@ const AssociateOrders = () => {
                     onClick={() => { setCurrentPage(1); fetchOrders(); }}
                     style={{
                         display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px',
-                        border: 'none', borderRadius: 8, background: '#4B49AC',
-                        fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer'
+                        border: 'none', borderRadius: 8, background: '#FACC15',
+                        fontSize: 13, fontWeight: 600, color: '#111827', cursor: 'pointer'
                     }}
                 >
                     Search
@@ -242,16 +250,16 @@ const AssociateOrders = () => {
                     onClick={handleOpenFilters}
                     style={{
                         display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
-                        border: `1px solid ${showFilters || activeFilterCount > 0 ? '#4B49AC' : '#E5E7EB'}`,
-                        borderRadius: 8, background: showFilters || activeFilterCount > 0 ? '#F0F0FF' : '#fff',
-                        fontSize: 13, fontWeight: 500, color: showFilters || activeFilterCount > 0 ? '#4B49AC' : '#374151',
+                        border: `1px solid ${showFilters || activeFilterCount > 0 ? '#CA8A04' : '#E5E7EB'}`,
+                        borderRadius: 8, background: showFilters || activeFilterCount > 0 ? '#FEFCE8' : '#fff',
+                        fontSize: 13, fontWeight: 500, color: showFilters || activeFilterCount > 0 ? '#CA8A04' : '#374151',
                         cursor: 'pointer', transition: 'all 0.15s', position: 'relative'
                     }}
                 >
                     <Filter style={{ width: 14, height: 14 }} /> Filters
                     {activeFilterCount > 0 && (
                         <span style={{
-                            marginLeft: 4, background: '#4B49AC', color: 'white',
+                            marginLeft: 4, background: '#FACC15', color: '#111827',
                             fontSize: 10, fontWeight: 'bold', borderRadius: '50%',
                             width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center'
                         }}>
@@ -267,11 +275,11 @@ const AssociateOrders = () => {
                     {appliedFilters.orderType.map(type => (
                         <span key={type} style={{
                             display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px',
-                            background: '#F0F0FF', border: '1px solid #C7D2FE', color: '#4338CA',
+                            background: '#FEFCE8', border: '1px solid #FEF08A', color: '#A16207',
                             borderRadius: 100, fontSize: 12, fontWeight: 500
                         }}>
                             {type === 'individual' ? 'Individual' : 'Package'}
-                            <button onClick={() => removeChip('orderType', type)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#4338CA', display: 'flex' }}>
+                            <button onClick={() => removeChip('orderType', type)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#A16207', display: 'flex' }}>
                                 <X style={{ width: 12, height: 12 }} />
                             </button>
                         </span>
@@ -279,11 +287,11 @@ const AssociateOrders = () => {
                     {appliedFilters.activation.map(val => (
                         <span key={val} style={{
                             display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px',
-                            background: '#F0F0FF', border: '1px solid #C7D2FE', color: '#4338CA',
+                            background: '#FEFCE8', border: '1px solid #FEF08A', color: '#A16207',
                             borderRadius: 100, fontSize: 12, fontWeight: 500
                         }}>
                             {val === 'paid' ? 'Paid' : 'Pending Balance'}
-                            <button onClick={() => removeChip('activation', val)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#4338CA', display: 'flex' }}>
+                            <button onClick={() => removeChip('activation', val)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#A16207', display: 'flex' }}>
                                 <X style={{ width: 12, height: 12 }} />
                             </button>
                         </span>
@@ -291,13 +299,13 @@ const AssociateOrders = () => {
                     {(appliedFilters.dateFrom || appliedFilters.dateTo) && (
                         <span style={{
                             display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px',
-                            background: '#F0F0FF', border: '1px solid #C7D2FE', color: '#4338CA',
+                            background: '#FEFCE8', border: '1px solid #FEF08A', color: '#A16207',
                             borderRadius: 100, fontSize: 12, fontWeight: 500
                         }}>
                             Date: {appliedFilters.dateFrom ? format(new Date(appliedFilters.dateFrom), 'dd/MM/yyyy') : '...'}
                             {' → '}
                             {appliedFilters.dateTo ? format(new Date(appliedFilters.dateTo), 'dd/MM/yyyy') : '...'}
-                            <button onClick={() => removeChip('date')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#4338CA', display: 'flex' }}>
+                            <button onClick={() => removeChip('date')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#A16207', display: 'flex' }}>
                                 <X style={{ width: 12, height: 12 }} />
                             </button>
                         </span>
@@ -319,7 +327,7 @@ const AssociateOrders = () => {
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #F3F4F6' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ width: 3, height: 18, background: '#4B49AC', borderRadius: 2 }} />
+                            <div style={{ width: 3, height: 18, background: '#FACC15', borderRadius: 2 }} />
                             <span style={{ fontWeight: 700, fontSize: 14, color: '#1A1D23' }}>Order Filters</span>
                         </div>
                         <button onClick={handleResetFilters} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#6B7280', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -335,10 +343,10 @@ const AssociateOrders = () => {
                                 {['individual', 'package'].map(type => (
                                     <label key={type} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: '#374151' }}>
                                         <div onClick={() => toggleFilter('orderType', type)} style={{
-                                            width: 16, height: 16, borderRadius: 4, border: `2px solid ${filters.orderType.includes(type) ? '#4B49AC' : '#D1D5DB'}`,
-                                            background: filters.orderType.includes(type) ? '#4B49AC' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                            width: 16, height: 16, borderRadius: 4, border: `2px solid ${filters.orderType.includes(type) ? '#CA8A04' : '#D1D5DB'}`,
+                                            background: filters.orderType.includes(type) ? '#FACC15' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center'
                                         }}>
-                                            {filters.orderType.includes(type) && <X style={{ width: 12, height: 12, color: '#fff' }} />}
+                                            {filters.orderType.includes(type) && <X style={{ width: 12, height: 12, color: '#111827' }} />}
                                         </div>
                                         <span onClick={() => toggleFilter('orderType', type)}>{type === 'individual' ? 'Individual' : 'Package'}</span>
                                     </label>
@@ -353,10 +361,10 @@ const AssociateOrders = () => {
                                 {[{ v: 'paid', l: 'Paid' }, { v: 'pending', l: 'Pending Balance' }].map(opt => (
                                     <label key={opt.v} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: '#374151' }}>
                                         <div onClick={() => toggleFilter('activation', opt.v)} style={{
-                                            width: 16, height: 16, borderRadius: 4, border: `2px solid ${filters.activation.includes(opt.v) ? '#4B49AC' : '#D1D5DB'}`,
-                                            background: filters.activation.includes(opt.v) ? '#4B49AC' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                            width: 16, height: 16, borderRadius: 4, border: `2px solid ${filters.activation.includes(opt.v) ? '#CA8A04' : '#D1D5DB'}`,
+                                            background: filters.activation.includes(opt.v) ? '#FACC15' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center'
                                         }}>
-                                            {filters.activation.includes(opt.v) && <X style={{ width: 12, height: 12, color: '#fff' }} />}
+                                            {filters.activation.includes(opt.v) && <X style={{ width: 12, height: 12, color: '#111827' }} />}
                                         </div>
                                         <span onClick={() => toggleFilter('activation', opt.v)}>{opt.l}</span>
                                     </label>
@@ -369,25 +377,26 @@ const AssociateOrders = () => {
                             <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', marginBottom: 12, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Order Date Range</p>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <div style={{ position: 'relative' }}>
-                                    <input type="date" value={filters.dateFrom} onChange={e => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+                                    <input type="date" value={filters.dateFrom} max={filters.dateTo || undefined} onChange={e => { setFilters(prev => ({ ...prev, dateFrom: e.target.value })); setDateRangeError(''); }}
                                         style={{ padding: '7px 36px 7px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13, color: '#374151', background: '#F9FAFB', outline: 'none', width: 140, boxSizing: 'border-box' }}
                                     />
-                                    <Calendar style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', width: 14, height: 14, color: '#4B49AC' }} />
+                                    <Calendar style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', width: 14, height: 14, color: '#CA8A04' }} />
                                 </div>
                                 <span style={{ color: '#9CA3AF' }}>→</span>
                                 <div style={{ position: 'relative' }}>
-                                    <input type="date" value={filters.dateTo} min={filters.dateFrom || undefined} onChange={e => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+                                    <input type="date" value={filters.dateTo} min={filters.dateFrom || undefined} onChange={e => { setFilters(prev => ({ ...prev, dateTo: e.target.value })); setDateRangeError(''); }}
                                         style={{ padding: '7px 36px 7px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13, color: '#374151', background: '#F9FAFB', outline: 'none', width: 140, boxSizing: 'border-box' }}
                                     />
-                                    <Calendar style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', width: 14, height: 14, color: '#4B49AC' }} />
+                                    <Calendar style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', width: 14, height: 14, color: '#CA8A04' }} />
                                 </div>
                             </div>
+                            {dateRangeError && <p style={{ fontSize: 12, color: '#EF4444', marginTop: 4, marginBottom: 0 }}>{dateRangeError}</p>}
                         </div>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, padding: '14px 20px', borderTop: '1px solid #F3F4F6', background: '#F9FAFB' }}>
                         <button onClick={() => setShowFilters(false)} style={{ padding: '8px 20px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer' }}>Cancel</button>
-                        <button onClick={handleApplyFilters} style={{ padding: '8px 20px', borderRadius: 8, border: 'none', background: '#4B49AC', fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>Apply Filters</button>
+                        <button onClick={handleApplyFilters} style={{ padding: '8px 20px', borderRadius: 8, border: 'none', background: '#FACC15', fontSize: 13, fontWeight: 600, color: '#111827', cursor: 'pointer' }}>Apply Filters</button>
                     </div>
                 </div>
             )}
@@ -400,6 +409,8 @@ const AssociateOrders = () => {
                             <tr style={{ background: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
                                 <th style={{ ...th, textAlign: 'center' }}>S.NO</th>
                                 <th style={th}>ORDER ID</th>
+                                <th style={th}>QUOTE ID</th>
+                                <th style={th}>DEAL ID</th>
                                 <th style={th}>ORDER DATE</th>
                                 <th style={th}>ORDER CREATOR</th>
                                 <th style={th}>COMPANY NAME</th>
@@ -417,16 +428,16 @@ const AssociateOrders = () => {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={14} style={{ padding: '48px 0', textAlign: 'center', color: '#9CA3AF' }}>
+                                    <td colSpan={16} style={{ padding: '48px 0', textAlign: 'center', color: '#9CA3AF' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                                            <Loader2 style={{ width: 22, height: 22, color: '#4B49AC', animation: 'spin 1s linear infinite' }} />
+                                            <Loader2 style={{ width: 22, height: 22, color: '#CA8A04', animation: 'spin 1s linear infinite' }} />
                                             <span>Loading orders...</span>
                                         </div>
                                     </td>
                                 </tr>
                             ) : orders.length === 0 ? (
                                 <tr>
-                                    <td colSpan={14} style={{ padding: '48px 0', textAlign: 'center', color: '#9CA3AF', fontSize: 13 }}>
+                                    <td colSpan={16} style={{ padding: '48px 0', textAlign: 'center', color: '#9CA3AF', fontSize: 13 }}>
                                         No orders found
                                     </td>
                                 </tr>
@@ -452,12 +463,38 @@ const AssociateOrders = () => {
                                         <td style={{ padding: '11px 14px', whiteSpace: 'nowrap' }}>
                                             <span
                                                 onClick={() => navigate(`/associate/orders/${order.OrderID}`)}
-                                                style={{ color: '#4B49AC', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}
+                                                style={{ color: '#CA8A04', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}
                                                 onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
                                                 onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
                                             >
                                                 {order.OrderCodeId || '--'}
                                             </span>
+                                        </td>
+
+                                        <td style={{ padding: '11px 14px', whiteSpace: 'nowrap' }}>
+                                            {order.QuoteID ? (
+                                                <span
+                                                    onClick={() => navigate(`/associate/quotes/${order.QuoteID}`)}
+                                                    style={{ color: '#3B82F6', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}
+                                                    onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                                                    onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                                                >
+                                                    {order.QuoteCodeId || `#${order.QuoteID}`}
+                                                </span>
+                                            ) : <span style={{ color: '#9CA3AF' }}>--</span>}
+                                        </td>
+
+                                        <td style={{ padding: '11px 14px', whiteSpace: 'nowrap' }}>
+                                            {order.DealID ? (
+                                                <span
+                                                    onClick={() => navigate(`/associate/deals/${order.DealID}`)}
+                                                    style={{ color: '#3B82F6', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}
+                                                    onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                                                    onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                                                >
+                                                    {order.DealCode || `#${order.DealID}`}
+                                                </span>
+                                            ) : <span style={{ color: '#9CA3AF' }}>--</span>}
                                         </td>
 
                                         <td style={{ padding: '11px 14px', color: '#374151', fontSize: 13, whiteSpace: 'nowrap' }}>
@@ -617,7 +654,7 @@ const AssociateOrders = () => {
 
             <style>{`
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-                input:focus { border-color: #4B49AC !important; box-shadow: 0 0 0 2px rgba(75,73,172,0.12) !important; }
+                input:focus { border-color: #CA8A04 !important; box-shadow: 0 0 0 2px rgba(250, 204, 21,0.12) !important; }
             `}</style>
         </div>
     );

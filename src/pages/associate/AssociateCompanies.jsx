@@ -63,7 +63,7 @@ const AssociateCompanies = () => {
                         <input
                             type="text"
                             placeholder="Search companies..."
-                            className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4b49ac] focus:border-transparent"
+                            className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                             value={searchTerm}
                             onChange={(e) => {
                                 setSearchTerm(e.target.value);
@@ -76,7 +76,7 @@ const AssociateCompanies = () => {
                             setCompanyToEdit(null);
                             setIsAddModalOpen(true);
                         }}
-                        className="flex items-center gap-2 px-6 py-2 bg-[#4b49ac] text-white rounded-lg font-semibold hover:bg-[#3f3da0] shadow-md shadow-[#4b49ac]/20 transition-all active:scale-95"
+                        className="flex items-center gap-2 px-6 py-2 bg-yellow-400 text-black rounded-lg font-semibold hover:bg-yellow-500 shadow-md shadow-yellow-400/20 transition-all active:scale-95"
                     >
                         <Plus className="w-4 h-4" />
                         Add Company
@@ -127,25 +127,37 @@ const AssociateCompanies = () => {
                                     <tr key={company.CompanyID} className="hover:bg-gray-50 transition-colors group">
                                         <td className="px-6 py-4 text-sm text-gray-600">{(page - 1) * pageSize + index + 1}</td>
                                         <td
-                                            className="px-6 py-4 text-sm font-medium text-gray-900 cursor-pointer hover:text-[#4b49ac]"
+                                            className="px-6 py-4 text-sm font-medium text-gray-900 cursor-pointer hover:text-yellow-600"
                                             onClick={() => navigate(`/associate/companies/${company.CompanyID}`)}
                                         >
                                             {company.CompanyCode || 'N/A'}
                                         </td>
                                         <td
-                                            className="px-6 py-4 text-sm text-gray-900 font-medium cursor-pointer hover:text-[#4b49ac]"
+                                            className="px-6 py-4 text-sm text-gray-900 font-medium cursor-pointer hover:text-yellow-600"
                                             onClick={() => navigate(`/associate/companies/${company.CompanyID}`)}
                                         >
                                             {company.BusinessName}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-600">{company.CreatedByName || 'Unknown'}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-600 font-medium text-[#4b49ac] hover:underline cursor-pointer">
-                                            {company.PrimaryCustomerID ? `F${company.FranchiseID}/C${String(company.PrimaryCustomerID).padStart(7, "0")}` : 'null'}
+                                        <td className="px-6 py-4 text-sm font-medium whitespace-nowrap">
+                                            {company.PrimaryCustomerID ? (
+                                                <span
+                                                    className="text-yellow-600 hover:underline cursor-pointer"
+                                                    onClick={() => navigate(`/associate/customers/${company.PrimaryCustomerID}`)}
+                                                >
+                                                    {company.PrimaryCustomerCode || `CU${String(company.PrimaryCustomerID).padStart(6, "0")}`}
+                                                </span>
+                                            ) : <span className="text-gray-400">-</span>}
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-[#4b49ac] font-medium hover:underline cursor-pointer">
-                                            {company.PrimaryCustomerName?.trim()
-                                                ? company.PrimaryCustomerName
-                                                : company.BusinessName || '-'}
+                                        <td className="px-6 py-4 text-sm font-medium">
+                                            {company.PrimaryCustomerID ? (
+                                                <span
+                                                    className="text-yellow-600 hover:underline cursor-pointer"
+                                                    onClick={() => navigate(`/associate/customers/${company.PrimaryCustomerID}`)}
+                                                >
+                                                    {company.PrimaryCustomerName?.trim() || company.PrimaryCustomerCode || '-'}
+                                                </span>
+                                            ) : <span className="text-gray-400">-</span>}
                                         </td>
 
                                         <td className="px-6 py-4 text-sm text-gray-600">{company.Origin || '-'}</td>
@@ -257,7 +269,7 @@ const AssociateCompanies = () => {
                                     key={pageNum}
                                     onClick={() => setPage(pageNum)}
                                     className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${page === pageNum
-                                        ? 'bg-[#4b49ac] text-white'
+                                        ? 'bg-yellow-400 text-black'
                                         : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
                                         }`}
                                 >

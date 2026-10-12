@@ -5,6 +5,7 @@ import AssociateApi from "../../api/AssociateApi";
 import { setSecureItem } from "../../utils/secureStorage";
 import { notifyTokenSet } from "../../utils/authSession";
 import { useNavigate } from "react-router-dom";
+import { sanitize, validate } from "../../utils/formValidation";
 
 const PartnerLoginModal = ({ isOpen, onClose, onSwitchToSignup }) => {
     const navigate = useNavigate();
@@ -30,14 +31,9 @@ const PartnerLoginModal = ({ isOpen, onClose, onSwitchToSignup }) => {
 
     const handleNextStep = async (e) => {
         if (e) e.preventDefault();
-        if (!email.trim()) {
-            setError("Email address is required");
-            return;
-        }
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            setError("Please enter a valid email address");
+        const emailError = validate.email(email, { required: true });
+        if (emailError) {
+            setError(emailError);
             return;
         }
 
@@ -61,7 +57,10 @@ const PartnerLoginModal = ({ isOpen, onClose, onSwitchToSignup }) => {
         }
     };
 
-    const handleOtpChange = async (index, value) => {
+    const handleOtpChange = async (index, rawValue) => {
+        // Digits only, one per box
+        const value = rawValue.replace(/\D/g, "").slice(-1);
+        if (rawValue && !value) return; // ignore non-digit keystrokes
         if (value.length <= 1) {
             const newOtpValues = [...otpValues];
             newOtpValues[index] = value;
@@ -156,7 +155,7 @@ const PartnerLoginModal = ({ isOpen, onClose, onSwitchToSignup }) => {
                                         type="email"
                                         value={email}
                                         onChange={(e) => {
-                                            setEmail(e.target.value);
+                                            setEmail(sanitize.email(e.target.value));
                                             if (error) setError("");
                                         }}
                                         onKeyDown={(e) => e.key === 'Enter' && handleNextStep()}
@@ -234,6 +233,8 @@ const PartnerLoginModal = ({ isOpen, onClose, onSwitchToSignup }) => {
                                             key={index}
                                             id={`associate-otp-${index}`}
                                             type="text"
+                                            inputMode="numeric"
+                                            autoComplete="one-time-code"
                                             maxLength="1"
                                             value={otpValues[index]}
                                             onChange={(e) => handleOtpChange(index, e.target.value)}

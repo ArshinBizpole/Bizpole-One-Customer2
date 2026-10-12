@@ -3,6 +3,39 @@ import { motion } from 'framer-motion';
 import { X, Upload, Loader2, CheckCircle2, AlertCircle, Eye } from 'lucide-react';
 import { serviceFormSave, updateRejectedFields } from '../../api/Services/ServiceDetails';
 import { uploadFile } from '../../api/StorageApi';
+import { sanitize, validate as rules } from '../../utils/formValidation';
+
+const MAX_FILE_MB = 5;
+const FILE_EXT_PATTERN = /\.(pdf|jpe?g|png)$/i;
+
+// Field types in the form builder aren't reliable (mobile numbers are saved as both Text
+// and Number, "PAN No" as Number, emails mostly as Text), so the kind of value expected is
+// worked out from the field name first and the type second.
+const fieldKind = (field) => {
+    const type = (field.FieldType || 'Text').toLowerCase();
+    if (type === 'file') return 'file';
+    if (type === 'date') return 'date';
+    const name = (field.FieldName || '').toLowerCase();
+    if (type === 'email' || /e-?mail/.test(name)) return 'email';
+    if (/mobile|phone|whats\s*app|contact\s*(no|number)/.test(name)) return 'mobile';
+    if (/aadha+r/.test(name)) return 'aadhaar';
+    if (/\bpan\b/.test(name)) return 'pan';
+    if (/\bgst/.test(name)) return 'gstin';
+    if (/pin\s*code|pincode|postal|zip/.test(name)) return 'pin';
+    if (type === 'number') return 'number';
+    return 'text';
+};
+
+const KIND_INPUT = {
+    email: { sanitize: sanitize.email, check: rules.email, placeholder: 'name@example.com' },
+    mobile: { sanitize: sanitize.mobile, check: rules.mobile, placeholder: '10-digit mobile number', inputMode: 'numeric', maxLength: 10 },
+    aadhaar: { sanitize: sanitize.aadhaar, check: rules.aadhaar, placeholder: '12-digit Aadhaar number', inputMode: 'numeric', maxLength: 12 },
+    pan: { sanitize: sanitize.pan, check: rules.pan, placeholder: 'e.g. ABCDE1234F', maxLength: 10 },
+    gstin: { sanitize: sanitize.gstin, check: rules.gstin, placeholder: 'e.g. 32ABCDE1234F1Z5', maxLength: 15 },
+    pin: { sanitize: (v) => sanitize.postal(v, 'India'), check: (v) => rules.postal(v, 'India'), placeholder: '6-digit PIN code', inputMode: 'numeric', maxLength: 6 },
+    number: { sanitize: sanitize.decimal, check: () => '', inputMode: 'decimal' },
+    text: { sanitize: sanitize.text(500), check: () => '' },
+};
 
 
 const ServiceTaskForm = ({ task, serviceDetails, onClose, onSuccess, responseFields }) => {
@@ -10,6 +43,7 @@ const ServiceTaskForm = ({ task, serviceDetails, onClose, onSuccess, responseFie
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState('idle'); // idle | saving | success | error
+    const [saveError, setSaveError] = useState('');
 
     const item = task.originalData;
     const sections = item.Sections || [];
@@ -97,13 +131,51 @@ const ServiceTaskForm = ({ task, serviceDetails, onClose, onSuccess, responseFie
         }
     };
 
+    // Pick a file for a field — only PDF/JPG/PNG up to MAX_FILE_MB
+    const handleFileSelect = (sectionID, field, e) => {
+        const file = e.target.files?.[0];
+        e.target.value = ''; // let the same file be picked again after a rejection
+        if (!file) return;
+        const fieldKey = `${sectionID}_${field.FieldID}`;
+        let message = '';
+        if (!FILE_EXT_PATTERN.test(file.name)) message = 'Only PDF, JPG or PNG files are allowed';
+        else if (file.size > MAX_FILE_MB * 1024 * 1024) message = `File is too large (max ${MAX_FILE_MB} MB)`;
+        if (message) {
+            setErrors(prev => ({ ...prev, [fieldKey]: message }));
+            return;
+        }
+        handleFieldChange(sectionID, field.FieldID, field.FieldName, file);
+    };
+
+    // A newly picked File has no URL yet — preview it from memory
+    const openFile = (value) => {
+        if (!value) return;
+        if (value instanceof File) {
+            const url = URL.createObjectURL(value);
+            window.open(url, '_blank');
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+        } else {
+            window.open(value, '_blank', 'noopener,noreferrer');
+        }
+    };
+
     const validate = () => {
         let newErrors = {};
         sections.forEach(section => {
             section.Fields.forEach(field => {
-                // Only validate editable fields? Usually yes, if it's already there it's fine.
-                if (isFieldEditable(field.FieldID) && field.IsMandatory === 1 && !formData[`${section.SectionID}_${field.FieldID}`]) {
-                    newErrors[`${section.SectionID}_${field.FieldID}`] = 'Required';
+                // Already-accepted answers are locked, so only editable fields are checked
+                if (!isFieldEditable(field.FieldID, field.FieldName)) return;
+                const fieldKey = `${section.SectionID}_${field.FieldID}`;
+                const value = formData[fieldKey];
+                const isEmpty = value instanceof File ? false : !String(value ?? '').trim();
+                if (field.IsMandatory === 1 && isEmpty) {
+                    newErrors[fieldKey] = 'Required';
+                    return;
+                }
+                const kind = fieldKind(field);
+                if (!isEmpty && KIND_INPUT[kind]) {
+                    const message = KIND_INPUT[kind].check(String(value));
+                    if (message) newErrors[fieldKey] = message;
                 }
             });
         });
@@ -117,9 +189,12 @@ const ServiceTaskForm = ({ task, serviceDetails, onClose, onSuccess, responseFie
 
         setLoading(true);
         setStatus('saving');
-        console.log("Submitting form with data:", serviceDetails);
+        setSaveError('');
         try {
             const finalFormData = { ...formData };
+            for (const key in finalFormData) {
+                if (typeof finalFormData[key] === 'string') finalFormData[key] = finalFormData[key].trim();
+            }
 
             // Handle file uploads
             for (const key in finalFormData) {
@@ -133,7 +208,10 @@ const ServiceTaskForm = ({ task, serviceDetails, onClose, onSuccess, responseFie
                         }
                     } catch (uploadErr) {
                         console.error(`Error uploading file for ${key}:`, uploadErr);
-                        throw new Error(`Failed to upload file for ${key}`);
+                        const fieldName = sections
+                            .flatMap(s => (s.Fields || []).map(f => [`${s.SectionID}_${f.FieldID}`, f.FieldName]))
+                            .find(([k]) => k === key)?.[1];
+                        throw new Error(`Couldn't upload the file for "${fieldName || 'a field'}". Please try again.`);
                     }
                 }
             }
@@ -212,6 +290,7 @@ const ServiceTaskForm = ({ task, serviceDetails, onClose, onSuccess, responseFie
             }, 1500);
         } catch (error) {
             console.error("Error saving form:", error);
+            setSaveError(error?.response?.data?.message || error?.message || 'Failed to save');
             setStatus('error');
         } finally {
             setLoading(false);
@@ -277,8 +356,12 @@ const ServiceTaskForm = ({ task, serviceDetails, onClose, onSuccess, responseFie
                                             {section.Fields.map((field) => {
                                                 const fieldKey = `${section.SectionID}_${field.FieldID}`;
                                                 const hasError = !!errors[fieldKey];
-                                                const type = (field.FieldType || 'Text').toLowerCase();
+                                                const kind = fieldKind(field);
+                                                const type = kind === 'file' ? 'file' : kind;
+                                                const inputCfg = KIND_INPUT[kind] || KIND_INPUT.text;
                                                 const editable = isFieldEditable(field.FieldID, field.FieldName);
+                                                const value = formData[fieldKey];
+                                                const isEmpty = value instanceof File ? false : !String(value ?? '').trim();
                                                 const prevData = getFieldPrevData(field.FieldID, field.FieldName);
                                                 return (
                                                     <div key={field.FieldID}>
@@ -315,8 +398,9 @@ const ServiceTaskForm = ({ task, serviceDetails, onClose, onSuccess, responseFie
                                                                                 Change
                                                                                 <input
                                                                                     type="file"
+                                                                                    accept=".pdf,.jpg,.jpeg,.png"
                                                                                     className="hidden"
-                                                                                    onChange={(e) => handleFieldChange(section.SectionID, field.FieldID, field.FieldName, e.target.files[0])}
+                                                                                    onChange={(e) => handleFileSelect(section.SectionID, field, e)}
                                                                                 />
                                                                             </label>
                                                                         )}
@@ -329,34 +413,42 @@ const ServiceTaskForm = ({ task, serviceDetails, onClose, onSuccess, responseFie
                                                                         Upload Files
                                                                         <input
                                                                             type="file"
+                                                                            accept=".pdf,.jpg,.jpeg,.png"
                                                                             className="hidden"
                                                                             disabled={!editable}
-                                                                            onChange={(e) => handleFieldChange(section.SectionID, field.FieldID, field.FieldName, e.target.files[0])}
+                                                                            onChange={(e) => handleFileSelect(section.SectionID, field, e)}
                                                                         />
                                                                     </label>
                                                                 )}
                                                                 {formData[fieldKey] && (
                                                                     <button
                                                                         type="button"
-                                                                        onClick={() => window.open(formData[fieldKey], '_blank')}
+                                                                        onClick={() => openFile(formData[fieldKey])}
                                                                         className="mt-2 text-xs font-medium text-blue-500 hover:text-blue-600 flex items-center gap-1.5"
                                                                     >
-                                                                        <Eye className="w-3.5 h-3.5" /> View Previous File
+                                                                        <Eye className="w-3.5 h-3.5" />
+                                                                        {formData[fieldKey] instanceof File ? 'View Selected File' : 'View Previous File'}
                                                                     </button>
                                                                 )}
                                                             </div>
                                                         ) : (
                                                             <input
-                                                                type={type === 'number' ? 'number' : type === 'date' ? 'date' : 'text'}
+                                                                type={type === 'date' ? 'date' : type === 'email' ? 'email' : 'text'}
+                                                                inputMode={inputCfg.inputMode}
+                                                                maxLength={inputCfg.maxLength}
+                                                                placeholder={editable ? inputCfg.placeholder : undefined}
                                                                 value={formData[fieldKey] || ''}
                                                                 disabled={!editable}
-                                                                onChange={(e) => handleFieldChange(section.SectionID, field.FieldID, field.FieldName, e.target.value)}
+                                                                onChange={(e) => handleFieldChange(
+                                                                    section.SectionID, field.FieldID, field.FieldName,
+                                                                    type === 'date' ? e.target.value : inputCfg.sanitize(e.target.value)
+                                                                )}
                                                                 className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 ${hasError ? 'border-red-300 bg-red-50/20' : 'border-yellow-400 focus:ring-yellow-400'} ${!editable ? 'bg-gray-50 cursor-not-allowed text-gray-400' : ''}`}
                                                             />
                                                         )}
 
                                                         <p className={`text-xs mt-1.5 ${hasError ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
-                                                            {hasError ? errors[fieldKey] : (field.IsMandatory === 1 ? 'Required' : '')}
+                                                            {hasError ? errors[fieldKey] : (field.IsMandatory === 1 && isEmpty && editable ? 'Required' : '')}
                                                         </p>
                                                     </div>
                                                 );
@@ -372,14 +464,13 @@ const ServiceTaskForm = ({ task, serviceDetails, onClose, onSuccess, responseFie
                         <div className="flex items-center justify-end gap-3 mt-8">
                             {status === 'error' && (
                                 <p className="flex items-center gap-1.5 text-xs font-medium text-red-500 mr-auto">
-                                    <AlertCircle className="w-4 h-4" /> Failed to save
+                                    <AlertCircle className="w-4 h-4" /> {saveError || 'Failed to save'}
                                 </p>
                             )}
                             <button
                                 type="submit"
-                                onClick={handleSubmit}
                                 disabled={loading}
-                                className="bg-yellow-400 hover:bg-yellow-500 disabled:bg-gray-200 text-white text-sm font-semibold px-6 py-2 rounded-lg shadow-sm flex items-center gap-2"
+                                className="bg-yellow-400 hover:bg-yellow-500 disabled:bg-gray-200 text-gray-900 text-sm font-semibold px-6 py-2 rounded-lg shadow-sm flex items-center gap-2"
                             >
                                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'SUBMIT'}
                             </button>

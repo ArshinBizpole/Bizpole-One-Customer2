@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AddDealModal from '../../components/Modals/AddDealModal';
 import { Plus, Edit2, Trash2, Search, Filter, Loader2, MoreVertical, RotateCcw, X, Calendar } from 'lucide-react';
@@ -61,7 +62,12 @@ const AssociateDeals = () => {
     const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [filters, setFilters] = useState(DEFAULT_FILTERS);
     const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
+    const [dateRangeError, setDateRangeError] = useState('');
     const menuRef = useRef(null);
+    const menuDropdownRef = useRef(null);
+    // Viewport position of the open action menu — it is portalled to <body> so the
+    // table's overflow-x-auto wrapper can't clip it
+    const [menuPos, setMenuPos] = useState(null);
 
     const activeFilterCount = [
         appliedFilters.dealType.length > 0,
@@ -70,12 +76,23 @@ const AssociateDeals = () => {
 
     useEffect(() => {
         const handleClickOutside = (e) => {
-            if (menuRef.current && !menuRef.current.contains(e.target)) {
+            if (
+                menuRef.current && !menuRef.current.contains(e.target) &&
+                !(menuDropdownRef.current && menuDropdownRef.current.contains(e.target))
+            ) {
                 setOpenMenuId(null);
             }
         };
+        // A fixed-position menu would drift away from its row on scroll/resize, so just close it
+        const closeMenu = () => setOpenMenuId(null);
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        window.addEventListener('scroll', closeMenu, true);
+        window.addEventListener('resize', closeMenu);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('scroll', closeMenu, true);
+            window.removeEventListener('resize', closeMenu);
+        };
     }, []);
 
     useEffect(() => {
@@ -238,9 +255,15 @@ const AssociateDeals = () => {
 
     const handleResetFilters = () => {
         setFilters(DEFAULT_FILTERS);
+        setDateRangeError('');
     };
 
     const handleApplyFilters = () => {
+        if (filters.closureDateFrom && filters.closureDateTo && filters.closureDateFrom > filters.closureDateTo) {
+            setDateRangeError('"From" date cannot be after "To" date');
+            return;
+        }
+        setDateRangeError('');
         setAppliedFilters({ ...filters });
         setCurrentPage(1);
         setShowFilterPanel(false);
@@ -248,6 +271,7 @@ const AssociateDeals = () => {
 
     const handleOpenFilter = () => {
         setFilters({ ...appliedFilters });
+        setDateRangeError('');
         setShowFilterPanel(prev => !prev);
     };
 
@@ -349,14 +373,14 @@ const AssociateDeals = () => {
                 <button
                     onClick={handleOpenFilter}
                     className={`flex items-center gap-1.5 px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${showFilterPanel || activeFilterCount > 0
-                        ? 'border-indigo-400 text-indigo-600 bg-indigo-50'
+                        ? 'border-yellow-400 text-yellow-600 bg-yellow-50'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                         }`}
                 >
                     <Filter className="w-3.5 h-3.5" />
                     Filters
                     {activeFilterCount > 0 && (
-                        <span className="bg-indigo-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                        <span className="bg-yellow-500 text-black text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
                             {activeFilterCount}
                         </span>
                     )}
@@ -367,20 +391,20 @@ const AssociateDeals = () => {
             {activeFilterCount > 0 && (
                 <div className="flex flex-wrap gap-2 mb-3">
                     {appliedFilters.dealType.map(type => (
-                        <span key={type} className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-full text-xs font-medium">
+                        <span key={type} className="inline-flex items-center gap-1 px-2.5 py-1 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-full text-xs font-medium">
                             {type === 'individual' ? 'Individual' : 'Package'}
-                            <button onClick={() => removeChip('dealType', type)} className="hover:text-indigo-900">
+                            <button onClick={() => removeChip('dealType', type)} className="hover:text-yellow-900">
                                 <X className="w-3 h-3" />
                             </button>
                         </span>
                     ))}
                     {(appliedFilters.closureDateFrom || appliedFilters.closureDateTo) && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-full text-xs font-medium">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-full text-xs font-medium">
                             Closure:{' '}
                             {appliedFilters.closureDateFrom ? format(new Date(appliedFilters.closureDateFrom), 'dd/MM/yyyy') : '...'}
                             {' → '}
                             {appliedFilters.closureDateTo ? format(new Date(appliedFilters.closureDateTo), 'dd/MM/yyyy') : '...'}
-                            <button onClick={() => removeChip('date')} className="hover:text-indigo-900">
+                            <button onClick={() => removeChip('date')} className="hover:text-yellow-900">
                                 <X className="w-3 h-3" />
                             </button>
                         </span>
@@ -400,7 +424,7 @@ const AssociateDeals = () => {
                     {/* Panel Header */}
                     <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100">
                         <div className="flex items-center gap-2.5">
-                            <span className="w-1 h-5 bg-indigo-500 rounded-full inline-block"></span>
+                            <span className="w-1 h-5 bg-yellow-500 rounded-full inline-block"></span>
                             <span className="text-sm font-semibold text-slate-700">Comprehensive Filters</span>
                         </div>
                         <button
@@ -431,8 +455,8 @@ const AssociateDeals = () => {
                                         >
                                             <div
                                                 className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${checked
-                                                    ? 'border-indigo-500 bg-indigo-500'
-                                                    : 'border-slate-300 bg-white group-hover:border-indigo-300'
+                                                    ? 'border-yellow-400 bg-yellow-500'
+                                                    : 'border-slate-300 bg-white group-hover:border-yellow-300'
                                                     }`}
                                             >
                                                 {checked && <div className="w-1.5 h-1.5 rounded-full bg-white"></div>}
@@ -454,8 +478,9 @@ const AssociateDeals = () => {
                                     <input
                                         type="date"
                                         value={filters.closureDateFrom}
-                                        onChange={e => setFilters(prev => ({ ...prev, closureDateFrom: e.target.value }))}
-                                        className="border border-slate-200 rounded-lg pl-3 pr-9 py-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white w-38 transition-all"
+                                        max={filters.closureDateTo || undefined}
+                                        onChange={e => { setFilters(prev => ({ ...prev, closureDateFrom: e.target.value })); setDateRangeError(''); }}
+                                        className="border border-slate-200 rounded-lg pl-3 pr-9 py-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-yellow-200 focus:border-yellow-400 bg-white w-38 transition-all"
                                     />
                                     <Calendar className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                                 </div>
@@ -465,12 +490,13 @@ const AssociateDeals = () => {
                                         type="date"
                                         value={filters.closureDateTo}
                                         min={filters.closureDateFrom || undefined}
-                                        onChange={e => setFilters(prev => ({ ...prev, closureDateTo: e.target.value }))}
-                                        className="border border-slate-200 rounded-lg pl-3 pr-9 py-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white w-38 transition-all"
+                                        onChange={e => { setFilters(prev => ({ ...prev, closureDateTo: e.target.value })); setDateRangeError(''); }}
+                                        className="border border-slate-200 rounded-lg pl-3 pr-9 py-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-yellow-200 focus:border-yellow-400 bg-white w-38 transition-all"
                                     />
                                     <Calendar className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                                 </div>
                             </div>
+                            {dateRangeError && <p className="text-xs text-red-500 mt-1">{dateRangeError}</p>}
                         </div>
                     </div>
 
@@ -484,7 +510,7 @@ const AssociateDeals = () => {
                         </button>
                         <button
                             onClick={handleApplyFilters}
-                            className="px-5 py-1.5 text-sm text-white bg-indigo-500 hover:bg-indigo-600 rounded-lg font-semibold transition-colors shadow-sm"
+                            className="px-5 py-1.5 text-sm text-black bg-yellow-500 hover:bg-yellow-400 rounded-lg font-semibold transition-colors shadow-sm"
                         >
                             Apply Filters
                         </button>
@@ -566,7 +592,7 @@ const AssociateDeals = () => {
                                             <td className="px-4 py-3 text-xs max-w-[180px]">
                                                 {deal.packageName ? (
                                                     <div>
-                                                        <span className="font-semibold text-[#4b49ac]">{deal.packageName}</span>
+                                                        <span className="font-semibold text-yellow-600">{deal.packageName}</span>
                                                         <div className="text-slate-400 truncate">{deal.services?.map(s => s.serviceName).join(", ") || "--"}</div>
                                                     </div>
                                                 ) : (
@@ -607,14 +633,33 @@ const AssociateDeals = () => {
                                                 {status !== 'created' && (
                                                     <>
                                                         <button
-                                                            onClick={() => setOpenMenuId(openMenuId === deal.id ? null : deal.id)}
+                                                            onClick={(e) => {
+                                                                if (openMenuId === deal.id) {
+                                                                    setOpenMenuId(null);
+                                                                    return;
+                                                                }
+                                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                                const MENU_HEIGHT = 120;
+                                                                const openUp = window.innerHeight - rect.bottom < MENU_HEIGHT + 8;
+                                                                setMenuPos({
+                                                                    right: window.innerWidth - rect.right,
+                                                                    ...(openUp
+                                                                        ? { bottom: window.innerHeight - rect.top + 4 }
+                                                                        : { top: rect.bottom + 4 })
+                                                                });
+                                                                setOpenMenuId(deal.id);
+                                                            }}
                                                             className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
                                                         >
                                                             <MoreVertical className="w-4 h-4" />
                                                         </button>
 
-                                                        {openMenuId === deal.id && (
-                                                            <div className="absolute right-4 top-10 z-50 bg-white border border-slate-200 rounded-xl shadow-lg py-1 min-w-[140px]">
+                                                        {openMenuId === deal.id && menuPos && createPortal(
+                                                            <div
+                                                                ref={menuDropdownRef}
+                                                                style={menuPos}
+                                                                className="fixed z-[1000] bg-white border border-slate-200 rounded-xl shadow-lg py-1 min-w-[140px]"
+                                                            >
                                                                 <button
                                                                     onClick={() => handleCreateQuote(deal)}
                                                                     disabled={creatingQuote === deal.id || deal.associate_request === 1}
@@ -638,7 +683,8 @@ const AssociateDeals = () => {
                                                                 >
                                                                     <Trash2 className="w-3.5 h-3.5" /> Delete
                                                                 </button>
-                                                            </div>
+                                                            </div>,
+                                                            document.body
                                                         )}
                                                     </>
                                                 )}
