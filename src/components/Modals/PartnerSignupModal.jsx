@@ -7,7 +7,32 @@ import { getSecureItem, setSecureItem } from "../../utils/secureStorage";
 import { notifyTokenSet } from "../../utils/authSession";
 import { useNavigate } from "react-router-dom";
 import Select from "react-select";
+import { PATTERNS, isIndia } from "../../utils/formValidation";
 
+
+const NAME_PATTERN = PATTERNS.personName;
+const MOBILE_PATTERN = PATTERNS.mobile;
+const EMAIL_PATTERN = PATTERNS.email;
+const COUNTRY_PATTERN = PATTERNS.country;
+const INDIA_PIN_PATTERN = PATTERNS.indiaPin;
+const POSTAL_PATTERN = PATTERNS.postal;
+const ADDRESS_MAX = 150;
+
+// Strip characters a field can never contain, as the user types
+const sanitizeInput = (name, value, country) => {
+    switch (name) {
+        case "associateName": return value.replace(/[^A-Za-z .']/g, "").slice(0, 100);
+        case "mobile": return value.replace(/\D/g, "").slice(0, 10);
+        case "email": return value.replace(/\s/g, "").slice(0, 100);
+        case "country": return value.replace(/[^A-Za-z .-]/g, "").slice(0, 56);
+        case "postalCode": return isIndia(country)
+            ? value.replace(/\D/g, "").slice(0, 6)
+            : value.replace(/[^A-Za-z0-9 -]/g, "").slice(0, 10);
+        case "addressLine1":
+        case "addressLine2": return value.slice(0, ADDRESS_MAX);
+        default: return value;
+    }
+};
 
 const PartnerSignupModal = ({ isOpen, onClose, onSwitchToLogin }) => {
     const navigate = useNavigate();
@@ -52,21 +77,39 @@ const PartnerSignupModal = ({ isOpen, onClose, onSwitchToLogin }) => {
 
     const validateStep1 = () => {
         const newErrors = {};
-        if (!formData.associateName.trim()) newErrors.associateName = "Associate name is required";
-        if (!formData.mobile.trim()) {
-            newErrors.mobile = "Mobile number is required";
-        } else if (!/^\d{10}$/.test(formData.mobile.trim())) {
-            newErrors.mobile = "Please enter a valid 10-digit mobile number";
-        }
-        if (!formData.email.trim()) {
-            newErrors.email = "Email is required";
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-            newErrors.email = "Please enter a valid email address";
-        }
+        const name = formData.associateName.trim();
+        if (!name) newErrors.associateName = "Associate name is required";
+        else if (name.length < 3) newErrors.associateName = "Name must be at least 3 characters";
+        else if (!NAME_PATTERN.test(name)) newErrors.associateName = "Name can contain only letters, spaces, dots and apostrophes";
+
+        const mobile = formData.mobile.trim();
+        if (!mobile) newErrors.mobile = "Mobile number is required";
+        else if (!MOBILE_PATTERN.test(mobile)) newErrors.mobile = "Enter a valid 10-digit mobile number starting with 6, 7, 8 or 9";
+
+        const email = formData.email.trim();
+        if (!email) newErrors.email = "Email is required";
+        else if (!EMAIL_PATTERN.test(email)) newErrors.email = "Please enter a valid email address";
+
         if (!formData.profession) newErrors.profession = "Profession is required";
         if (!formData.state) newErrors.state = "State is required";
         if (!formData.district) newErrors.district = "District is required";
         if (!formData.language) newErrors.language = "Preferred language is required";
+
+        const country = formData.country?.trim() || "";
+        if (country && (country.length < 2 || !COUNTRY_PATTERN.test(country))) {
+            newErrors.country = "Enter a valid country name (letters only)";
+        }
+
+        const line1 = formData.addressLine1?.trim() || "";
+        const line2 = formData.addressLine2?.trim() || "";
+        if (line1 && line1.length < 5) newErrors.addressLine1 = "Address is too short";
+        if (line2 && !line1) newErrors.addressLine1 = "Fill Address Line 1 before Address Line 2";
+
+        const postal = formData.postalCode?.trim() || "";
+        if (postal) {
+            if (isIndia(country) && !INDIA_PIN_PATTERN.test(postal)) newErrors.postalCode = "Enter a valid 6-digit PIN code";
+            else if (!isIndia(country) && !POSTAL_PATTERN.test(postal)) newErrors.postalCode = "Enter a valid postal / ZIP code";
+        }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -85,8 +128,12 @@ const PartnerSignupModal = ({ isOpen, onClose, onSwitchToLogin }) => {
     }, [formData.state]);
 
     const handleChange = (e) => {
-        const { name, value } = e.target;
+        const { name } = e.target;
+        const value = sanitizeInput(name, e.target.value, formData.country);
         setFormData((prev) => ({ ...prev, [name]: value }));
+        if (name === "country" && errors.postalCode) {
+            setErrors((prev) => { const updated = { ...prev }; delete updated.postalCode; return updated; });
+        }
         if (errors[name] || errors.api) {
             setErrors((prev) => {
                 const updated = { ...prev };
@@ -115,18 +162,18 @@ const PartnerSignupModal = ({ isOpen, onClose, onSwitchToLogin }) => {
         try {
             const userObj = getSecureItem("partnerUser") || {};
             const fullAddress = [
-                formData.addressLine1,
-                formData.addressLine2,
-                formData.postalCode,
-                formData.country,
+                formData.addressLine1?.trim(),
+                formData.addressLine2?.trim(),
+                formData.postalCode?.trim(),
+                formData.country?.trim(),
             ]
                 .filter(Boolean)
                 .join(", ");
 
             const payload = {
-                AssociateName: formData.associateName,
-                Mobile: formData.mobile,
-                Email: formData.email,
+                AssociateName: formData.associateName.trim().replace(/\s+/g, " "),
+                Mobile: formData.mobile.trim(),
+                Email: formData.email.trim().toLowerCase(),
                 Address: fullAddress,
                 State: formData.state,
                 District: formData.district,
@@ -364,6 +411,7 @@ const PartnerSignupModal = ({ isOpen, onClose, onSwitchToLogin }) => {
                                         <input
                                             type="text"
                                             name="associateName"
+                                            maxLength={100}
                                             value={formData.associateName}
                                             onChange={handleChange}
                                             placeholder="Enter associate name"
@@ -382,9 +430,11 @@ const PartnerSignupModal = ({ isOpen, onClose, onSwitchToLogin }) => {
                                         <input
                                             type="text"
                                             name="mobile"
+                                            inputMode="numeric"
+                                            maxLength={10}
                                             value={formData.mobile}
                                             onChange={handleChange}
-                                            placeholder="Enter mobile number"
+                                            placeholder="10-digit mobile number"
                                             className={`w-full px-3 py-2.5 text-sm rounded-lg border ${errors.mobile ? 'border-red-400' : 'border-gray-200'} focus:outline-none focus:ring-2 focus:ring-yellow-100 placeholder:text-gray-300 transition-all`}
                                         />
                                         {errors.mobile && <span className="text-xs text-red-500">{errors.mobile}</span>}
@@ -507,8 +557,9 @@ const PartnerSignupModal = ({ isOpen, onClose, onSwitchToLogin }) => {
                                             value={formData.country || ""}
                                             onChange={handleChange}
                                             placeholder="Enter country"
-                                            className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-100 placeholder:text-gray-300 transition-all"
+                                            className={`w-full px-3 py-2.5 text-sm rounded-lg border ${errors.country ? 'border-red-400' : 'border-gray-200'} focus:outline-none focus:ring-2 focus:ring-yellow-100 placeholder:text-gray-300 transition-all`}
                                         />
+                                        {errors.country && <span className="text-xs text-red-500">{errors.country}</span>}
                                     </div>
 
                                     {/* Address Line 1 – full width */}
@@ -523,8 +574,10 @@ const PartnerSignupModal = ({ isOpen, onClose, onSwitchToLogin }) => {
                                             value={formData.addressLine1 || ""}
                                             onChange={handleChange}
                                             placeholder="Enter Address Line 1"
-                                            className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-100 placeholder:text-gray-300 transition-all"
+                                            className={`w-full px-3 py-2.5 text-sm rounded-lg border ${errors.addressLine1 ? 'border-red-400' : 'border-gray-200'} focus:outline-none focus:ring-2 focus:ring-yellow-100 placeholder:text-gray-300 transition-all`}
+                                            maxLength={ADDRESS_MAX}
                                         />
+                                        {errors.addressLine1 && <span className="text-xs text-red-500">{errors.addressLine1}</span>}
                                     </div>
 
                                     {/* Address Line 2 – full width */}
@@ -539,8 +592,10 @@ const PartnerSignupModal = ({ isOpen, onClose, onSwitchToLogin }) => {
                                             value={formData.addressLine2 || ""}
                                             onChange={handleChange}
                                             placeholder="Enter Address Line 2"
-                                            className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-100 placeholder:text-gray-300 transition-all"
+                                            className={`w-full px-3 py-2.5 text-sm rounded-lg border ${errors.addressLine2 ? 'border-red-400' : 'border-gray-200'} focus:outline-none focus:ring-2 focus:ring-yellow-100 placeholder:text-gray-300 transition-all`}
+                                            maxLength={ADDRESS_MAX}
                                         />
+                                        {errors.addressLine2 && <span className="text-xs text-red-500">{errors.addressLine2}</span>}
                                     </div>
 
                                     {/* Postal Code – full width */}
@@ -555,9 +610,12 @@ const PartnerSignupModal = ({ isOpen, onClose, onSwitchToLogin }) => {
                                             name="postalCode"
                                             value={formData.postalCode || ""}
                                             onChange={handleChange}
-                                            placeholder="Enter Postal Code / ZIP Code"
-                                            className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-100 placeholder:text-gray-300 transition-all"
+                                            placeholder={isIndia(formData.country) ? "6-digit PIN code" : "Enter Postal Code / ZIP Code"}
+                                            className={`w-full px-3 py-2.5 text-sm rounded-lg border ${errors.postalCode ? 'border-red-400' : 'border-gray-200'} focus:outline-none focus:ring-2 focus:ring-yellow-100 placeholder:text-gray-300 transition-all`}
+                                            inputMode={isIndia(formData.country) ? "numeric" : "text"}
+                                            maxLength={isIndia(formData.country) ? 6 : 10}
                                         />
+                                        {errors.postalCode && <span className="text-xs text-red-500">{errors.postalCode}</span>}
                                     </div>
                                 </div>
 
@@ -727,6 +785,7 @@ const PartnerSignupModal = ({ isOpen, onClose, onSwitchToLogin }) => {
 
                                         <input
                                             type="file"
+                                            accept=".pdf,.jpg,.jpeg,.png"
                                             id={`${doc.id}-upload`}
                                             className="hidden"
                                             onChange={(e) => handleFileChange(doc.id, e)}

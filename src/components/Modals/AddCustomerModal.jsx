@@ -5,6 +5,34 @@ import locationData from "../../utils/statesAndDistricts.json";
 import DealsApi from "../../api/DealsApi";
 import { getSecureItem } from "../../utils/secureStorage";
 import { toast } from "react-toastify";
+import { sanitize, validate, isIndia } from "../../utils/formValidation";
+
+const sanitizePan = (v) => v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
+
+// Customer fields whose sanitizer doesn't depend on another field (pincode depends on country)
+const CUSTOMER_SANITIZERS = {
+    firstName: sanitize.personName,
+    lastName: sanitize.personName,
+    mobile: sanitize.mobile,
+    email: sanitize.email,
+    country: sanitize.country,
+    pan: sanitizePan,
+};
+
+const COMPANY_SANITIZERS = {
+    name: sanitize.text(150),
+    gst: sanitize.gstin,
+    mobile: sanitize.mobile,
+    email: sanitize.email,
+    country: sanitize.country,
+    pan: sanitizePan,
+    cin: (v) => v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 21),
+    website: (v) => v.replace(/\s/g, "").slice(0, 200),
+};
+
+const companyErrorKey = (id, field) => `company_${id}_${field}`;
+
+const companyInputBorder = (error) => (error ? "border-red-500" : "border-gray-100");
 
 // --- Existing Entity Dropdown ---
 const ExistingEntityDropdown = ({ type, onSelect, onClose, apiUrl }) => {
@@ -102,10 +130,10 @@ const ExistingEntityDropdown = ({ type, onSelect, onClose, apiUrl }) => {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute z-[100] w-80 right-0 mt-2 bg-white border border-indigo-100 rounded-2xl shadow-2xl shadow-indigo-200/50 overflow-hidden"
+            className="absolute z-[100] w-80 right-0 mt-2 bg-white border border-yellow-100 rounded-2xl shadow-2xl shadow-yellow-200/50 overflow-hidden"
         >
             <div className="p-3 border-b border-gray-100 bg-gray-50/50">
-                <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+                <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-yellow-400/20 transition-all">
                     <Search className="w-4 h-4 text-gray-400" />
                     <input
                         autoFocus
@@ -119,7 +147,7 @@ const ExistingEntityDropdown = ({ type, onSelect, onClose, apiUrl }) => {
             </div>
             <div className="max-h-60 overflow-y-auto">
                 {isLoading ? (
-                    <div className="p-8 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-indigo-500" /></div>
+                    <div className="p-8 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-yellow-500" /></div>
                 ) : results.length === 0 ? (
                     <div className="p-8 text-center text-sm text-gray-500">No results found</div>
                 ) : (
@@ -127,10 +155,10 @@ const ExistingEntityDropdown = ({ type, onSelect, onClose, apiUrl }) => {
                         <button
                             key={item.id || item.CustomerID || item.CompanyID}
                             onClick={() => onSelect(item)}
-                            className="w-full px-4 py-3 text-left hover:bg-indigo-50 transition-colors border-b border-gray-50 last:border-0"
+                            className="w-full px-4 py-3 text-left hover:bg-yellow-50 transition-colors border-b border-gray-50 last:border-0"
                         >
                             <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600">
+                                <div className="p-2 rounded-lg bg-yellow-50 text-yellow-600">
                                     {type === "customer" ? <Users className="w-4 h-4" /> : <Building2 className="w-4 h-4" />}
                                 </div>
                                 <div className="min-w-0">
@@ -152,8 +180,6 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
     const [showCompanySearch, setShowCompanySearch] = useState(false);
     const [errors, setErrors] = useState({});
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const mobileRegex = /^(?:\+91|91)?[6-9]\d{9}$/;
 
     const [customerData, setCustomerData] = useState({
         firstName: "",
@@ -281,19 +307,55 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
 
     const handleCustomerChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setCustomerData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
-        // Clear error when user types
-        if (errors[name]) {
+        let cleanValue = value;
+        if (type !== 'checkbox') {
+            if (name === "pincode") cleanValue = sanitize.postal(value, customerData.country);
+            else if (CUSTOMER_SANITIZERS[name]) cleanValue = CUSTOMER_SANITIZERS[name](value);
+        }
+        setCustomerData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : cleanValue }));
+        // Clear error when user types (a country change also invalidates the pincode check)
+        const keysToClear = name === "country" ? [name, "pincode"] : [name];
+        if (keysToClear.some(k => errors[k])) {
             setErrors(prev => {
                 const newErrors = { ...prev };
-                delete newErrors[name];
+                keysToClear.forEach(k => delete newErrors[k]);
                 return newErrors;
             });
         }
     };
 
+    const clearErrorKeys = (keys) => {
+        setErrors(prev => {
+            if (!keys.some(k => prev[k])) return prev;
+            const newErrors = { ...prev };
+            keys.forEach(k => delete newErrors[k]);
+            return newErrors;
+        });
+    };
+
+    const clearCompanyErrors = (id) => {
+        setErrors(prev => {
+            const prefix = `company_${id}_`;
+            if (!Object.keys(prev).some(k => k.startsWith(prefix))) return prev;
+            const newErrors = { ...prev };
+            Object.keys(newErrors).forEach(k => {
+                if (k.startsWith(prefix)) delete newErrors[k];
+            });
+            return newErrors;
+        });
+    };
+
     const handleCompanyChange = (id, field, value) => {
-        setCompanies(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
+        setCompanies(prev => prev.map(c => {
+            if (c.id !== id) return c;
+            let cleanValue = value;
+            if (field === "pincode") cleanValue = sanitize.postal(value, c.country);
+            else if (COMPANY_SANITIZERS[field]) cleanValue = COMPANY_SANITIZERS[field](value);
+            return { ...c, [field]: cleanValue };
+        }));
+        const keysToClear = [companyErrorKey(id, field)];
+        if (field === "country") keysToClear.push(companyErrorKey(id, "pincode"));
+        clearErrorKeys(keysToClear);
     };
 
     const addCompany = () => {
@@ -376,6 +438,8 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
 
                     return updated;
                 });
+                // Existing companies aren't validated, so drop any stale errors on that row
+                clearCompanyErrors(companies[0]?.id);
             }
         } catch (err) {
             console.error("Error fetching company details:", err);
@@ -418,26 +482,50 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
 
 
 
-    const handleNextStep = () => {
+    const validateCustomer = () => {
+        const checks = {
+            firstName: validate.personName(customerData.firstName, { required: true, label: "First name" }),
+            lastName: validate.personName(customerData.lastName, { required: true, label: "Last name", min: 1 }),
+            mobile: validate.mobile(customerData.mobile, { required: true }),
+            email: validate.email(customerData.email, { required: true }),
+            country: validate.country(customerData.country),
+            pincode: validate.postal(customerData.pincode, customerData.country),
+            state: customerData.state ? "" : "Please select state",
+            district: customerData.district ? "" : "Please select district",
+        };
+
+        const newErrors = {};
+        Object.entries(checks).forEach(([field, message]) => {
+            if (message) newErrors[field] = message;
+        });
+        return newErrors;
+    };
+
+    // Rows picked from the existing-company search are read-only, so only new/edited rows are checked
+    const validateCompanies = () => {
         const newErrors = {};
 
-        if (!customerData.firstName?.trim()) newErrors.firstName = "First name is required";
-        if (!customerData.lastName?.trim()) newErrors.lastName = "Last name is required";
+        companies.forEach(company => {
+            if (company.isExisting) return;
 
-        if (!customerData.mobile?.trim()) {
-            newErrors.mobile = "Mobile number is required";
-        } else if (!mobileRegex.test(customerData.mobile)) {
-            newErrors.mobile = "Enter valid mobile number";
-        }
+            const checks = {
+                gst: validate.gstin(company.gst),
+                mobile: validate.mobile(company.mobile),
+                email: validate.email(company.email),
+                country: validate.country(company.country),
+                pincode: validate.postal(company.pincode, company.country),
+            };
 
-        if (!customerData.email?.trim()) {
-            newErrors.email = "Email address is required";
-        } else if (!emailRegex.test(customerData.email)) {
-            newErrors.email = "Enter valid email address";
-        }
+            Object.entries(checks).forEach(([field, message]) => {
+                if (message) newErrors[companyErrorKey(company.id, field)] = message;
+            });
+        });
 
-        if (!customerData.state) newErrors.state = "Please select state";
-        if (!customerData.district) newErrors.district = "Please select district";
+        return newErrors;
+    };
+
+    const handleNextStep = () => {
+        const newErrors = validateCustomer();
 
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
@@ -476,33 +564,18 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
 
             return updated;
         });
+        clearCompanyErrors(companies[0]?.id);
     };
 
     const handleSubmit = async () => {
-        const newErrors = {};
-
-        if (!customerData.firstName?.trim()) newErrors.firstName = "First name is required";
-        if (!customerData.lastName?.trim()) newErrors.lastName = "Last name is required";
-
-        if (!customerData.mobile?.trim()) {
-            newErrors.mobile = "Mobile number is required";
-        } else if (!mobileRegex.test(customerData.mobile)) {
-            newErrors.mobile = "Enter valid mobile number";
-        }
-
-        if (!customerData.email?.trim()) {
-            newErrors.email = "Email address is required";
-        } else if (!emailRegex.test(customerData.email)) {
-            newErrors.email = "Enter valid email address";
-        }
-
-        if (!customerData.state) newErrors.state = "Please select state";
-        if (!customerData.district) newErrors.district = "Please select district";
+        const customerErrors = validateCustomer();
+        const companyErrors = validateCompanies();
+        const newErrors = { ...customerErrors, ...companyErrors };
 
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
             toast.error("Please fill all required fields correctly");
-            setActiveTab("customer");
+            setActiveTab(Object.keys(customerErrors).length > 0 ? "customer" : "company");
             return;
         }
 
@@ -553,10 +626,10 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                 className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl flex flex-col h-[90vh] overflow-hidden"
             >
                 {/* Header */}
-                <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-indigo-600 to-indigo-700 text-white">
+                <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-yellow-600 to-yellow-700 text-white">
                     <div>
                         <h2 className="text-xl font-bold">{customerData.CustomerID ? "Edit Customer" : "Add New Customer"}</h2>
-                        <p className="text-indigo-100 text-sm mt-1">
+                        <p className="text-yellow-100 text-sm mt-1">
                             {customerData.CustomerID ? "Update customer profile and linked companies" : "Create a new customer profile and link companies"}
                         </p>
                     </div>
@@ -569,12 +642,12 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                 <div className="px-6 py-4 flex gap-8 border-b border-gray-100 bg-gray-50/50">
                     <button
                         onClick={() => setActiveTab("customer")}
-                        className={`flex items-center gap-2 pb-2 px-1 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === "customer" ? "text-indigo-600" : "text-gray-400 hover:text-gray-600"
+                        className={`flex items-center gap-2 pb-2 px-1 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === "customer" ? "text-yellow-600" : "text-gray-400 hover:text-gray-600"
                             }`}
                     >
                         <Users className="w-4 h-4" />
                         Customer Details
-                        {activeTab === "customer" && <motion.div layoutId="tabLine" className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-600 rounded-full" />}
+                        {activeTab === "customer" && <motion.div layoutId="tabLine" className="absolute bottom-0 left-0 right-0 h-1 bg-yellow-400 rounded-full" />}
                     </button>
                     <button
                         onClick={() => {
@@ -584,12 +657,12 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                 setActiveTab("company");
                             }
                         }}
-                        className={`flex items-center gap-2 pb-2 px-1 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === "company" ? "text-indigo-600" : "text-gray-400 hover:text-gray-600"
+                        className={`flex items-center gap-2 pb-2 px-1 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === "company" ? "text-yellow-600" : "text-gray-400 hover:text-gray-600"
                             }`}
                     >
                         <Building2 className="w-4 h-4" />
                         Company Details
-                        {activeTab === "company" && <motion.div layoutId="tabLine" className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-600 rounded-full" />}
+                        {activeTab === "company" && <motion.div layoutId="tabLine" className="absolute bottom-0 left-0 right-0 h-1 bg-yellow-400 rounded-full" />}
                     </button>
                 </div>
 
@@ -616,7 +689,7 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                             name="firstName"
                                             value={customerData.firstName}
                                             onChange={handleCustomerChange}
-                                            className={`w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm transition-all ${errors.firstName ? "border-red-500 focus:ring-red-500/20" : "border-gray-200"
+                                            className={`w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/20 text-sm transition-all ${errors.firstName ? "border-red-500 focus:ring-red-500/20" : "border-gray-200"
                                                 }`}
                                             placeholder="Enter first name"
                                         />
@@ -631,7 +704,7 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                             name="lastName"
                                             value={customerData.lastName}
                                             onChange={handleCustomerChange}
-                                            className={`w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm transition-all ${errors.lastName ? "border-red-500 focus:ring-red-500/20" : "border-gray-200"
+                                            className={`w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/20 text-sm transition-all ${errors.lastName ? "border-red-500 focus:ring-red-500/20" : "border-gray-200"
                                                 }`}
                                             placeholder="Enter last name"
                                         />
@@ -649,9 +722,11 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                         name="mobile"
                                         value={customerData.mobile}
                                         onChange={handleCustomerChange}
-                                        className={`w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm transition-all ${errors.mobile ? "border-red-500 focus:ring-red-500/20" : "border-gray-200"
+                                        inputMode="numeric"
+                                        maxLength={10}
+                                        className={`w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/20 text-sm transition-all ${errors.mobile ? "border-red-500 focus:ring-red-500/20" : "border-gray-200"
                                             }`}
-                                        placeholder="Enter mobile number"
+                                        placeholder="10-digit mobile number"
                                     />
                                     {errors.mobile && <p className="text-xs text-red-500 mt-1 font-medium">{errors.mobile}</p>}
                                 </div>
@@ -666,7 +741,7 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                         name="email"
                                         value={customerData.email}
                                         onChange={handleCustomerChange}
-                                        className={`w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm transition-all ${errors.email ? "border-red-500 focus:ring-red-500/20" : "border-gray-200"
+                                        className={`w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/20 text-sm transition-all ${errors.email ? "border-red-500 focus:ring-red-500/20" : "border-gray-200"
                                             }`}
                                         placeholder="Enter email address"
                                     />
@@ -683,9 +758,11 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                             type="text"
                                             name="country"
                                             value={customerData.country}
+                                            onChange={handleCustomerChange}
                                             disabled
-                                            className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl outline-none text-sm"
+                                            className={`w-full px-4 py-3 bg-gray-100 border rounded-xl outline-none text-sm ${errors.country ? "border-red-500" : "border-gray-200"}`}
                                         />
+                                        {errors.country && <p className="text-xs text-red-500 mt-1 font-medium">{errors.country}</p>}
                                     </div>
 
                                     <div className="space-y-2">
@@ -697,9 +774,12 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                             name="pincode"
                                             value={customerData.pincode}
                                             onChange={handleCustomerChange}
-                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm"
-                                            placeholder="Enter pincode"
+                                            inputMode={isIndia(customerData.country) ? "numeric" : "text"}
+                                            className={`w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/20 text-sm transition-all ${errors.pincode ? "border-red-500 focus:ring-red-500/20" : "border-gray-200"
+                                                }`}
+                                            placeholder={isIndia(customerData.country) ? "6-digit PIN code" : "Enter postal / ZIP code"}
                                         />
+                                        {errors.pincode && <p className="text-xs text-red-500 mt-1 font-medium">{errors.pincode}</p>}
                                     </div>
                                 </div>
 
@@ -713,7 +793,7 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                             name="state"
                                             value={customerData.state}
                                             onChange={handleCustomerChange}
-                                            className={`w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm transition-all ${errors.state ? "border-red-500 focus:ring-red-500/20" : "border-gray-200"
+                                            className={`w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/20 text-sm transition-all ${errors.state ? "border-red-500 focus:ring-red-500/20" : "border-gray-200"
                                                 }`}
                                         >
                                             <option value="">Search or select state</option>
@@ -734,7 +814,7 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                             name="district"
                                             value={customerData.district}
                                             onChange={handleCustomerChange}
-                                            className={`w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm transition-all ${errors.district ? "border-red-500 focus:ring-red-500/20" : "border-gray-200"
+                                            className={`w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/20 text-sm transition-all ${errors.district ? "border-red-500 focus:ring-red-500/20" : "border-gray-200"
                                                 }`}
                                         >
                                             <option value="">Search or select district</option>
@@ -760,7 +840,7 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                         name="preferredLanguage"
                                         value={customerData.preferredLanguage}
                                         onChange={handleCustomerChange}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm"
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-400/20 text-sm"
                                     >
                                         <option value="">Select Language</option>
                                         <option value="English">English</option>
@@ -792,8 +872,8 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                                 }
                                             }}
                                             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${companies[0]?.isExisting
-                                                ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                                                : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                                                ? "bg-yellow-400 text-black hover:bg-yellow-500"
+                                                : "bg-yellow-50 text-yellow-600 hover:bg-yellow-100"
                                                 }`}
                                         >
                                             <Search className="w-4 h-4" />
@@ -816,11 +896,11 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                     <motion.div
                                         key={company.id}
                                         layout
-                                        className={`relative p-8 rounded-3xl border-2 transition-all duration-300 ${company.isPrimary ? 'border-indigo-600 bg-indigo-50/20' : 'border-gray-100 bg-gray-50/40'
+                                        className={`relative p-8 rounded-3xl border-2 transition-all duration-300 ${company.isPrimary ? 'border-yellow-600 bg-yellow-50/20' : 'border-gray-100 bg-gray-50/40'
                                             }`}
                                     >
                                         {company.isPrimary && (
-                                            <div className="absolute -top-3 left-6 px-3 py-1 bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-wider rounded-full flex items-center gap-1">
+                                            <div className="absolute -top-3 left-6 px-3 py-1 bg-yellow-400 text-black text-[10px] font-bold uppercase tracking-wider rounded-full flex items-center gap-1">
                                                 <CheckCircle className="w-3 h-3" />
                                                 Primary Company
                                             </div>
@@ -830,7 +910,7 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                             {!company.isPrimary && (
                                                 <button
                                                     onClick={() => setPrimaryCompany(company.id)}
-                                                    className="p-2 text-indigo-400 hover:text-indigo-600 hover:bg-white rounded-xl transition-all"
+                                                    className="p-2 text-yellow-400 hover:text-yellow-600 hover:bg-white rounded-xl transition-all"
                                                     title="Set as Primary"
                                                 >
                                                     <CheckCircle className="w-5 h-5" />
@@ -860,6 +940,7 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                                         value={company.name}
                                                         onChange={(e) => handleCompanyChange(company.id, "name", e.target.value)}
                                                         disabled={company.isExisting}
+                                                        maxLength={150}
                                                         className="w-full pl-11 pr-4 py-3 bg-white border border-gray-100 rounded-2xl outline-none text-sm font-medium"
                                                         placeholder="Enter company name"
                                                     />
@@ -876,9 +957,11 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                                     value={company.gst}
                                                     onChange={(e) => handleCompanyChange(company.id, "gst", e.target.value)}
                                                     disabled={company.isExisting}
-                                                    className="w-full px-4 py-3 bg-white border border-gray-100 rounded-2xl outline-none text-sm font-medium"
-                                                    placeholder="Enter GST number"
+                                                    maxLength={15}
+                                                    className={`w-full px-4 py-3 bg-white border rounded-2xl outline-none text-sm font-medium ${companyInputBorder(errors[companyErrorKey(company.id, "gst")])}`}
+                                                    placeholder="e.g. 32ABCDE1234F1Z5"
                                                 />
+                                                {errors[companyErrorKey(company.id, "gst")] && <p className="text-xs text-red-500 mt-1 font-medium">{errors[companyErrorKey(company.id, "gst")]}</p>}
                                             </div>
 
                                             {/* Company Mobile */}
@@ -893,10 +976,13 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                                         value={company.mobile}
                                                         onChange={(e) => handleCompanyChange(company.id, "mobile", e.target.value)}
                                                         disabled={company.isExisting}
-                                                        className="w-full pl-11 pr-4 py-3 bg-white border border-gray-100 rounded-2xl outline-none text-sm font-medium"
-                                                        placeholder="Enter mobile number"
+                                                        inputMode="numeric"
+                                                        maxLength={10}
+                                                        className={`w-full pl-11 pr-4 py-3 bg-white border rounded-2xl outline-none text-sm font-medium ${companyInputBorder(errors[companyErrorKey(company.id, "mobile")])}`}
+                                                        placeholder="10-digit mobile number"
                                                     />
                                                 </div>
+                                                {errors[companyErrorKey(company.id, "mobile")] && <p className="text-xs text-red-500 mt-1 font-medium">{errors[companyErrorKey(company.id, "mobile")]}</p>}
                                             </div>
 
                                             {/* Company Email */}
@@ -911,10 +997,11 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                                         value={company.email}
                                                         onChange={(e) => handleCompanyChange(company.id, "email", e.target.value)}
                                                         disabled={company.isExisting}
-                                                        className="w-full pl-11 pr-4 py-3 bg-white border border-gray-100 rounded-2xl outline-none text-sm font-medium"
+                                                        className={`w-full pl-11 pr-4 py-3 bg-white border rounded-2xl outline-none text-sm font-medium ${companyInputBorder(errors[companyErrorKey(company.id, "email")])}`}
                                                         placeholder="Enter email address"
                                                     />
                                                 </div>
+                                                {errors[companyErrorKey(company.id, "email")] && <p className="text-xs text-red-500 mt-1 font-medium">{errors[companyErrorKey(company.id, "email")]}</p>}
                                             </div>
 
                                             {/* Company Country */}
@@ -927,10 +1014,12 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                                     <input
                                                         type="text"
                                                         value={company.country}
+                                                        onChange={(e) => handleCompanyChange(company.id, "country", e.target.value)}
                                                         disabled
-                                                        className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl outline-none text-sm font-medium"
+                                                        className={`w-full pl-11 pr-4 py-3 bg-gray-50 border rounded-2xl outline-none text-sm font-medium ${companyInputBorder(errors[companyErrorKey(company.id, "country")])}`}
                                                     />
                                                 </div>
+                                                {errors[companyErrorKey(company.id, "country")] && <p className="text-xs text-red-500 mt-1 font-medium">{errors[companyErrorKey(company.id, "country")]}</p>}
                                             </div>
 
                                             {/* State */}
@@ -986,9 +1075,11 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                                     value={company.pincode}
                                                     onChange={(e) => handleCompanyChange(company.id, "pincode", e.target.value)}
                                                     disabled={company.isExisting}
-                                                    className="w-full px-4 py-3 bg-white border border-gray-100 rounded-2xl outline-none text-sm"
-                                                    placeholder="Enter pin code"
+                                                    inputMode={isIndia(company.country) ? "numeric" : "text"}
+                                                    className={`w-full px-4 py-3 bg-white border rounded-2xl outline-none text-sm ${companyInputBorder(errors[companyErrorKey(company.id, "pincode")])}`}
+                                                    placeholder={isIndia(company.country) ? "6-digit PIN code" : "Enter postal / ZIP code"}
                                                 />
+                                                {errors[companyErrorKey(company.id, "pincode")] && <p className="text-xs text-red-500 mt-1 font-medium">{errors[companyErrorKey(company.id, "pincode")]}</p>}
                                             </div>
 
                                             {/* Company Preferred Language */}
@@ -1021,11 +1112,11 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                                     className={`w-full py-6 border-2 border-dashed rounded-3xl transition-all flex flex-col items-center gap-2 group
         ${companies.some(c => c.isExisting)
                                             ? "border-gray-200 text-gray-300 cursor-not-allowed bg-gray-50"
-                                            : "border-gray-200 text-gray-400 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50/10"
+                                            : "border-gray-200 text-gray-400 hover:text-yellow-600 hover:border-yellow-300 hover:bg-yellow-50/10"
                                         }
     `}
                                 >
-                                    <div className="p-3 bg-gray-50 text-gray-400 group-hover:bg-indigo-600 group-hover:text-white rounded-2xl transition-all">
+                                    <div className="p-3 bg-gray-50 text-gray-400 group-hover:bg-yellow-400 group-hover:text-black rounded-2xl transition-all">
                                         <Plus className="w-6 h-6" />
                                     </div>
                                     <span className="font-bold text-sm tracking-wide">Add Another Company</span>
@@ -1039,8 +1130,8 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                 <div className="p-6 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div className="flex -space-x-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white ${activeTab === 'customer' ? 'bg-indigo-600 text-white' : 'bg-gray-300 text-gray-500'}`}>1</div>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white ${activeTab === 'company' ? 'bg-indigo-600 text-white' : 'bg-gray-300 text-gray-500'}`}>2</div>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white ${activeTab === 'customer' ? 'bg-yellow-400 text-black' : 'bg-gray-300 text-gray-500'}`}>1</div>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white ${activeTab === 'company' ? 'bg-yellow-400 text-black' : 'bg-gray-300 text-gray-500'}`}>2</div>
                         </div>
                         <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
                             Step {activeTab === 'customer' ? '1' : '2'} of 2
@@ -1057,7 +1148,7 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                         {activeTab === "customer" ? (
                             <button
                                 onClick={handleNextStep}
-                                className="px-10 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all transform active:scale-95"
+                                className="px-10 py-3 bg-yellow-400 text-black rounded-2xl text-sm font-bold shadow-lg shadow-yellow-200 hover:bg-yellow-500 hover:shadow-yellow-300 transition-all transform active:scale-95"
                             >
                                 Next Step
                             </button>
@@ -1065,7 +1156,7 @@ const AddCustomerModal = ({ isOpen, onClose, onSuccess, initialData }) => {
                             <button
                                 onClick={handleSubmit}
                                 disabled={isSubmitting}
-                                className="px-10 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-50 transition-all flex items-center gap-2"
+                                className="px-10 py-3 bg-yellow-400 text-black rounded-2xl text-sm font-bold shadow-lg shadow-yellow-200 hover:bg-yellow-500 disabled:opacity-50 transition-all flex items-center gap-2"
                             >
                                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                                 {customerData.CustomerID ? "Update Customer" : "Save Customer"}
