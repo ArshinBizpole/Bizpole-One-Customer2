@@ -8,9 +8,11 @@ import {
     FileText,
     CreditCard,
     Calendar,
+    Download,
 } from 'lucide-react';
 import axiosInstance from '../../api/axiosInstance';
 import { format, isValid } from 'date-fns';
+import { downloadQuote } from '../../components/associate/quote/downloadQuote';
 
 const safeFormat = (dateValue, formatStr, fallback = "--") => {
     if (!dateValue) return fallback;
@@ -25,6 +27,21 @@ const QuoteDetailView = () => {
     const [quote, setQuote] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [downloading, setDownloading] = useState(false);
+
+    // Same QUOTATION document admin downloads (ported QuoteDocument), via the print dialog
+    const handleDownload = async () => {
+        if (!quote || downloading) return;
+        setDownloading(true);
+        try {
+            await downloadQuote(quote);
+        } catch (err) {
+            console.error("Quote download error", err);
+            alert("Failed to download the quote. Please try again.");
+        } finally {
+            setDownloading(false);
+        }
+    };
 
     useEffect(() => {
         const fetchQuoteDetails = async () => {
@@ -135,6 +152,17 @@ const QuoteDetailView = () => {
                             </div>
                         </div>
                     </div>
+                    <button
+                        onClick={handleDownload}
+                        disabled={downloading}
+                        title="Download quote PDF"
+                        className="flex items-center gap-2 w-fit border border-slate-200 px-4 py-2 rounded-lg bg-white text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                        {downloading
+                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                            : <Download className="w-4 h-4" />}
+                        Download
+                    </button>
                 </div>
 
                 {/* Tabs */}

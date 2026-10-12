@@ -8,6 +8,8 @@ import axiosInstance from '../../api/axiosInstance';
 import DealsApi from '../../api/DealsApi';
 import AddDealModal from '../../components/Modals/AddDealModal';
 import CryptoJS from "crypto-js";
+import { downloadQuote } from '../../components/associate/quote/downloadQuote';
+import { getClientBaseUrl } from '../../utils/clientBaseUrl';
 
 const STATUS_TABS = [
     { key: 'all', label: 'All' },
@@ -148,7 +150,7 @@ const AssociateQuotes = () => {
     const getQuoteLink = (quote) => {
         if (!quote?.QuoteID || typeof CryptoJS === "undefined") return null;
         const encryptedId = encodeURIComponent(encrypt(quote.QuoteID));
-        return `https://test.bizpole.io/quotes/saved-preview/${encryptedId}`;
+        return `${getClientBaseUrl()}/quotes/saved-preview/${encryptedId}`;
     };
 
     const handleViewQuote = (quote) => {
@@ -171,9 +173,22 @@ const AssociateQuotes = () => {
         }
     };
 
-    const handleDownloadQuote = (quote) => {
+    const [downloadingQuoteId, setDownloadingQuoteId] = useState(null);
+
+    // Same QUOTATION document admin downloads (ported QuoteDocument), via the print dialog
+    const handleDownloadQuote = async (quote) => {
         if (!quote?.QuoteID) { alert("Quote ID not found"); return; }
-        window.open(`https://dev.bizpoleindia.in/quotes/download/${quote.QuoteID}`, "_blank");
+        setDownloadingQuoteId(quote.QuoteID);
+        try {
+            const res = await axiosInstance.get(`/getQuoteById/${quote.QuoteID}`);
+            if (!res.data?.success || !res.data?.data) throw new Error(res.data?.message || "Quote not found");
+            await downloadQuote(res.data.data);
+        } catch (err) {
+            console.error("Quote download error", err);
+            alert("Failed to download the quote. Please try again.");
+        } finally {
+            setDownloadingQuoteId(null);
+        }
     };
 
     const filterByStatusTab = (list) => {
@@ -676,12 +691,16 @@ const AssociateQuotes = () => {
                                                 )}
                                                 <button
                                                     onClick={() => handleDownloadQuote(quote)}
+                                                    disabled={downloadingQuoteId === quote.QuoteID}
+                                                    title="Download quote PDF"
                                                     style={{
                                                         padding: '5px 8px', borderRadius: 6, border: '1px solid #E5E7EB',
                                                         background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center'
                                                     }}
                                                 >
-                                                    <Download style={{ width: 14, height: 14, color: '#6B7280' }} />
+                                                    {downloadingQuoteId === quote.QuoteID
+                                                        ? <Loader2 style={{ width: 14, height: 14, color: '#6B7280', animation: 'spin 1s linear infinite' }} />
+                                                        : <Download style={{ width: 14, height: 14, color: '#6B7280' }} />}
                                                 </button>
                                             </div>
                                         </td>

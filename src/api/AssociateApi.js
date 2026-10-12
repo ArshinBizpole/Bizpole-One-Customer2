@@ -203,6 +203,16 @@ export const getAssociateDashboard = async (params) => {
     }
 };
 
+/**
+ * Get a payment receipt by PaymentID — same endpoint as the admin's receipt popup
+ * @param {string|number} paymentId
+ */
+export const fetchReceiptByPayment = async (paymentId) => {
+    const res = await axiosInstance.get(`/receipt-by-payment/${paymentId}`);
+    if (!res.data?.success || !res.data?.data) throw new Error(res.data?.message || "Failed to load receipt.");
+    return res.data.data;
+};
+
 export default {
     createAssociate,
     updateAssociate,

@@ -139,13 +139,25 @@ const AssociateCompanies = () => {
                                             {company.BusinessName}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-600">{company.CreatedByName || 'Unknown'}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-600 font-medium text-yellow-600 hover:underline cursor-pointer">
-                                            {company.PrimaryCustomerID ? `F${company.FranchiseID}/C${String(company.PrimaryCustomerID).padStart(7, "0")}` : 'null'}
+                                        <td className="px-6 py-4 text-sm font-medium whitespace-nowrap">
+                                            {company.PrimaryCustomerID ? (
+                                                <span
+                                                    className="text-yellow-600 hover:underline cursor-pointer"
+                                                    onClick={() => navigate(`/associate/customers/${company.PrimaryCustomerID}`)}
+                                                >
+                                                    {company.PrimaryCustomerCode || `CU${String(company.PrimaryCustomerID).padStart(6, "0")}`}
+                                                </span>
+                                            ) : <span className="text-gray-400">-</span>}
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-yellow-600 font-medium hover:underline cursor-pointer">
-                                            {company.PrimaryCustomerName?.trim()
-                                                ? company.PrimaryCustomerName
-                                                : company.BusinessName || '-'}
+                                        <td className="px-6 py-4 text-sm font-medium">
+                                            {company.PrimaryCustomerID ? (
+                                                <span
+                                                    className="text-yellow-600 hover:underline cursor-pointer"
+                                                    onClick={() => navigate(`/associate/customers/${company.PrimaryCustomerID}`)}
+                                                >
+                                                    {company.PrimaryCustomerName?.trim() || company.PrimaryCustomerCode || '-'}
+                                                </span>
+                                            ) : <span className="text-gray-400">-</span>}
                                         </td>
 
                                         <td className="px-6 py-4 text-sm text-gray-600">{company.Origin || '-'}</td>

@@ -548,17 +548,15 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
 
     useEffect(() => {
         const fetch_ = async () => {
-            if (formData.serviceType !== "package" || !formData.serviceState) { setAvailablePackages([]); return; }
+            if (formData.serviceType !== "package") { setAvailablePackages([]); return; }
             try {
-                const selectedState = availableStates.find((s) => s.state_name === formData.serviceState);
-                if (!selectedState) return;
                 const r = await fetch(`${API_BASE_URL}/getPackage`, { headers: { Authorization: `Bearer ${localStorage.getItem("partnerToken")}` } });
                 const d = await r.json();
                 if (d.data) setAvailablePackages(d.data || []);
             } catch { setAvailablePackages([]); }
         };
         fetch_();
-    }, [formData.serviceType, formData.serviceState, availableStates]);
+    }, [formData.serviceType]);
 
     const handleOpenServicePopup = async (categoryOption) => {
         const catId = categoryOption.value;
@@ -689,8 +687,9 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
     };
     const validateStep2 = () => {
         const e = {};
-        if (!formData.serviceState) e.serviceState = "Required";
         if (formData.serviceType === "individual") {
+            // Individual services are priced per state; packages have a fixed price
+            if (!formData.serviceState) e.serviceState = "Required";
             if (!formData.serviceCategory) e.serviceCategory = "Required";
             if (!formData.selectedServices?.length) e.selectedServices = "Please select at least one service";
         } else if (!formData.selectedPackage) e.selectedPackage = "Required";
@@ -723,11 +722,12 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
         try {
             const user = getSecureItem("partnerUser") || {};
             // Edit: keep the deal's franchisee/employee.
-            // Create: round-robin by customer language/state/district (same as /assignCustomer),
-            // falling back to the associate's BDE and franchisee (resolved at login).
-            let franchiseeId = deal?.id ? (deal.franchiseId || user.FranchiseeID || null) : null;
-            let employeeId = deal?.id ? (deal.employeeId || user.EmployeeID || null) : null;
-            if (!deal?.id) {
+            // Create: the associate's own BDE and franchisee, so the deal shows in that BDE's
+            // login (the server re-resolves this from the associate record). Round-robin by
+            // customer language/state/district only if the associate has no BDE yet.
+            let franchiseeId = deal?.id ? (deal.franchiseId || user.FranchiseeID || null) : (user.FranchiseeID || null);
+            let employeeId = deal?.id ? (deal.employeeId || user.EmployeeID || null) : (user.EmployeeID || null);
+            if (!deal?.id && !employeeId) {
                 const language = formData.preferredLanguage || formData.companyPreferredLanguage;
                 const state = formData.state || formData.companyState;
                 const district = formData.district || formData.companyDistrict;
@@ -815,7 +815,7 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                     packageName: formData.serviceType === "package" ? servicesPayload[0]?.packageName : null,
                     packageId: formData.serviceType === "package" ? servicesPayload[0]?.packageId : null,
                     billingPeriod: formData.billingPeriod,
-                    StateService: formData.serviceState,
+                    StateService: formData.serviceState || null,
                     AssociateID: user.id || null,
                     communication: formData.communication
                 };
@@ -892,7 +892,7 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                     isAssociate: true,
                     AssociateID: user.id || null,
                     sourceOfSale: "Associate",
-                    StateService: formData.serviceState
+                    StateService: formData.serviceState || null
                 };
                 console.log("Creation Payload:", payload);
                 const response = await DealsApi.convertToDeal(payload);
@@ -1088,24 +1088,13 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                             {/* ── STEP 2: Service Info ── */}
                             {step === 2 && (
                                 <motion.div key="step2" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} className="space-y-5">
-                                    {/* State where you need Service */}
-                                    <div>
-                                        <FieldLabel icon={MapPin} label="State where you need Service" required />
-                                        <Select options={availableStates.map((s) => ({ value: s.state_name, label: s.state_name }))}
-                                            value={formData.serviceState ? { value: formData.serviceState, label: formData.serviceState } : null}
-                                            onChange={(sel) => setFormData({ ...formData, serviceState: sel?.value || "" })}
-                                            placeholder="" isSearchable styles={rsStyles(errors.serviceState)} />
-                                        {errors.serviceState && <p className="text-xs text-red-500 mt-1">{errors.serviceState}</p>}
-                                    </div>
-
                                     {/* Individual / Package toggle */}
                                     <div>
                                         <FieldLabel icon={Briefcase} label="Individual / Package Service" required />
                                         <div className="grid grid-cols-2 gap-3">
                                             {["individual", "package"].map((type) => (
                                                 <button key={type} type="button"
-                                                    onClick={() => { if (formData.serviceState) handleChange({ target: { name: "serviceType", value: type } }); }}
-                                                    disabled={!formData.serviceState}
+                                                    onClick={() => handleChange({ target: { name: "serviceType", value: type } })}
                                                     className={`py-2.5 rounded-full text-sm font-semibold transition-all capitalize border
                                                         ${formData.serviceType === type
                                                             ? "bg-yellow-400 text-gray-900 border-yellow-400 shadow-sm"
@@ -1115,11 +1104,20 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                                                 </button>
                                             ))}
                                         </div>
-                                        {!formData.serviceState && <p className="text-xs text-gray-400 mt-1.5">Please select a state first</p>}
                                     </div>
 
                                     {formData.serviceType === "individual" ? (
                                         <>
+                                            {/* State where you need Service */}
+                                            <div>
+                                                <FieldLabel icon={MapPin} label="State where you need Service" required />
+                                                <Select options={availableStates.map((s) => ({ value: s.state_name, label: s.state_name }))}
+                                                    value={formData.serviceState ? { value: formData.serviceState, label: formData.serviceState } : null}
+                                                    onChange={(sel) => setFormData({ ...formData, serviceState: sel?.value || "" })}
+                                                    placeholder="" isSearchable styles={rsStyles(errors.serviceState)} />
+                                                {errors.serviceState && <p className="text-xs text-red-500 mt-1">{errors.serviceState}</p>}
+                                            </div>
+
                                             {/* Service Category */}
                                             <div>
                                                 <FieldLabel icon={Tag} label="Service Category" required />
@@ -1178,7 +1176,6 @@ const AddDealModal = ({ isOpen = true, onClose, onSuccess, deal, initialData }) 
                                                 <FieldLabel icon={Briefcase} label="Package Name" required />
                                                 <div className="relative">
                                                     <select name="selectedPackage" value={formData.selectedPackage || ""} onChange={handleChange}
-                                                        disabled={!formData.serviceState}
                                                         className={inputCls(errors.selectedPackage) + " appearance-none disabled:bg-gray-50 disabled:cursor-not-allowed"}>
                                                         <option value="">Select Package</option>
                                                         {availablePackages.map((pkg) => (<option key={pkg.PackageID} value={pkg.PackageID}>{pkg.PackageName}</option>))}

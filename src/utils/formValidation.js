@@ -8,6 +8,8 @@ export const PATTERNS = {
     indiaPin: /^[1-9]\d{5}$/,
     postal: /^[A-Za-z0-9][A-Za-z0-9 -]{2,9}$/,
     gstin: /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/,
+    pan: /^[A-Z]{5}\d{4}[A-Z]$/,
+    aadhaar: /^[2-9]\d{11}$/,
 };
 
 export const isIndia = (country) => !country?.trim() || country.trim().toLowerCase() === "india";
@@ -31,6 +33,9 @@ export const sanitize = {
         ? v.replace(/\D/g, "").slice(0, 6)
         : v.replace(/[^A-Za-z0-9 -]/g, "").slice(0, 10)),
     gstin: (v) => v.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 15),
+    pan: (v) => v.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 10),
+    aadhaar: (v) => v.replace(/\D/g, "").slice(0, 12),
+    decimal: (v) => v.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1").slice(0, 20),
     text: (max) => (v) => v.slice(0, max),
 };
 
@@ -68,5 +73,15 @@ export const validate = {
         const s = (v || "").trim();
         if (!s) return "";
         return PATTERNS.gstin.test(s) ? "" : "Enter a valid 15-character GSTIN (e.g. 32ABCDE1234F1Z5)";
+    },
+    pan: (v) => {
+        const s = (v || "").trim();
+        if (!s) return "";
+        return PATTERNS.pan.test(s) ? "" : "Enter a valid 10-character PAN (e.g. ABCDE1234F)";
+    },
+    aadhaar: (v) => {
+        const s = (v || "").trim();
+        if (!s) return "";
+        return PATTERNS.aadhaar.test(s) ? "" : "Enter a valid 12-digit Aadhaar number";
     },
 };

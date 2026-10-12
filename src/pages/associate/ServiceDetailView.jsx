@@ -37,33 +37,60 @@ const ServiceDetailView = () => {
     const [responseFieldsLoading, setResponseFieldsLoading] = useState(false);
 
     // ── PDF download helper ──────────────────────────────────────────────────
-    const handleDownloadAsPDF = (url, label) => {
+    // Files live on another origin (blob storage), so a plain <a download> is ignored by
+    // the browser. Fetch the file and save it; if the host blocks that (CORS), open it in
+    // a new tab instead so the user can still save it.
+    const handleDownloadAsPDF = async (url, label) => {
         if (!url) return;
-        if (url.toLowerCase().endsWith('.pdf')) {
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('target', '_blank');
-            link.setAttribute('download', `${label || 'document'}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } else {
-            const doc = new jsPDF();
-            const img = new Image();
-            img.crossOrigin = 'Anonymous';
-            img.onload = function () {
-                const canvas = document.createElement('canvas');
-                canvas.width = this.width;
-                canvas.height = this.height;
-                canvas.getContext('2d').drawImage(this, 0, 0);
-                const dataUrl = canvas.toDataURL('image/jpeg');
-                const imgWidth = doc.internal.pageSize.getWidth();
-                const imgHeight = (this.height * imgWidth) / this.width;
-                doc.addImage(dataUrl, 'JPEG', 0, 0, imgWidth, imgHeight);
-                doc.save(`${label || 'document'}.pdf`);
-            };
-            img.src = url;
+        const baseName = (label || 'document').replace(/[\\/:*?"<>|]+/g, '_');
+        let ext = '';
+        try { ext = (new URL(url, window.location.href).pathname.split('.').pop() || '').toLowerCase(); } catch { /* keep '' */ }
+        const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext);
+
+        if (!isImage) {
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const blob = await res.blob();
+                const objectUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = objectUrl;
+                link.download = `${baseName}${ext && ext.length <= 5 ? `.${ext}` : ''}`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+            } catch {
+                window.open(url, '_blank', 'noopener,noreferrer');
+            }
+            return;
         }
+
+        // Images are wrapped in a one-page PDF, scaled to fit the page
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.onload = function () {
+            try {
+                const doc = new jsPDF();
+                const canvas = document.createElement('canvas');
+                canvas.width = this.naturalWidth;
+                canvas.height = this.naturalHeight;
+                canvas.getContext('2d').drawImage(this, 0, 0);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+                const pageW = doc.internal.pageSize.getWidth();
+                const pageH = doc.internal.pageSize.getHeight();
+                const scale = Math.min(pageW / this.naturalWidth, pageH / this.naturalHeight);
+                const w = this.naturalWidth * scale;
+                const h = this.naturalHeight * scale;
+                doc.addImage(dataUrl, 'JPEG', (pageW - w) / 2, (pageH - h) / 2, w, h);
+                doc.save(`${baseName}.pdf`);
+            } catch {
+                // Canvas is "tainted" when the image host sends no CORS headers
+                window.open(url, '_blank', 'noopener,noreferrer');
+            }
+        };
+        img.onerror = () => window.open(url, '_blank', 'noopener,noreferrer');
+        img.src = url;
     };
 
     const mainTabs = [

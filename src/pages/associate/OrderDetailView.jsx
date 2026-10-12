@@ -1,17 +1,19 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ChevronLeft, Loader2, Activity, FileText, IndianRupee,
     AlertCircle, ListChecks,
     FolderOpen, Receipt, FileStack, LayoutDashboard,
-    Download, X,
+    Download, Eye,
 } from 'lucide-react';
 import { getOrderById } from '../../api/Orders/Order';
 import { format } from 'date-fns';
-import { getAssociateReceiptDetails, getInvoicesForService, getReceiptsForOrder } from '../../api/AssociateApi';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { fetchReceiptByPayment, getInvoicesForService, getReceiptsForOrder } from '../../api/AssociateApi';
 import { toCustomerServiceStatus, getOrderStatusLabel } from '../../utils/orderStatus';
+import { generateReceiptPdf } from '../../utils/receiptPdf';
+import PaymentReceiptModal from '../../components/associate/PaymentReceiptModal';
+import Invoice from '../../components/associate/invoice/Invoice';
+import InvoicePreviewModal from '../../components/associate/invoice/InvoicePreviewModal';
 
 const OrderDetailView = () => {
     const { id } = useParams();
@@ -21,6 +23,29 @@ const OrderDetailView = () => {
     const [activeTab, setActiveTab] = useState('Summary');
     const [activeFileSubTab, setActiveFileSubTab] = useState('Permanent Files');
     const [invoices, setInvoices] = useState([]);
+    // Invoice shown in the admin-style preview (InvoicePreviewModal)
+    const [previewInvoice, setPreviewInvoice] = useState(null);
+    // Invoice being downloaded: rendered off-screen, then printed via ref.download()
+    // (same flow as admin's InvoiceTable direct download / Finance → Invoices)
+    const [directDownloadInvoice, setDirectDownloadInvoice] = useState(null);
+    const directDownloadRef = useRef(null);
+
+    // The document has to be mounted and painted before it can be printed,
+    // so a download is a render pass followed by the print.
+    useEffect(() => {
+        if (!directDownloadInvoice) return;
+        const timer = setTimeout(async () => {
+            try {
+                await directDownloadRef.current?.download();
+            } catch (error) {
+                console.error("Invoice download error", error);
+                alert("Failed to download the invoice. Please try again.");
+            }
+            setDirectDownloadInvoice(null);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [directDownloadInvoice]);
+
     const [invoiceLoading, setInvoiceLoading] = useState(false);
 
     // Receipt Tab State
@@ -28,9 +53,9 @@ const OrderDetailView = () => {
     const [receiptsLoading, setReceiptsLoading] = useState(false);
 
     // Receipt Modal State
-    const [modalOpen, setModalOpen] = useState(false);
-    const [selectedReceipt, setSelectedReceipt] = useState(null);
-    const [detailLoading, setDetailLoading] = useState(false);
+    // PaymentID of the receipt shown in the admin-style receipt popup
+    const [viewReceiptId, setViewReceiptId] = useState(null);
+    const [downloadingReceiptId, setDownloadingReceiptId] = useState(null);
 
     const tabs = [
         { name: 'Summary', icon: LayoutDashboard },
@@ -147,122 +172,20 @@ const OrderDetailView = () => {
     }, [activeTab, order, fetchReceipts, fetchInvoices]);
 
 
-    const handleViewReceipt = async (paymentId) => {
-        setDetailLoading(true);
-        setModalOpen(true);
+    const handleViewReceipt = (paymentId) => setViewReceiptId(paymentId);
+
+    // Row "Download": same receipt data and layout as the popup
+    const downloadPDF = async (receipt) => {
+        if (!receipt?.PaymentID) return;
+        setDownloadingReceiptId(receipt.PaymentID);
         try {
-            const response = await getAssociateReceiptDetails(paymentId);
-            if (response.success) {
-                setSelectedReceipt(response.data);
-            }
-        } catch (error) {
-            console.error("Error fetching details:", error);
+            await generateReceiptPdf(await fetchReceiptByPayment(receipt.PaymentID));
+        } catch (e) {
+            console.error("Receipt download error", e);
+            alert("Failed to download the receipt. Please try again.");
         } finally {
-            setDetailLoading(false);
+            setDownloadingReceiptId(null);
         }
-    };
-
-    const downloadPDF = async (receiptData = null) => {
-        const data = receiptData || selectedReceipt;
-        if (!data) return;
-
-        let fullData = data;
-        if (!data.services) {
-            try {
-                const res = await getAssociateReceiptDetails(data.PaymentID);
-                if (res.success) fullData = res.data;
-            } catch (e) {
-                console.error("Error fetching full details for PDF", e);
-                return;
-            }
-        }
-
-
-        const doc = new jsPDF();
-        doc.setFillColor(255, 193, 7);
-        doc.rect(0, 0, 210, 40, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(22);
-        doc.setFont('helvetica', 'bold');
-        doc.text("PAYMENT RECEIPT", 14, 20);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text("Official Transaction Record", 14, 28);
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(12);
-        doc.text(`Receipt ID: ${fullData.PaymentID}`, 14, 50);
-
-        const startY = 60;
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text("TRANSACTION ID", 14, startY);
-        doc.text("TRANSACTION DATE", 110, startY);
-        doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
-        doc.text(fullData.TransactionID || "N/A", 14, startY + 6);
-        doc.text(fullData.TransactionDate ? format(new Date(fullData.TransactionDate), "dd/MM/yyyy") : (fullData.PaymentDate ? format(new Date(fullData.PaymentDate), "dd/MM/yyyy") : "N/A"), 110, startY + 6);
-
-        const row2Y = startY + 20;
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text("PAYMENT STATUS", 14, row2Y);
-        doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'bold');
-        doc.text((fullData.PaymentStatus || "").toUpperCase(), 14, row2Y + 6);
-        doc.setFont('helvetica', 'normal');
-
-        const row3Y = row2Y + 20;
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text("REMARKS", 14, row3Y);
-        doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
-        doc.text(fullData.Remarks || "No remarks provided", 14, row3Y + 6);
-
-        const tableY = row3Y + 20;
-        doc.setFontSize(14);
-        doc.setTextColor(245, 158, 11);
-        doc.text("Service Breakdown", 14, tableY);
-        doc.line(14, tableY + 2, 14, tableY + 6);
-
-        const tableColumn = ["Service", "Vendor Fee", "Professional Fee", "Contractor Fee"];
-        const tableRows = [];
-
-        if (fullData.services && fullData.services.length > 0) {
-            fullData.services.forEach(service => {
-                tableRows.push([
-                    service.ServiceName || `Service ID: ${service.ServiceID}`,
-                    `Rs. ${parseFloat(service.VendorFee || 0).toFixed(2)}`,
-                    `Rs. ${parseFloat(service.ProfessionalFee || 0).toFixed(2)}`,
-                    `Rs. ${parseFloat(service.ContractorFee || 0).toFixed(2)}`,
-                ]);
-            });
-        } else {
-            tableRows.push([
-                "Service Details",
-                `Rs. ${parseFloat(fullData.VendorFee || 0).toFixed(2)}`,
-                `Rs. ${parseFloat(fullData.ProfessionalFee || fullData.ProfFee || 0).toFixed(2)}`,
-                `Rs. ${parseFloat(fullData.ContractorFee || 0).toFixed(2)}`,
-            ]);
-        }
-
-        autoTable(doc, {
-            startY: tableY + 10,
-            head: [tableColumn],
-            body: tableRows,
-            theme: 'grid',
-            headStyles: { fillColor: [249, 250, 251], textColor: [100, 100, 100], fontStyle: 'bold' },
-            styles: { fontSize: 10, cellPadding: 6 },
-        });
-
-        const finalY = doc.lastAutoTable.finalY + 10;
-        doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Total Amount: Rs. ${parseFloat(fullData.TotalAmount || 0).toFixed(2)}`, 140, finalY, { align: 'right' });
-
-        doc.save(`Receipt_${fullData.PaymentID}.pdf`);
     };
 
     if (loading) {
@@ -487,10 +410,13 @@ const OrderDetailView = () => {
                                                 <td className="px-4 py-3 text-center">
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); downloadPDF(receipt); }}
-                                                        className="p-1 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors"
+                                                        disabled={downloadingReceiptId === receipt.PaymentID}
+                                                        className="p-1 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors disabled:opacity-60"
                                                         title="Download Receipt"
                                                     >
-                                                        <Download className="w-4 h-4" />
+                                                        {downloadingReceiptId === receipt.PaymentID
+                                                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                            : <Download className="w-4 h-4" />}
                                                     </button>
                                                 </td>
                                                 <td className="px-4 py-3 text-slate-600">{receipt.CreatedByName || "-"}</td>
@@ -574,12 +500,25 @@ const OrderDetailView = () => {
                                                     </td>
 
                                                     <td className="px-6 py-4 text-center">
-                                                        <button
-                                                            className="text-slate-500 hover:text-blue-600 transition-colors"
-                                                            title="Download Invoice"
-                                                        >
-                                                            <Download className="w-4 h-4" />
-                                                        </button>
+                                                        <div className="flex items-center justify-center gap-3">
+                                                            <button
+                                                                onClick={() => setPreviewInvoice(invoice)}
+                                                                className="text-slate-500 hover:text-yellow-600 transition-colors"
+                                                                title="View Invoice"
+                                                            >
+                                                                <Eye className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setDirectDownloadInvoice(invoice)}
+                                                                disabled={!!directDownloadInvoice}
+                                                                className="text-slate-500 hover:text-yellow-600 transition-colors disabled:opacity-50"
+                                                                title="Download Invoice"
+                                                            >
+                                                                {directDownloadInvoice?.InvoiceID === invoice.InvoiceID
+                                                                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                                    : <Download className="w-4 h-4" />}
+                                                            </button>
+                                                        </div>
                                                     </td>
 
                                                 </tr>
@@ -696,133 +635,29 @@ const OrderDetailView = () => {
             </div>
 
             {/* Receipt Modal */}
-            {
-                modalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                            {/* Header */}
-                            <div className="bg-[#fbbf24] p-6 flex justify-between items-start">
-                                <div>
-                                    <h2 className="text-xl font-bold text-white uppercase tracking-wide">Payment Receipts</h2>
-                                    <p className="text-white/90 text-sm mt-1">Official Transaction Record</p>
-                                </div>
-                                <button
-                                    onClick={() => setModalOpen(false)}
-                                    className="text-white/80 hover:text-white transition-colors"
-                                >
-                                    <X className="w-6 h-6" />
-                                </button>
-                            </div>
+            {viewReceiptId !== null && (
+                <PaymentReceiptModal paymentId={viewReceiptId} onClose={() => setViewReceiptId(null)} />
+            )}
 
-                            {/* Body */}
-                            <div className="p-6 max-h-[70vh] overflow-y-auto">
-                                {detailLoading ? (
-                                    <div className="flex flex-col items-center justify-center py-12">
-                                        <Loader2 className="w-8 h-8 animate-spin text-[#fbbf24]" />
-                                        <p className="mt-2 text-slate-500">Loading details...</p>
-                                    </div>
-                                ) : selectedReceipt ? (
-                                    <div className="space-y-6">
-                                        <div className="text-sm text-slate-500">
-                                            Receipt ID: {selectedReceipt.PaymentID}
-                                        </div>
+            {/* Invoice Preview Modal — same viewer as the admin's order Invoice tab */}
+            <InvoicePreviewModal
+                invoice={previewInvoice}
+                servicePayments={previewInvoice?.serviceDetail ? [previewInvoice.serviceDetail] : []}
+                franchisee={previewInvoice?.franchisee ?? null}
+                onClose={() => setPreviewInvoice(null)}
+            />
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-lg">
-                                            <div>
-                                                <p className="text-xs font-bold text-slate-400 uppercase mb-1">Transaction ID</p>
-                                                <div className="bg-white border border-slate-200 rounded px-3 py-2 text-sm font-medium text-slate-700">
-                                                    {selectedReceipt.TransactionID || "N/A"}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs font-bold text-slate-400 uppercase mb-1">Transaction Date</p>
-                                                <div className="font-bold text-lg text-slate-800">
-                                                    {selectedReceipt.TransactionDate
-                                                        ? format(new Date(selectedReceipt.TransactionDate), "M/d/yyyy")
-                                                        : (selectedReceipt.PaymentDate ? format(new Date(selectedReceipt.PaymentDate), "M/d/yyyy") : "N/A")}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs font-bold text-slate-400 uppercase mb-1">Payment Status</p>
-                                                <div className="font-bold text-lg text-slate-900 capitalize">
-                                                    {selectedReceipt.PaymentStatus}
-                                                </div>
-                                            </div>
-                                            <div className="col-span-1 md:col-span-2">
-                                                <p className="text-xs font-bold text-slate-400 uppercase mb-1">Remarks</p>
-                                                <div className="bg-white border border-slate-200 rounded px-3 py-2 text-sm text-slate-600">
-                                                    {selectedReceipt.Remarks || "No remarks"}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Service Breakdown */}
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-3">
-                                                <div className="w-1 h-4 bg-[#d97706] rounded-full"></div>
-                                                <h3 className="text-sm font-bold text-slate-700">Service Breakdown</h3>
-                                            </div>
-
-                                            <div className="border border-slate-200 rounded-lg overflow-hidden">
-                                                <table className="w-full text-xs text-left">
-                                                    <thead className="bg-slate-50 border-b border-slate-200">
-                                                        <tr>
-                                                            <th className="px-4 py-3 font-semibold text-slate-500 uppercase">Service</th>
-                                                            <th className="px-4 py-3 font-semibold text-slate-500 uppercase text-right">Vendor Fee</th>
-                                                            <th className="px-4 py-3 font-semibold text-slate-500 uppercase text-right">Professional Fee</th>
-                                                            <th className="px-4 py-3 font-semibold text-slate-500 uppercase text-right">Contractor Fee</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-slate-100">
-                                                        {selectedReceipt.services && selectedReceipt.services.length > 0 ? (
-                                                            selectedReceipt.services.map((svc, idx) => (
-                                                                <tr key={idx}>
-                                                                    <td className="px-4 py-3 text-slate-700 font-medium">
-                                                                        {svc.ServiceName || `Service ID: ${svc.ServiceID}`}
-                                                                    </td>
-                                                                    <td className="px-4 py-3 text-right text-slate-600">₹{parseFloat(svc.VendorFee || 0).toFixed(2)}</td>
-                                                                    <td className="px-4 py-3 text-right text-slate-600">₹{parseFloat(svc.ProfessionalFee || 0).toFixed(2)}</td>
-                                                                    <td className="px-4 py-3 text-right text-slate-600">₹{parseFloat(svc.ContractorFee || 0).toFixed(2)}</td>
-                                                                </tr>
-                                                            ))
-                                                        ) : (
-                                                            <tr>
-                                                                <td className="px-4 py-3 text-slate-700 font-medium">Service Details</td>
-                                                                <td className="px-4 py-3 text-right text-slate-600">₹{parseFloat(selectedReceipt.VendorFee || 0).toFixed(2)}</td>
-                                                                <td className="px-4 py-3 text-right text-slate-600">₹{parseFloat(selectedReceipt.ProfessionalFee || selectedReceipt.ProfFee || 0).toFixed(2)}</td>
-                                                                <td className="px-4 py-3 text-right text-slate-600">₹{parseFloat(selectedReceipt.ContractorFee || 0).toFixed(2)}</td>
-                                                            </tr>
-                                                        )}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <p className="text-center text-slate-500">No details available</p>
-                                )}
-                            </div>
-
-                            {/* Footer */}
-                            <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
-                                <button
-                                    onClick={() => setModalOpen(false)}
-                                    className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
-                                >
-                                    Close
-                                </button>
-                                <button
-                                    onClick={() => downloadPDF()}
-                                    className="px-4 py-2 bg-[#fbbf24] hover:bg-[#f59e0b] text-white rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2"
-                                >
-                                    <Download className="w-4 h-4" />
-                                    Download PDF
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
+            {/* Hidden Invoice used for direct row downloads — rendered off-screen and printed via ref */}
+            {directDownloadInvoice && (
+                <div style={{ position: "fixed", left: "-99999px", top: 0, width: "794px", pointerEvents: "none", zIndex: -1 }} aria-hidden="true">
+                    <Invoice
+                        ref={directDownloadRef}
+                        selectedInvoice={directDownloadInvoice}
+                        servicePayments={directDownloadInvoice.serviceDetail ? [directDownloadInvoice.serviceDetail] : []}
+                        franchisee={directDownloadInvoice.franchisee ?? null}
+                    />
+                </div>
+            )}
 
         </div >
     );

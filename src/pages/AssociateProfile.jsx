@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { User, Mail, Phone, MapPin, FileText, CheckCircle2, Upload, Edit, Download, Share2, Link, X, UploadCloud, Eye, TrendingUp, Briefcase } from 'lucide-react';
 import { getSecureItem } from '../utils/secureStorage';
 import axiosInstance from '../api/axiosInstance';
-import { getAssociateById, getAssociateDocuments, uploadAssociateDocuments } from '../api/AssociateApi';
+import { getAssociateById, getAssociateDocuments, uploadAssociateDocuments, getAssociateDashboard } from '../api/AssociateApi';
 import { getDistrictsByState } from '../utils/constants';
 import Select from "react-select"
 import { sanitize, validate } from '../utils/formValidation';
@@ -40,25 +40,31 @@ const AssociateProfile = () => {
     const [modalUploadType, setModalUploadType] = useState(null);
 
     const profileData = {
-        fullName: userData?.AssociateName || "John Doe",
-        email: userData?.Email || "john.doe@example.com",
-        phone: userData?.Mobile || "+91 98765 43210",
-        companyName: "ABC Business Solutions",
-        businessType: "Private Limited",
-        city: "Mumbai",
-        kycStatus: "Verified",
-        memberSince: "January 2024",
-        assignedManager: "Rajesh Sharma",
+        fullName: userData?.AssociateName || user?.username || "",
+        email: userData?.Email || "",
+        phone: userData?.Mobile || "",
         Profession: userData?.Profession,
         State: userData?.State,
         District: userData?.District,
-        stats: {
-            totalLeads: 156,
-            activeDeals: 34,
-            completedOrders: 89,
-            totalEarnings: "₹2.4L"
-        }
     };
+
+    // Real numbers from the associate dashboard endpoint (same source as the Dashboard page)
+    const [performance, setPerformance] = useState(null);
+    useEffect(() => {
+        if (!user?.id) return;
+        getAssociateDashboard({ AssociateID: user?.id, range: '7d' })
+            .then((res) => { if (res?.success) setPerformance(res.data.stats); })
+            .catch((err) => console.error("Error fetching performance:", err));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id]);
+
+    const formatEarnings = (amount) => {
+        const n = Number(amount) || 0;
+        if (n >= 1e7) return `₹${(n / 1e7).toFixed(1).replace(/.0$/, '')}Cr`;
+        if (n >= 1e5) return `₹${(n / 1e5).toFixed(1).replace(/.0$/, '')}L`;
+        return `₹${n.toLocaleString('en-IN')}`;
+    };
+    const statValue = (v, fmt = (x) => x) => (performance ? fmt(v ?? 0) : '—');
 
     async function fetchUserData() {
         try {
@@ -75,7 +81,7 @@ const AssociateProfile = () => {
 
     useEffect(() => {
         fetchUserData();
-    }, [user.id]);
+    }, [user?.id]);
 
     const handleEditClick = () => {
         setEditFormData({
@@ -651,7 +657,7 @@ const AssociateProfile = () => {
                                     <span className="text-sm text-gray-500 font-medium">Active Deals</span>
                                     <User className="w-4 h-4 text-gray-300" />
                                 </div>
-                                <p className="text-2xl font-bold text-gray-900">{profileData.stats.activeDeals}</p>
+                                <p className="text-2xl font-bold text-gray-900">{statValue(performance?.activeDeals?.value)}</p>
                             </div>
                             {/* Completed Orders */}
                             <div className="p-4 rounded-xl bg-gray-50 border border-gray-100">
@@ -659,15 +665,15 @@ const AssociateProfile = () => {
                                     <span className="text-sm text-gray-500 font-medium">Completed Orders</span>
                                     <CheckCircle2 className="w-4 h-4 text-green-400" />
                                 </div>
-                                <p className="text-2xl font-bold text-gray-900">{profileData.stats.completedOrders}</p>
+                                <p className="text-2xl font-bold text-gray-900">{statValue(performance?.orders?.completed)}</p>
                             </div>
-                            {/* Total Earnings */}
+                            {/* Payments Received */}
                             <div className="p-4 rounded-xl bg-gray-50 border border-gray-100">
                                 <div className="flex items-center justify-between mb-1">
-                                    <span className="text-sm text-gray-500 font-medium">Total Earnings</span>
+                                    <span className="text-sm text-gray-500 font-medium">Payments Received</span>
                                     <TrendingUp className="w-4 h-4 text-yellow-400" />
                                 </div>
-                                <p className="text-2xl font-bold text-gray-900">{profileData.stats.totalEarnings}</p>
+                                <p className="text-2xl font-bold text-gray-900">{statValue(performance?.payments?.received, formatEarnings)}</p>
                             </div>
                         </div>
                     </div>

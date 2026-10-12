@@ -225,7 +225,12 @@ const AssociateLayout = () => {
                             <Bell className="w-6 h-6" />
                             <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full"></span>
                         </button>
-                        <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/associate/profile')}
+                            title="View profile"
+                            className="flex items-center gap-3 pl-4 border-l border-slate-200 rounded-r-xl py-1 pr-1 hover:opacity-80 transition-opacity cursor-pointer"
+                        >
                             <div className="text-right">
                                 <p className="text-sm font-bold text-slate-900">{user.username}</p>
                                 <p className="text-xs text-slate-500 capitalize">{user.type || 'Associate'}</p>
@@ -233,7 +238,7 @@ const AssociateLayout = () => {
                             <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full flex items-center justify-center font-bold text-black border-2 border-white shadow-sm">
                                 {user.username?.charAt(0)}
                             </div>
-                        </div>
+                        </button>
                     </div>
                 </header>
 
