@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import CryptoJS from "crypto-js";
 import { getSecureItem, setSecureItem, removeSecureItem } from "../../utils/secureStorage";
-import { lookupGstin } from "../../api/GstinLookup";
+import { lookupGstin, lookupGstinsByPan } from "../../api/GstinLookup";
 import { assignCustomer } from "../../api/CustomerApi";
 import { createLead, createCustomerCompany, convertLeadToDeal, createQuoteForApplication, uploadApplicationDocument, removeApplicationDocument } from "../../api/LeadApi";
 import { sendApplicationReceivedEmail } from "../../api/CustomerEmailApi";
@@ -19,7 +19,7 @@ import SigninModal from "../Modals/SigninModal";
 import VoiceSpecifyInput from "./VoiceSpecifyInput";
 import {
   FLOWS, ownerConfig, ownerBaseFields, newOwner, visibleFields, docItems, docGroups, isMinor,
-  fieldError, today, rupee, newApplicationId, ADDON_PRICE, ADDON_SERVICE_ID, STATES,
+  fieldError, today, rupee, newApplicationId, ADDON_PRICE, ADDON_SERVICE_ID, STATES, bizTypeFromConstitution,
   recommendBusinessType, suggestedBusinessNames, runNameCheckSim,
   generateBusinessObjective, suggestedNicCodes, tmClassMatches,
   selectedNiceClass, runTrademarkSearchSim, tmRiskLevel, NICE_CLASSES,
@@ -941,7 +941,31 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
   // A signed-in Customer is captured from their profile; anyone else gets the
   // sign-up modal (closing it just leaves them on this step). Failures are
   // non-fatal — the Payment step retries the Deal.
+  // Entering "Authorized Person": assume the applicant from the Details tab is
+  // that person and copy their name/email/mobile into any empty fields. PAN
+  // comes from the signed-in customer's profile; failing that, a proprietor's
+  // GSTIN carries their own PAN, so for a Sole Proprietorship the PAN (and
+  // designation) are filled from it.
+  function prefillAuthPerson() {
+    if (steps[state.stepIndex + 1]?.id !== "auth") return;
+    const contact = state.leadContact || state.leadForm || signedInContact() || {};
+    const proprietor =
+      /proprietor/i.test(A.gst_biztype || A.businessType || "") || A.pan_type === "Individual";
+    const profilePan = signedInContact()?.pan || "";
+    const fill = {
+      auth_name: contact.name,
+      auth_email: contact.email,
+      auth_mobile: String(contact.mobile || "").replace(/\D/g, "").slice(-10),
+      auth_pan: /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(profilePan) ? profilePan : proprietor ? A.pan_number : "",
+      ...(proprietor && { auth_designation: "Proprietor" }),
+    };
+    Object.entries(fill).forEach(([k, v]) => {
+      if (v && !String(A[k] || "").trim()) setAnswer(k, String(v).trim());
+    });
+  }
+
   function advance() {
+    prefillAuthPerson();
     const toNext = () => {
       state.stepIndex = Math.min(state.stepIndex + 1, steps.length - 1);
       bump();
@@ -2126,14 +2150,25 @@ function Field({ f, A, errors, setAnswer, state, bump, liveStateNames }) {
 }
 
 /* ---------------------------------------------------------------------------
-   GSTIN lookup — auto-fetches legal name / trade name / status from the
-   server-side GST verification proxy once a well-formed 15-char GSTIN is typed,
-   so we don't ask the customer for details we can already look up ourselves.
+   GSTIN / PAN lookup — once a well-formed GSTIN (or PAN) is typed or pasted,
+   fetches the registration from the server-side GST verification proxy and
+   fills the answers named in the field's `fill` config (see gstLookupField in
+   existingCompanyData.js), so we don't ask for details we can look up.
 --------------------------------------------------------------------------- */
+const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[A-Z0-9]{1}Z[A-Z0-9]{1}$/;
+const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+
 function GstinLookupField({ f, A, errors, setAnswer, state, bump }) {
-  const [status, setStatus] = useState("idle"); // idle | loading | done | error
+  const [status, setStatus] = useState("idle"); // idle | loading | done | pick | error
   const [message, setMessage] = useState("");
+  const [found, setFound] = useState(null);
+  const [panMatches, setPanMatches] = useState([]);
   const value = A[f.k] || "";
+  const cfg = f.fill || {};
+  const panOnly = cfg.accept === "pan";
+  // A box that stores a GSTIN gets the GSTIN a PAN resolves to; a PAN box or
+  // an optional helper box keeps what was typed.
+  const storesGstin = f.pattern === "gstin";
 
   async function runLookup(gstin) {
     setStatus("loading");
@@ -2141,27 +2176,132 @@ function GstinLookupField({ f, A, errors, setAnswer, state, bump }) {
     try {
       const details = await lookupGstin(gstin);
       if (!details) throw new Error("not found");
-      setAnswer("gst_bizname", details.legalName || A.gst_bizname || "");
-      if (details.tradeName) setAnswer("gst_tradename", details.tradeName);
-      if (details.status) {
-        setAnswer("gst_regState", details.status);
-        setAnswer("gst_verifiedStatus", details.status);
-      }
-      setStatus("done");
+      applyDetails(details, gstin);
     } catch {
-      setAnswer("gst_verifiedStatus", "");
+      if (cfg.status) setAnswer("gst_verifiedStatus", "");
       setStatus("error");
       setMessage("Couldn't verify that GSTIN right now — you can still continue and our team will confirm it manually.");
     }
   }
 
+  // A PAN: find its GSTINs in the applicant's state (Details tab, this flow's
+  // own state/address State, or the signed-in profile). One match is applied
+  // straight away; several are listed for the customer to pick.
+  async function runPanLookup(pan) {
+    const stateName =
+      state.leadForm?.state || state.leadContact?.state ||
+      (cfg.state && A[cfg.state]) || (cfg.address != null && A[addressKey("state")]) ||
+      A.ex_state || signedInContact()?.state || "";
+    const stateCode = GST_STATE_CODES[stateName];
+    if (!stateCode) {
+      setStatus("error");
+      setMessage(panOnly
+        ? "Select your state first to look this PAN up — or just continue and fill the details in."
+        : "Select your state in the Details step to search by PAN, or enter the 15-character GSTIN.");
+      return;
+    }
+    setStatus("loading");
+    setMessage("");
+    try {
+      const list = await lookupGstinsByPan(pan, stateCode);
+      if (list.length === 1) {
+        if (storesGstin) setAnswer(f.k, list[0].gstin);
+        applyDetails(list[0], list[0].gstin);
+      } else if (list.length > 1) {
+        setPanMatches(list);
+        setStatus("pick");
+      } else {
+        setStatus("error");
+        setMessage(`No GST registration found for this PAN in ${stateName}.${panOnly ? "" : " Enter the GSTIN if you have one."}`);
+      }
+    } catch {
+      setStatus("error");
+      setMessage("Couldn't search that PAN right now — you can still continue and fill the details in.");
+    }
+  }
+
+  function pickPanMatch(details) {
+    setPanMatches([]);
+    if (storesGstin) setAnswer(f.k, details.gstin);
+    applyDetails(details, details.gstin);
+  }
+
+  const addressKey = (part) => (cfg.address ? `${cfg.address}_${part}` : part);
+  // Only fields the customer left empty.
+  const fillEmpty = (k, v) => {
+    if (k && v && !String(A[k] || "").trim()) setAnswer(k, String(v).trim());
+  };
+
+  function applyDetails(details, gstin) {
+    if (cfg.name) {
+      if (cfg.overwriteName && details.legalName) setAnswer(cfg.name, details.legalName);
+      else fillEmpty(cfg.name, details.legalName);
+    }
+    if (cfg.trade) {
+      if (cfg.overwriteName && details.tradeName) setAnswer(cfg.trade, details.tradeName);
+      else fillEmpty(cfg.trade, details.tradeName);
+    }
+    if (cfg.biztype) fillEmpty(cfg.biztype, bizTypeFromConstitution(details.constitution));
+    const stateName = STATES.find((s) => s.toLowerCase() === String(details.addressParts?.state || "").trim().toLowerCase());
+    if (cfg.state) fillEmpty(cfg.state, stateName);
+    if (cfg.regDate) {
+      // GSTN gives dd/mm/yyyy; date inputs want yyyy-mm-dd.
+      const m = String(details.registrationDate || "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (m) fillEmpty(cfg.regDate, `${m[3]}-${m[2]}-${m[1]}`);
+    }
+    if (cfg.status && details.status) {
+      setAnswer("gst_regState", details.status);
+      setAnswer("gst_verifiedStatus", details.status);
+    }
+    if (cfg.address != null) prefillAddress(details.addressParts, stateName);
+    if (cfg.pan) prefillPan(details, gstin);
+    setFound(details);
+    setStatus("done");
+  }
+
+  // Fills this flow's address step (addressFields(cfg.address)).
+  function prefillAddress(parts, stateName) {
+    if (!parts) return;
+    fillEmpty(addressKey("addr1"), parts.line1);
+    fillEmpty(addressKey("addr2"), parts.line2);
+    fillEmpty(addressKey("city"), parts.city);
+    fillEmpty(addressKey("pincode"), parts.pincode);
+    if (stateName) {
+      fillEmpty(addressKey("country"), "India");
+      fillEmpty(addressKey("state"), stateName);
+      fillEmpty(addressKey("district"), parts.district);
+    }
+  }
+
+  // Fills the PAN Details step (panStep) — the PAN is characters 3–12 of the
+  // GSTIN, the name is GST's legal name, the holder type follows the GST
+  // constitution.
+  function prefillPan(details, gstin) {
+    const ctb = String(details.constitution || "").toLowerCase();
+    const type =
+      /company/.test(ctb) ? "Company"
+      : /llp|limited liability/.test(ctb) ? "LLP"
+      : /partnership/.test(ctb) ? "Partnership Firm"
+      : /proprietor/.test(ctb) ? "Individual"
+      : /trust|society/.test(ctb) ? "Trust / Society"
+      : "";
+    fillEmpty("pan_number", details.pan || gstin.slice(2, 12));
+    fillEmpty("pan_name", details.legalName);
+    fillEmpty("pan_type", type);
+  }
+
+  // Typed or pasted: spaces, dashes etc. (common in copied numbers) are
+  // dropped. A full GSTIN looks itself up; a full PAN searches its GSTINs.
   function onChange(e) {
-    const v = e.target.value.toUpperCase();
+    const v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, panOnly ? 10 : 15);
     setAnswer(f.k, v);
-    setAnswer("gst_verifiedStatus", "");
+    if (cfg.status) setAnswer("gst_verifiedStatus", "");
     setStatus("idle");
     setMessage("");
-    if (/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[A-Z0-9]{1}Z[A-Z0-9]{1}$/.test(v)) requireLead(state, bump, () => runLookup(v));
+    setFound(null);
+    setPanMatches([]);
+    if (!panOnly && GSTIN_RE.test(v)) requireLead(state, bump, () => runLookup(v));
+    else if (PAN_RE.test(v)) requireLead(state, bump, () => runPanLookup(v));
   }
 
   return (
@@ -2171,7 +2311,6 @@ function GstinLookupField({ f, A, errors, setAnswer, state, bump }) {
         <input
           className={inputCls(errors[f.k])}
           value={value}
-          maxLength={15}
           onChange={onChange}
           placeholder={f.ph || ""}
         />
@@ -2179,18 +2318,49 @@ function GstinLookupField({ f, A, errors, setAnswer, state, bump }) {
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">Verifying…</span>
         )}
       </div>
+      {f.hint && <p className="text-xs text-gray-500 mt-1">{f.hint}</p>}
       <ErrorText msg={errors[f.k]} />
-      {status === "done" && A.gst_bizname && (
+      {status === "done" && found && (
         <div className="mt-2 text-xs rounded-lg border border-green-200 bg-green-50 text-green-800 px-3 py-2">
-          ✓ Verified — <b>{A.gst_bizname}</b>{A.gst_verifiedStatus ? ` · ${A.gst_verifiedStatus}` : ""}
+          ✓ Verified — <b>{found.legalName || found.tradeName}</b>
+          {found.gstin && found.gstin !== value ? ` · ${found.gstin}` : ""}
+          {found.status ? ` · ${found.status}` : ""}
         </div>
       )}
       {status === "error" && (
         <div className="mt-2 text-xs rounded-lg border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2">{message}</div>
       )}
+      {status === "pick" && panMatches.length > 0 && (
+        <div className="mt-2 rounded-lg border border-gray-200 bg-white p-2 space-y-1">
+          <p className="text-xs text-gray-600 px-1">This PAN has more than one GST registration — pick yours:</p>
+          {panMatches.map((m) => (
+            <button
+              key={m.gstin}
+              type="button"
+              onClick={() => pickPanMatch(m)}
+              className="w-full text-left text-xs rounded-md border border-gray-200 px-3 py-2 hover:bg-yellow-50 hover:border-yellow-300"
+            >
+              <b>{m.gstin}</b> · {m.tradeName || m.legalName}{m.status ? ` · ${m.status}` : ""}
+              {m.addressParts?.city ? <span className="text-gray-500"> · {m.addressParts.city}</span> : null}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
+
+// GST state codes (first 2 digits of a GSTIN), keyed by STATES spelling.
+const GST_STATE_CODES = {
+  "Jammu and Kashmir": "01", "Himachal Pradesh": "02", "Punjab": "03", "Chandigarh": "04",
+  "Uttarakhand": "05", "Haryana": "06", "Delhi": "07", "Rajasthan": "08", "Uttar Pradesh": "09",
+  "Bihar": "10", "Sikkim": "11", "Arunachal Pradesh": "12", "Nagaland": "13", "Manipur": "14",
+  "Mizoram": "15", "Tripura": "16", "Meghalaya": "17", "Assam": "18", "West Bengal": "19",
+  "Jharkhand": "20", "Odisha": "21", "Chhattisgarh": "22", "Madhya Pradesh": "23", "Gujarat": "24",
+  "Dadra and Nagar Haveli and Daman and Diu": "26", "Maharashtra": "27", "Karnataka": "29",
+  "Goa": "30", "Lakshadweep": "31", "Kerala": "32", "Tamil Nadu": "33", "Puducherry": "34",
+  "Andaman and Nicobar Islands": "35", "Telangana": "36", "Andhra Pradesh": "37", "Ladakh": "38",
+};
 
 /* ---------------------------------------------------------------------------
    Owners / Directors repeater

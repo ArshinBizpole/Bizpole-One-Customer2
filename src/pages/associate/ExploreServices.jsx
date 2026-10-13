@@ -119,10 +119,13 @@ function ServiceModal({ service, onClose }) {
         {/* Close Button */}
         <button
           onClick={onClose}
+          aria-label="Close"
+          title="Close"
           style={{
             position: "absolute",
             top: "20px",
             right: "20px",
+            lineHeight: 1,
             width: "36px",
             height: "36px",
             borderRadius: "50%",
@@ -145,7 +148,7 @@ function ServiceModal({ service, onClose }) {
             e.currentTarget.style.color = "#64748b";
           }}
         >
-          ×hbt6hb6
+          ×
         </button>
 
         {/* Service Header */}
@@ -488,8 +491,8 @@ function ServiceModal({ service, onClose }) {
               style={{
                 width: "100%",
                 padding: "16px",
-                background: "linear-gradient(135deg, #3b82f6 0%, #6366f1 100%)",
-                color: "white",
+                background: "linear-gradient(135deg, #FACC15 0%, #EAB308 100%)",
+                color: "#111827",
                 border: "none",
                 borderRadius: "14px",
                 fontSize: "16px",
@@ -903,7 +906,7 @@ function ExploreServices() {
                 fontWeight: "600",
                 backgroundColor:
                   activeTab === "services" ? "white" : "transparent",
-                color: activeTab === "services" ? "#4b49ac" : "#64748b",
+                color: activeTab === "services" ? "#CA8A04" : "#64748b",
                 boxShadow:
                   activeTab === "services"
                     ? "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)"
@@ -924,7 +927,7 @@ function ExploreServices() {
                 fontWeight: "600",
                 backgroundColor:
                   activeTab === "packages" ? "white" : "transparent",
-                color: activeTab === "packages" ? "#4b49ac" : "#64748b",
+                color: activeTab === "packages" ? "#CA8A04" : "#64748b",
                 boxShadow:
                   activeTab === "packages"
                     ? "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)"
@@ -955,12 +958,12 @@ function ExploreServices() {
                 <Oval
                   height={40}
                   width={40}
-                  color="#4b49ac"
+                  color="#CA8A04"
                   wrapperStyle={{}}
                   wrapperClass=""
                   visible={true}
                   ariaLabel="oval-loading"
-                  secondaryColor="#4b49ac33"
+                  secondaryColor="#FACC1533"
                   strokeWidth={4}
                   strokeWidthSecondary={4}
                 />
@@ -1358,8 +1361,8 @@ function ExploreServices() {
                       <button
                         onClick={() => setSelectedService(pkg)}
                         style={{
-                          backgroundColor: "#4b49ac",
-                          color: "white",
+                          backgroundColor: "#FACC15",
+                          color: "#111827",
                           border: "none",
                           padding: "12px 20px",
                           borderRadius: "12px",
@@ -1367,13 +1370,13 @@ function ExploreServices() {
                           fontWeight: "600",
                           cursor: "pointer",
                           transition: "all 0.2s",
-                          boxShadow: "0 4px 12px rgba(75, 73, 172, 0.2)",
+                          boxShadow: "0 4px 12px rgba(250, 204, 21, 0.2)",
                         }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = "#3f3da0";
+                          e.currentTarget.style.backgroundColor = "#EAB308";
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = "#4b49ac";
+                          e.currentTarget.style.backgroundColor = "#FACC15";
                         }}
                       >
                         View Details
