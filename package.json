@@ -24,6 +24,7 @@
     "date-fns": "^4.1.0",
     "eslint-plugin-react": "^7.37.5",
     "framer-motion": "^12.23.12",
+    "html2canvas-pro": "^1.6.7",
     "jspdf": "^4.1.0",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.540.0",

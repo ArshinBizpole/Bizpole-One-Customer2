@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Filter, Loader2, ChevronLeft, ChevronRight, Download, X, Calendar, RotateCcw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Filter, Loader2, ChevronLeft, ChevronRight, X, Calendar, RotateCcw } from 'lucide-react';
 import { getSecureItem } from '../../utils/secureStorage';
 import { format } from 'date-fns';
-import { listAssociateReceipts, getAssociateReceiptDetails } from '../../api/AssociateApi';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { fetchReceiptByPayment, listAssociateReceipts } from '../../api/AssociateApi';
+import { generateReceiptPdf } from '../../utils/receiptPdf';
+import PaymentReceiptModal from '../../components/associate/PaymentReceiptModal';
 
 const DEFAULT_FILTERS = {
     status: '', // '' means all (backend defaults to success if not provided)
@@ -15,6 +16,7 @@ const DEFAULT_FILTERS = {
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 50];
 
 const AssociateReceipts = () => {
+    const navigate = useNavigate();
     const [receipts, setReceipts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -24,11 +26,12 @@ const AssociateReceipts = () => {
     const [showFilters, setShowFilters] = useState(false);
     const [filters, setFilters] = useState(DEFAULT_FILTERS);
     const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
+    const [dateRangeError, setDateRangeError] = useState('');
 
     // Modal state
-    const [modalOpen, setModalOpen] = useState(false);
-    const [selectedReceipt, setSelectedReceipt] = useState(null);
-    const [detailLoading, setDetailLoading] = useState(false);
+    // PaymentID of the receipt shown in the admin-style receipt popup
+    const [viewReceiptId, setViewReceiptId] = useState(null);
+    const [downloadingReceiptId, setDownloadingReceiptId] = useState(null);
 
     const activeFilterCount = [
         !!appliedFilters.status,
@@ -75,6 +78,11 @@ const AssociateReceipts = () => {
     };
 
     const handleApplyFilters = () => {
+        if (filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo) {
+            setDateRangeError('"From" date cannot be after "To" date');
+            return;
+        }
+        setDateRangeError('');
         setAppliedFilters({ ...filters });
         setCurrentPage(1);
         setShowFilters(false);
@@ -82,10 +90,12 @@ const AssociateReceipts = () => {
 
     const handleResetFilters = () => {
         setFilters(DEFAULT_FILTERS);
+        setDateRangeError('');
     };
 
     const handleOpenFilters = () => {
         setFilters({ ...appliedFilters });
+        setDateRangeError('');
         setShowFilters(prev => !prev);
     };
 
@@ -107,117 +117,20 @@ const AssociateReceipts = () => {
         setCurrentPage(1);
     };
 
-    const handleViewReceipt = async (paymentId) => {
-        setDetailLoading(true);
-        setModalOpen(true);
+    const handleViewReceipt = (paymentId) => setViewReceiptId(paymentId);
+
+    // Row "Download": same receipt data and layout as the popup
+    const downloadPDF = async (receipt) => {
+        if (!receipt?.PaymentID) return;
+        setDownloadingReceiptId(receipt.PaymentID);
         try {
-            const response = await getAssociateReceiptDetails(paymentId);
-            if (response.success) {
-                setSelectedReceipt(response.data);
-            }
-        } catch (error) {
-            console.error("Error fetching details:", error);
+            await generateReceiptPdf(await fetchReceiptByPayment(receipt.PaymentID));
+        } catch (e) {
+            console.error("Receipt download error", e);
+            alert("Failed to download the receipt. Please try again.");
         } finally {
-            setDetailLoading(false);
+            setDownloadingReceiptId(null);
         }
-    };
-
-    const downloadPDF = async (receiptData = null) => {
-        const data = receiptData || selectedReceipt;
-        if (!data) return;
-
-        let fullData = data;
-        if (!data.services) {
-            try {
-                const res = await getAssociateReceiptDetails(data.PaymentID);
-                if (res.success) fullData = res.data;
-            } catch (e) {
-                console.error("Error fetching full details for PDF", e);
-                return;
-            }
-        }
-
-        const doc = new jsPDF();
-        doc.setFillColor(255, 193, 7);
-        doc.rect(0, 0, 210, 40, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(22);
-        doc.setFont('helvetica', 'bold');
-        doc.text("PAYMENT RECEIPT", 14, 20);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text("Official Transaction Record", 14, 28);
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(12);
-        doc.text(`Receipt ID: ${fullData.PaymentID}`, 14, 50);
-
-        const startY = 60;
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text("TRANSACTION ID", 14, startY);
-        doc.text("TRANSACTION DATE", 110, startY);
-        doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
-        doc.text(fullData.TransactionID || "N/A", 14, startY + 6);
-        doc.text(fullData.TransactionDate ? format(new Date(fullData.TransactionDate), "dd/MM/yyyy") : (fullData.PaymentDate ? format(new Date(fullData.PaymentDate), "dd/MM/yyyy") : "N/A"), 110, startY + 6);
-
-        const row2Y = startY + 20;
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text("PAYMENT STATUS", 14, row2Y);
-        doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'bold');
-        doc.text((fullData.PaymentStatus || "").toUpperCase(), 14, row2Y + 6);
-        doc.setFont('helvetica', 'normal');
-
-        const row3Y = row2Y + 20;
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text("REMARKS", 14, row3Y);
-        doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
-        doc.text(fullData.Remarks || "No remarks provided", 14, row3Y + 6);
-
-        const tableY = row3Y + 20;
-        doc.setFontSize(14);
-        doc.setTextColor(245, 158, 11);
-        doc.text("Service Breakdown", 14, tableY);
-        const tableColumn = ["Service", "Vendor Fee", "Professional Fee", "Contractor Fee"];
-        const tableRows = [];
-
-        if (fullData.services && fullData.services.length > 0) {
-            fullData.services.forEach(service => {
-                tableRows.push([
-                    service.ServiceName || `Service ID: ${service.ServiceID}`,
-                    `Rs. ${parseFloat(service.VendorFee || 0).toFixed(2)}`,
-                    `Rs. ${parseFloat(service.ProfessionalFee || 0).toFixed(2)}`,
-                    `Rs. ${parseFloat(service.ContractorFee || 0).toFixed(2)}`,
-                ]);
-            });
-        } else {
-            tableRows.push([
-                "Service Details",
-                `Rs. ${parseFloat(fullData.VendorFee || 0).toFixed(2)}`,
-                `Rs. ${parseFloat(fullData.ProfessionalFee || fullData.ProfFee || 0).toFixed(2)}`,
-                `Rs. ${parseFloat(fullData.ContractorFee || 0).toFixed(2)}`,
-            ]);
-        }
-
-        autoTable(doc, {
-            startY: tableY + 10,
-            head: [tableColumn],
-            body: tableRows,
-            theme: 'grid',
-            headStyles: { fillColor: [249, 250, 251], textColor: [100, 100, 100], fontStyle: 'bold' },
-            styles: { fontSize: 10, cellPadding: 6 },
-        });
-
-        const finalY = doc.lastAutoTable.finalY + 10;
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Total Amount: Rs. ${parseFloat(fullData.TotalAmount || 0).toFixed(2)}`, 140, finalY, { align: 'right' });
-        doc.save(`Receipt_${fullData.PaymentID}.pdf`);
     };
 
     const totalPages = Math.ceil(totalReceipts / pageSize);
@@ -237,7 +150,7 @@ const AssociateReceipts = () => {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
                         <input
                             type="text"
-                            placeholder="Search by Payment ID, Order ID, or Company"
+                            placeholder="Search by Receipt ID, Quote ID, Order ID, or Company"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             onKeyDown={handleSearch}
@@ -347,7 +260,8 @@ const AssociateReceipts = () => {
                                         <input
                                             type="date"
                                             value={filters.dateFrom}
-                                            onChange={e => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+                                            max={filters.dateTo || undefined}
+                                            onChange={e => { setFilters(prev => ({ ...prev, dateFrom: e.target.value })); setDateRangeError(''); }}
                                             className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-400 transition-all"
                                         />
                                         <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500 pointer-events-none" />
@@ -358,12 +272,13 @@ const AssociateReceipts = () => {
                                             type="date"
                                             value={filters.dateTo}
                                             min={filters.dateFrom}
-                                            onChange={e => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+                                            onChange={e => { setFilters(prev => ({ ...prev, dateTo: e.target.value })); setDateRangeError(''); }}
                                             className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-400 transition-all"
                                         />
                                         <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500 pointer-events-none" />
                                     </div>
                                 </div>
+                                {dateRangeError && <p className="text-xs text-red-500 mt-1">{dateRangeError}</p>}
                             </div>
                         </div>
                         <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3">
@@ -381,14 +296,13 @@ const AssociateReceipts = () => {
                         <thead>
                             <tr className="bg-slate-50 border-b border-slate-200 uppercase tracking-wider font-semibold text-slate-500">
                                 <th className="px-4 py-4 text-center">S.No</th>
-                                <th className="px-4 py-4">Payment ID</th>
+                                <th className="px-4 py-4">Receipt ID</th>
                                 <th className="px-4 py-4">Quote ID</th>
                                 <th className="px-4 py-4">Order ID</th>
                                 <th className="px-4 py-4">Company Name</th>
                                 <th className="px-4 py-4 text-right">Total Amount</th>
                                 <th className="px-4 py-4">Transaction ID</th>
                                 <th className="px-4 py-4 text-center">Payment Status</th>
-                                <th className="px-4 py-4">Created By</th>
                                 <th className="px-4 py-4 whitespace-nowrap">Created At</th>
                                 <th className="px-4 py-4 whitespace-nowrap">Transaction Date</th>
                                 <th className="px-4 py-4 text-right">Actions</th>
@@ -397,7 +311,7 @@ const AssociateReceipts = () => {
                         <tbody className="divide-y divide-slate-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="12" className="px-6 py-12 text-center text-slate-400">
+                                    <td colSpan="11" className="px-6 py-12 text-center text-slate-400">
                                         <div className="flex flex-col items-center gap-2">
                                             <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
                                             <span>Loading receipts...</span>
@@ -406,15 +320,31 @@ const AssociateReceipts = () => {
                                 </tr>
                             ) : receipts.length === 0 ? (
                                 <tr>
-                                    <td colSpan="12" className="px-6 py-12 text-center text-slate-400">No receipts found</td>
+                                    <td colSpan="11" className="px-6 py-12 text-center text-slate-400">No receipts found</td>
                                 </tr>
                             ) : (
                                 receipts.map((receipt, index) => (
                                     <tr key={receipt.PaymentID} className="hover:bg-slate-50/50 transition-colors">
                                         <td className="px-4 py-4 text-center text-slate-400">{(currentPage - 1) * pageSize + index + 1}</td>
-                                        <td className="px-4 py-4 font-bold text-slate-700">{receipt.PaymentID}</td>
-                                        <td className="px-4 py-4 text-slate-500">{receipt.QuoteID}</td>
-                                        <td className="px-4 py-4 text-slate-500 font-medium">{receipt.OrderID || "N/A"}</td>
+                                        <td className="px-4 py-4 font-bold text-slate-700">{receipt.ReceiptCode || receipt.ReceiptNumber || receipt.PaymentID}</td>
+                                        <td className="px-4 py-4 whitespace-nowrap">
+                                            <span
+                                                onClick={() => navigate(`/associate/quotes/${receipt.QuoteID}`)}
+                                                className="text-blue-500 cursor-pointer hover:underline"
+                                            >
+                                                {receipt.QuoteCodeId || receipt.QuoteID}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-4 whitespace-nowrap">
+                                            {receipt.OrderID ? (
+                                                <span
+                                                    onClick={() => navigate(`/associate/orders/${receipt.OrderID}`)}
+                                                    className="text-blue-500 cursor-pointer hover:underline"
+                                                >
+                                                    {receipt.OrderCodeId || receipt.OrderID}
+                                                </span>
+                                            ) : <span className="text-slate-500">N/A</span>}
+                                        </td>
                                         <td className="px-4 py-4"><span className="px-2 py-1 bg-blue-50 text-blue-700 font-semibold rounded-md text-xs">{receipt.CompanyName || "N/A"}</span></td>
                                         <td className="px-4 py-4 text-right font-bold text-slate-800">₹{parseFloat(receipt.TotalAmount || 0).toFixed(2)}</td>
                                         <td className="px-4 py-4 text-slate-600">{receipt.TransactionID}</td>
@@ -423,7 +353,6 @@ const AssociateReceipts = () => {
                                                 {receipt.PaymentStatus || "pending"}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-4 text-slate-600">{receipt.CreatedByName || "N/A"}</td>
                                         <td className="px-4 py-4 text-slate-500 whitespace-nowrap">{receipt.PaymentDate ? format(new Date(receipt.PaymentDate), "dd/MM/yyyy") : "--"}</td>
                                         <td className="px-4 py-4 text-slate-500 whitespace-nowrap">
                                             {receipt.TransactionDate ? format(new Date(receipt.TransactionDate), "dd/MM/yyyy") : (receipt.PaymentDate ? format(new Date(receipt.PaymentDate), "dd/MM/yyyy") : "--")}
@@ -431,7 +360,14 @@ const AssociateReceipts = () => {
                                         <td className="px-4 py-4 text-right">
                                             <div className="flex justify-end gap-2">
                                                 <button onClick={() => handleViewReceipt(receipt.PaymentID)} className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-medium transition-colors">Receipt</button>
-                                                <button onClick={() => downloadPDF(receipt)} className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition-colors">Download</button>
+                                                <button
+                                                    onClick={() => downloadPDF(receipt)}
+                                                    disabled={downloadingReceiptId === receipt.PaymentID}
+                                                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-60"
+                                                >
+                                                    {downloadingReceiptId === receipt.PaymentID && <Loader2 className="w-3 h-3 animate-spin" />}
+                                                    Download
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -464,93 +400,8 @@ const AssociateReceipts = () => {
             </div>
 
             {/* Receipt Modal */}
-            {modalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                        <div className="bg-amber-400 p-6 flex justify-between items-start">
-                            <div>
-                                <h2 className="text-xl font-bold text-white uppercase tracking-wide">Payment Receipts</h2>
-                                <p className="text-white/90 text-sm mt-1">Official Transaction Record</p>
-                            </div>
-                            <button onClick={() => setModalOpen(false)} className="text-white/80 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
-                        </div>
-                        <div className="p-6 max-h-[70vh] overflow-y-auto">
-                            {detailLoading ? (
-                                <div className="flex flex-col items-center justify-center py-12">
-                                    <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
-                                    <p className="mt-2 text-slate-500">Loading details...</p>
-                                </div>
-                            ) : selectedReceipt ? (
-                                <div className="space-y-6">
-                                    <div className="text-sm text-slate-500">Receipt ID: {selectedReceipt.PaymentID}</div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-lg">
-                                        <div>
-                                            <p className="text-xs font-bold text-slate-400 uppercase mb-1">Transaction ID</p>
-                                            <div className="bg-white border border-slate-200 rounded px-3 py-2 text-sm font-medium text-slate-700">{selectedReceipt.TransactionID || "N/A"}</div>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-bold text-slate-400 uppercase mb-1">Transaction Date</p>
-                                            <div className="font-bold text-lg text-slate-800">
-                                                {selectedReceipt.TransactionDate ? format(new Date(selectedReceipt.TransactionDate), "dd/MM/yyyy") : (selectedReceipt.PaymentDate ? format(new Date(selectedReceipt.PaymentDate), "dd/MM/yyyy") : "N/A")}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-bold text-slate-400 uppercase mb-1">Payment Status</p>
-                                            <div className="font-bold text-lg text-slate-900 capitalize">{selectedReceipt.PaymentStatus}</div>
-                                        </div>
-                                        <div className="col-span-1 md:col-span-2">
-                                            <p className="text-xs font-bold text-slate-400 uppercase mb-1">Remarks</p>
-                                            <div className="bg-white border border-slate-200 rounded px-3 py-2 text-sm text-slate-600">{selectedReceipt.Remarks || "No remarks"}</div>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <div className="w-1 h-4 bg-amber-500 rounded-full"></div>
-                                            <h3 className="text-sm font-bold text-slate-700">Service Breakdown</h3>
-                                        </div>
-                                        <div className="border border-slate-200 rounded-lg overflow-hidden">
-                                            <table className="w-full text-xs text-left">
-                                                <thead className="bg-slate-50 border-b border-slate-200">
-                                                    <tr>
-                                                        <th className="px-4 py-3 font-semibold text-slate-500 uppercase">Service</th>
-                                                        <th className="px-4 py-3 font-semibold text-slate-500 uppercase text-right">Vendor Fee</th>
-                                                        <th className="px-4 py-3 font-semibold text-slate-500 uppercase text-right">Professional Fee</th>
-                                                        <th className="px-4 py-3 font-semibold text-slate-500 uppercase text-right">Contractor Fee</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-100">
-                                                    {selectedReceipt.services && selectedReceipt.services.length > 0 ? (
-                                                        selectedReceipt.services.map((svc, idx) => (
-                                                            <tr key={idx}>
-                                                                <td className="px-4 py-3 text-slate-700 font-medium">{svc.ServiceName || `Service ID: ${svc.ServiceID}`}</td>
-                                                                <td className="px-4 py-3 text-right text-slate-600">₹{parseFloat(svc.VendorFee || 0).toFixed(2)}</td>
-                                                                <td className="px-4 py-3 text-right text-slate-600">₹{parseFloat(svc.ProfessionalFee || 0).toFixed(2)}</td>
-                                                                <td className="px-4 py-3 text-right text-slate-600">₹{parseFloat(svc.ContractorFee || 0).toFixed(2)}</td>
-                                                            </tr>
-                                                        ))
-                                                    ) : (
-                                                        <tr>
-                                                            <td className="px-4 py-3 text-slate-700 font-medium">Service Details</td>
-                                                            <td className="px-4 py-3 text-right text-slate-600">₹{parseFloat(selectedReceipt.VendorFee || 0).toFixed(2)}</td>
-                                                            <td className="px-4 py-3 text-right text-slate-600">₹{parseFloat(selectedReceipt.ProfessionalFee || selectedReceipt.ProfFee || 0).toFixed(2)}</td>
-                                                            <td className="px-4 py-3 text-right text-slate-600">₹{parseFloat(selectedReceipt.ContractorFee || 0).toFixed(2)}</td>
-                                                        </tr>
-                                                    )}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <p className="text-center text-slate-500">No details available</p>
-                            )}
-                        </div>
-                        <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
-                            <button onClick={() => setModalOpen(false)} className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">Close</button>
-                            <button onClick={() => downloadPDF()} className="px-4 py-2 bg-amber-400 hover:bg-amber-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><Download className="w-4 h-4" />Download PDF</button>
-                        </div>
-                    </div>
-                </div>
+            {viewReceiptId !== null && (
+                <PaymentReceiptModal paymentId={viewReceiptId} onClose={() => setViewReceiptId(null)} />
             )}
         </div>
     );
