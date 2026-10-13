@@ -189,6 +189,30 @@ export const getReceiptsForOrder = async (orderId) => {
     }
 };
 
+/**
+ * Get associate dashboard stats, performance series and recent activity
+ * @param {Object} params - { AssociateID, range: '7d' | '30d' | 'year' }
+ */
+export const getAssociateDashboard = async (params) => {
+    try {
+        const response = await axiosInstance.post("/associate/dashboard", params);
+        return response.data;
+    } catch (error) {
+        console.error("Error fetching associate dashboard:", error);
+        throw error;
+    }
+};
+
+/**
+ * Get a payment receipt by PaymentID — same endpoint as the admin's receipt popup
+ * @param {string|number} paymentId
+ */
+export const fetchReceiptByPayment = async (paymentId) => {
+    const res = await axiosInstance.get(`/receipt-by-payment/${paymentId}`);
+    if (!res.data?.success || !res.data?.data) throw new Error(res.data?.message || "Failed to load receipt.");
+    return res.data.data;
+};
+
 export default {
     createAssociate,
     updateAssociate,
@@ -199,7 +223,8 @@ export default {
     listAssociateReceipts,
     getAssociateReceiptDetails,
     getInvoicesForService,
-    getReceiptsForOrder
+    getReceiptsForOrder,
+    getAssociateDashboard
 };
 
 

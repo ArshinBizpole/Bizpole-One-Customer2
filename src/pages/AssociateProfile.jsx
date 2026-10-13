@@ -2,9 +2,17 @@ import { useEffect, useState, useRef } from 'react';
 import { User, Mail, Phone, MapPin, FileText, CheckCircle2, Upload, Edit, Download, Share2, Link, X, UploadCloud, Eye, TrendingUp, Briefcase } from 'lucide-react';
 import { getSecureItem } from '../utils/secureStorage';
 import axiosInstance from '../api/axiosInstance';
-import { getAssociateById, getAssociateDocuments, uploadAssociateDocuments } from '../api/AssociateApi';
+import { getAssociateById, getAssociateDocuments, uploadAssociateDocuments, getAssociateDashboard } from '../api/AssociateApi';
 import { getDistrictsByState } from '../utils/constants';
 import Select from "react-select"
+import { sanitize, validate } from '../utils/formValidation';
+
+const FIELD_SANITIZERS = {
+    AssociateName: sanitize.personName,
+    Email: sanitize.email,
+    Mobile: sanitize.mobile,
+    Profession: sanitize.text(100),
+};
 
 const AssociateProfile = () => {
     const user = getSecureItem("partnerUser");
@@ -23,6 +31,7 @@ const AssociateProfile = () => {
         State: ''
     });
     const [isSaving, setIsSaving] = useState(false);
+    const [editErrors, setEditErrors] = useState({});
 
     const fileInputRef = useRef(null);
     const [selectedDocType, setSelectedDocType] = useState(null);
@@ -31,25 +40,31 @@ const AssociateProfile = () => {
     const [modalUploadType, setModalUploadType] = useState(null);
 
     const profileData = {
-        fullName: userData?.AssociateName || "John Doe",
-        email: userData?.Email || "john.doe@example.com",
-        phone: userData?.Mobile || "+91 98765 43210",
-        companyName: "ABC Business Solutions",
-        businessType: "Private Limited",
-        city: "Mumbai",
-        kycStatus: "Verified",
-        memberSince: "January 2024",
-        assignedManager: "Rajesh Sharma",
+        fullName: userData?.AssociateName || user?.username || "",
+        email: userData?.Email || "",
+        phone: userData?.Mobile || "",
         Profession: userData?.Profession,
         State: userData?.State,
         District: userData?.District,
-        stats: {
-            totalLeads: 156,
-            activeDeals: 34,
-            completedOrders: 89,
-            totalEarnings: "₹2.4L"
-        }
     };
+
+    // Real numbers from the associate dashboard endpoint (same source as the Dashboard page)
+    const [performance, setPerformance] = useState(null);
+    useEffect(() => {
+        if (!user?.id) return;
+        getAssociateDashboard({ AssociateID: user?.id, range: '7d' })
+            .then((res) => { if (res?.success) setPerformance(res.data.stats); })
+            .catch((err) => console.error("Error fetching performance:", err));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id]);
+
+    const formatEarnings = (amount) => {
+        const n = Number(amount) || 0;
+        if (n >= 1e7) return `₹${(n / 1e7).toFixed(1).replace(/.0$/, '')}Cr`;
+        if (n >= 1e5) return `₹${(n / 1e5).toFixed(1).replace(/.0$/, '')}L`;
+        return `₹${n.toLocaleString('en-IN')}`;
+    };
+    const statValue = (v, fmt = (x) => x) => (performance ? fmt(v ?? 0) : '—');
 
     async function fetchUserData() {
         try {
@@ -66,7 +81,7 @@ const AssociateProfile = () => {
 
     useEffect(() => {
         fetchUserData();
-    }, [user.id]);
+    }, [user?.id]);
 
     const handleEditClick = () => {
         setEditFormData({
@@ -78,19 +93,37 @@ const AssociateProfile = () => {
             Profession: userData?.Profession || '',
             State: userData?.State || ''
         });
+        setEditErrors({});
         setIsEditModalOpen(true);
     };
 
     const handleInputChange = (e) => {
-        const { name, value } = e.target;
+        const { name } = e.target;
+        const value = FIELD_SANITIZERS[name] ? FIELD_SANITIZERS[name](e.target.value) : e.target.value;
         setEditFormData(prev => ({
             ...prev,
             [name]: value,
             ...(name === 'State' && { District: '' })
         }));
+        if (editErrors[name]) setEditErrors(prev => ({ ...prev, [name]: '' }));
     };
 
+    const validateEditForm = () => {
+        const errs = {
+            AssociateName: validate.personName(editFormData.AssociateName, { required: true, label: 'Full name' }),
+            Email: validate.email(editFormData.Email, { required: true }),
+            Mobile: validate.mobile(editFormData.Mobile, { required: true }),
+        };
+        Object.keys(errs).forEach(k => { if (!errs[k]) delete errs[k]; });
+        setEditErrors(errs);
+        return Object.keys(errs).length === 0;
+    };
+
+    const editInputCls = (hasError) =>
+        `w-full px-3 py-2.5 text-sm rounded-lg border ${hasError ? 'border-red-300 focus:ring-red-100' : 'border-gray-200 focus:ring-yellow-200'} focus:outline-none focus:ring-2 placeholder:text-gray-300`;
+
     const handleSaveProfile = async () => {
+        if (!validateEditForm()) return;
         setIsSaving(true);
         try {
             const response = await axiosInstance.put(`/associate/${user.id}`, editFormData);
@@ -116,6 +149,17 @@ const AssociateProfile = () => {
     const handleFileChange = async (e) => {
         const file = e.target.files[0];
         if (!file || !selectedDocType) return;
+        // Match what the upload card promises: PDF, JPG, PNG (Max 5MB)
+        if (!/\.(pdf|jpe?g|png)$/i.test(file.name)) {
+            alert("Only PDF, JPG and PNG files are allowed.");
+            e.target.value = '';
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            alert("File is too large. Maximum size is 5MB.");
+            e.target.value = '';
+            return;
+        }
         setUploading(true);
         const formData = new FormData();
         formData.append('associateId', user.id);
@@ -212,8 +256,9 @@ const AssociateProfile = () => {
                                     <FieldIcon icon={User} /> Full Name
                                 </label>
                                 <input type="text" name="AssociateName" value={editFormData.AssociateName} onChange={handleInputChange}
-                                    placeholder="Enter full name"
-                                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-200 placeholder:text-gray-300" />
+                                    placeholder="Enter full name" maxLength={100}
+                                    className={editInputCls(editErrors.AssociateName)} />
+                                {editErrors.AssociateName && <p className="text-xs text-red-500 mt-1">{editErrors.AssociateName}</p>}
                             </div>
                             {/* Email */}
                             <div className="flex flex-col gap-1.5">
@@ -221,8 +266,9 @@ const AssociateProfile = () => {
                                     <FieldIcon icon={Mail} /> Email Address
                                 </label>
                                 <input type="email" name="Email" value={editFormData.Email} onChange={handleInputChange}
-                                    placeholder="Enter email"
-                                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-200 placeholder:text-gray-300" />
+                                    placeholder="Enter email" maxLength={100}
+                                    className={editInputCls(editErrors.Email)} />
+                                {editErrors.Email && <p className="text-xs text-red-500 mt-1">{editErrors.Email}</p>}
                             </div>
                             {/* Phone */}
                             <div className="flex flex-col gap-1.5">
@@ -230,8 +276,9 @@ const AssociateProfile = () => {
                                     <FieldIcon icon={Phone} /> Phone Number
                                 </label>
                                 <input type="tel" name="Mobile" value={editFormData.Mobile} onChange={handleInputChange}
-                                    placeholder="Enter phone number"
-                                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-200 placeholder:text-gray-300" />
+                                    placeholder="10-digit mobile number" inputMode="numeric" maxLength={10}
+                                    className={editInputCls(editErrors.Mobile)} />
+                                {editErrors.Mobile && <p className="text-xs text-red-500 mt-1">{editErrors.Mobile}</p>}
                             </div>
                             {/* State */}
                             <div className="flex flex-col gap-1.5">
@@ -270,8 +317,8 @@ const AssociateProfile = () => {
                                     <FieldIcon icon={Briefcase} /> Profession
                                 </label>
                                 <input type="text" name="Profession" value={editFormData.Profession} onChange={handleInputChange}
-                                    placeholder="Enter profession"
-                                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-200 placeholder:text-gray-300" />
+                                    placeholder="Enter profession" maxLength={100}
+                                    className={editInputCls(false)} />
                             </div>
                         </div>
 
@@ -610,7 +657,7 @@ const AssociateProfile = () => {
                                     <span className="text-sm text-gray-500 font-medium">Active Deals</span>
                                     <User className="w-4 h-4 text-gray-300" />
                                 </div>
-                                <p className="text-2xl font-bold text-gray-900">{profileData.stats.activeDeals}</p>
+                                <p className="text-2xl font-bold text-gray-900">{statValue(performance?.activeDeals?.value)}</p>
                             </div>
                             {/* Completed Orders */}
                             <div className="p-4 rounded-xl bg-gray-50 border border-gray-100">
@@ -618,15 +665,15 @@ const AssociateProfile = () => {
                                     <span className="text-sm text-gray-500 font-medium">Completed Orders</span>
                                     <CheckCircle2 className="w-4 h-4 text-green-400" />
                                 </div>
-                                <p className="text-2xl font-bold text-gray-900">{profileData.stats.completedOrders}</p>
+                                <p className="text-2xl font-bold text-gray-900">{statValue(performance?.orders?.completed)}</p>
                             </div>
-                            {/* Total Earnings */}
+                            {/* Payments Received */}
                             <div className="p-4 rounded-xl bg-gray-50 border border-gray-100">
                                 <div className="flex items-center justify-between mb-1">
-                                    <span className="text-sm text-gray-500 font-medium">Total Earnings</span>
+                                    <span className="text-sm text-gray-500 font-medium">Payments Received</span>
                                     <TrendingUp className="w-4 h-4 text-yellow-400" />
                                 </div>
-                                <p className="text-2xl font-bold text-gray-900">{profileData.stats.totalEarnings}</p>
+                                <p className="text-2xl font-bold text-gray-900">{statValue(performance?.payments?.received, formatEarnings)}</p>
                             </div>
                         </div>
                     </div>

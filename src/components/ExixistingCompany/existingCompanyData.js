@@ -102,6 +102,32 @@ export const checksField = (k, q, opts, o = {}) => ({ k, type: "checks", q, opts
 export const ynField = (k, q, o = {}) => ({ k, type: "cards", q, opts: YN, required: true, cols: 2, ...o });
 export const textField = (k, label, o = {}) => ({ k, type: o.type || "text", label, required: true, ...o });
 export const areaField = (k, label, o = {}) => ({ k, type: "textarea", label, required: true, ...o });
+// GSTIN / PAN box that looks the registration up (FlowRunner's
+// GstinLookupField) and auto-fills the fields named in `fill`:
+//   name / trade / biztype / state / regDate — answer keys to fill
+//   address — addressFields() prefix to fill ("" for unprefixed)
+//   pan     — true to fill the PAN Details step (pan_number / pan_name / pan_type)
+//   status  — true to also record GST status in gst_regState / gst_verifiedStatus
+//   overwriteName — replace an already-entered name with the GST legal name
+//   accept  — "both" (GSTIN or PAN, default) or "pan" (PAN only)
+// A PAN entered in a box that stores a GSTIN (pattern "gstin") is swapped for
+// the GSTIN it resolves to. Only empty fields are filled unless noted.
+export const gstLookupField = (k, label, fill, o = {}) => ({
+  k, type: "gstinLookup", label, fill, full: true, required: false,
+  ph: fill.accept === "pan" ? "ABCDE1234F" : "15-character GSTIN, or 10-character PAN",
+  ...o,
+});
+// GST "constitution of business" (GSTN `ctb`) → our BIZ_TYPES option.
+export function bizTypeFromConstitution(ctb) {
+  const c = String(ctb || "").toLowerCase();
+  if (!c) return "";
+  if (/one person/.test(c)) return "One Person Company (OPC)";
+  if (/limited liability/.test(c)) return "Limited Liability Partnership (LLP)";
+  if (/private limited/.test(c)) return "Private Limited Company";
+  if (/partnership/.test(c)) return "Partnership Firm";
+  if (/proprietor/.test(c)) return "Sole Proprietorship";
+  return "Other";
+}
 export const pickField = (k, label, opts, o = {}) => ({ k, type: "select", label, opts, required: true, ...o });
 // render(A) => JSX, for static/templated informational blocks
 export const noteField = (render, o = {}) => ({ type: "note", render, ...o });
@@ -677,6 +703,8 @@ export const MSME_FLOW = {
   addressPrefix: "msme",
   steps: () => [
     { id: "biz", title: "Business Details", fields: [
+      gstLookupField("msme_lookup", "Have a GSTIN or PAN? Enter it to auto-fill these details (optional)",
+        { name: "msme_name", biztype: "msme_type", address: "msme", pan: true }),
       textField("msme_name", "Enterprise Name", { full: true }),
       pickField("msme_type", "Type of Organisation", BIZ_TYPES),
       textField("msme_startDate", "Date of commencement", { type: "date" }),
@@ -739,6 +767,8 @@ export const IEC_FLOW = {
         noteField(() => ({ variant: "info", body: "New IEC application. IEC is a lifetime code issued by DGFT — but it must be updated on the DGFT portal every April to stay active." }), { showIf: (A) => A.iec_has === "No" }),
       ] },
       { id: "biz", title: "Business Details", fields: [
+        gstLookupField("iec_lookup", "Have a GSTIN or PAN? Enter it to auto-fill these details (optional)",
+          { name: "iec_bizname", biztype: "iec_biztype", address: "iec", pan: true }),
         textField("iec_bizname", "Business Name", { full: true }),
         pickField("iec_biztype", "Firm Type", BIZ_TYPES),
         textField("iec_incDate", "Date of incorporation", { type: "date" }),
@@ -818,7 +848,9 @@ export const FLOWS = {
         fields: [
           noteField(() => ({ variant: "info", body: "Since this is for your existing business, share its current GSTIN and status below." }), { showIf: (A) => A.gst_reason === "Existing business GST registration" }),
           ynField("gst_hasReg", "Do you already hold a GST registration?", { showIf: (A) => A.gst_reason !== "Existing business GST registration" }),
-          { k: "gst_existingGstin", type: "gstinLookup", label: "Existing GSTIN", ph: "15 characters", full: true, pattern: "gstin", showIf: (A) => A.gst_hasReg === "Yes" },
+          gstLookupField("gst_existingGstin", "Existing GSTIN",
+            { name: "gst_bizname", trade: "gst_tradename", biztype: "gst_biztype", address: "gst", pan: true, status: true, overwriteName: true },
+            { required: true, pattern: "gstin", showIf: (A) => A.gst_hasReg === "Yes" }),
           cardsField("gst_regState", "Status of the existing registration", ["Active", "Suspended", "Cancelled", "Not sure"], { cols: 2, showIf: (A) => A.gst_hasReg === "Yes" && !A.gst_verifiedStatus }),
           noteField(() => ({ variant: "info", body: "First-time registration. We will file a fresh REG-01 application and handle the ARN follow-up until your GSTIN is issued." }), { showIf: (A) => A.gst_hasReg === "No" }),
         ],
@@ -984,6 +1016,8 @@ export const FLOWS = {
       ] });
       if (A.ex_brandNew === "No") {
         s.push({ id: "exdetails", title: "Existing Company", fields: [
+          gstLookupField("ex_gstin", "Existing company's GSTIN (optional — auto-fills the details below)",
+            { name: "ex_name", biztype: "ex_biztype", address: "ex" }, { pattern: "gstin" }),
           textField("ex_name", "Existing Company Name", { full: true }),
           textField("ex_regno", "Registration Number (CIN / LLPIN / Reg. No.)"),
           pickField("ex_biztype", "Existing Business Type", BIZ_TYPES),
@@ -1001,9 +1035,10 @@ export const FLOWS = {
     name: "New Branch Registration", code: "BRN", price: 3999, govt: 1200, kind: "Existing Company",
     steps: () => [
       { id: "parent", title: "Existing Company", fields: [
+        gstLookupField("ex_gstin", "GSTIN (optional — auto-fills the details below)",
+          { name: "ex_name", biztype: "ex_biztype" }, { pattern: "gstin" }),
         textField("ex_name", "Existing Company Name", { full: true }),
         textField("ex_regno", "Registration Number (CIN / LLPIN)"),
-        textField("ex_gstin", "GSTIN", { required: false, ph: "15 characters" }),
         pickField("ex_biztype", "Business Type", BIZ_TYPES),
       ] },
       { id: "branch", title: "Branch Details", fields: [
@@ -1082,16 +1117,27 @@ export const FLOWS = {
       const onExistingGstin = need === "GST amendment" || need === "GST cancellation";
       const askIfRegistered = need === "GST registration for existing business" || need === "GST registration for new branch";
 
+      // The GSTIN boxes come first so a lookup can fill the name / constitution
+      // / state below. A new branch's GSTIN is the parent's, so it doesn't
+      // fill the state (the branch may be elsewhere) — only the same PAN.
+      const branch = need === "GST registration for new branch";
+      // Amendment / cancellation have no Place of Business or PAN step.
+      const ownGstinFill = branch
+        ? { name: "ex_name", biztype: "ex_biztype", pan: true }
+        : onExistingGstin
+          ? { name: "ex_name", biztype: "ex_biztype", state: "ex_state" }
+          : { name: "ex_name", biztype: "ex_biztype", state: "ex_state", address: "gst", pan: true };
       s.push({ id: "company", title: "Company Details", fields: [
+        gstLookupField("ex_gstin", "GSTIN", ownGstinFill, { required: true, pattern: "gstin", showIf: () => onExistingGstin, hint: "The registration we will amend or cancel." }),
+        ynField("ex_hasGstin", branch ? "Does the parent business already have a GSTIN?" : "Does your business already have a GSTIN?", { full: true, showIf: () => askIfRegistered, hint: "If you have never registered for GST, choose No — we will file a fresh registration." }),
+        gstLookupField("ex_gstin", "Existing GSTIN", ownGstinFill, { required: true, pattern: "gstin", showIf: (A) => askIfRegistered && A.ex_hasGstin === "Yes" }),
+        noteField(() => ({ variant: "info", body: "Fresh GST registration. No GSTIN required — we will file a new REG-01 application and follow up on the ARN until your GSTIN is issued." }), { full: true, showIf: (A) => askIfRegistered && A.ex_hasGstin === "No" }),
+        noteField(() => ({ variant: "info", body: "You already hold a GSTIN. Depending on the state and premises this will be filed either as an additional place of business under the existing GSTIN, or as a separate state registration. Our advisor confirms which before filing — the fee is the same." }), { full: true, showIf: (A) => askIfRegistered && A.ex_hasGstin === "Yes" }),
+        gstLookupField("ex_gstin", "GSTIN of your existing business", { name: "ex_name", biztype: "ex_biztype", state: "ex_state" },
+          { pattern: "gstin", showIf: () => need === "GST registration for another company", hint: "Optional — helps us link the two entities. The new company will get a fresh GSTIN." }),
         textField("ex_name", need === "GST registration for another company" ? "Your existing business name" : "Business Name", { full: true }),
         pickField("ex_biztype", "Constitution of Business", BIZ_TYPES),
         pickField("ex_state", "State of registration", STATES),
-        textField("ex_gstin", "GSTIN", { ph: "15 characters", full: true, showIf: () => onExistingGstin, hint: "The registration we will amend or cancel." }),
-        ynField("ex_hasGstin", need === "GST registration for new branch" ? "Does the parent business already have a GSTIN?" : "Does your business already have a GSTIN?", { full: true, showIf: () => askIfRegistered, hint: "If you have never registered for GST, choose No — we will file a fresh registration." }),
-        textField("ex_hasGstin_gstin", "Existing GSTIN", { ph: "15 characters", full: true, showIf: (A) => askIfRegistered && A.ex_hasGstin === "Yes", k: "ex_gstin" }),
-        noteField(() => ({ variant: "info", body: "Fresh GST registration. No GSTIN required — we will file a new REG-01 application and follow up on the ARN until your GSTIN is issued." }), { full: true, showIf: (A) => askIfRegistered && A.ex_hasGstin === "No" }),
-        noteField(() => ({ variant: "info", body: "You already hold a GSTIN. Depending on the state and premises this will be filed either as an additional place of business under the existing GSTIN, or as a separate state registration. Our advisor confirms which before filing — the fee is the same." }), { full: true, showIf: (A) => askIfRegistered && A.ex_hasGstin === "Yes" }),
-        textField("ex_gstin_parent", "GSTIN of your existing business", { ph: "15 characters", required: false, full: true, showIf: (A) => need === "GST registration for another company", hint: "Optional — helps us link the two entities. The new company will get a fresh GSTIN.", k: "ex_gstin" }),
       ] });
 
       if (need === "GST amendment") {
@@ -1291,8 +1337,9 @@ export const FLOWS = {
 
       s.push({ id: "iecdetails", title: "Existing IEC", fields: [
         textField("iec_number", "IEC Number", { full: true }),
+        gstLookupField("pan_number", "PAN of Firm", { name: "iec_bizname", biztype: "iec_biztype", accept: "pan" },
+          { required: true, pattern: "pan", full: false }),
         textField("iec_bizname", "Business Name", { full: true }),
-        textField("pan_number", "PAN of Firm", { pattern: "pan" }),
         pickField("iec_biztype", "Firm Type", BIZ_TYPES),
       ] });
       if (need === "Update IEC") {
@@ -1332,13 +1379,20 @@ export const FLOWS = {
         cardsField("close_what", "What do you want to close/cancel?", ["Business", "GST", "MSME", "IEC", "Other"], { cols: 3, full: true }),
       ] }];
       if (!what) return s;
-      const reg = [
+      // GST closure: the GSTIN comes first so its lookup can fill the name,
+      // type, registration date and registered address below.
+      const reg = [];
+      if (what === "GST") {
+        reg.push(gstLookupField("ex_gstin", "GSTIN",
+          { name: "ex_name", biztype: "ex_biztype", regDate: "close_startDate", address: "close" },
+          { required: true, pattern: "gstin" }));
+      }
+      reg.push(
         textField("ex_name", "Registered Business Name", { full: true }),
         pickField("ex_biztype", "Business Type", BIZ_TYPES),
         textField("close_startDate", "Date of incorporation / registration", { type: "date" }),
-      ];
+      );
       if (what === "Business") reg.push(textField("ex_regno", "CIN / LLPIN / Registration Number"));
-      if (what === "GST") reg.push(textField("ex_gstin", "GSTIN", { ph: "15 characters" }));
       if (what === "MSME") reg.push(textField("msme_udyam", "Udyam Registration Number"));
       if (what === "IEC") reg.push(textField("iec_number", "IEC Number"));
       if (what === "Other") reg.push(textField("close_otherReg", "Registration number / details"));
