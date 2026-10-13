@@ -152,7 +152,7 @@ export function addressFields(prefix, label) {
 }
 export const panStep = (id, who) => ({
   id, title: "PAN Details", fields: [
-    textField("pan_number", "PAN Number", { pattern: "pan", ph: "ABCDE1234F", hint: `PAN of the ${who}.` }),
+    textField("pan_number", "PAN Number", { pattern: "pan", ph: "ABCDE1234F", hint: `PAN of the ${who}.`, kyc: { name: "pan_name" } }),
     textField("pan_name", "Name as per PAN"),
     pickField("pan_type", "PAN Holder Type", ["Individual", "Company", "LLP", "Partnership Firm", "Trust / Society", "Other"]),
   ],
@@ -180,8 +180,8 @@ export function personMinorFields(prefix, showIf) {
     noteField(() => ({ variant: "warn", title: "This person is under 18", body: "A nominee/guardian's details are required for them — see below." }), { full: true, showIf: nomineeShown }),
     textField(prefix + "_nominee_name", "Nominee / Guardian Full Name", { full: true, showIf: nomineeShown }),
     textField(prefix + "_nominee_dob", "Nominee Date of Birth", { type: "date", showIf: nomineeShown }),
-    textField(prefix + "_nominee_pan", "Nominee PAN", { pattern: "pan", showIf: nomineeShown }),
-    textField(prefix + "_nominee_aadhaar", "Nominee Aadhaar", { pattern: "aadhaar", showIf: nomineeShown }),
+    textField(prefix + "_nominee_pan", "Nominee PAN", { pattern: "pan", showIf: nomineeShown, kyc: { name: prefix + "_nominee_name", dob: prefix + "_nominee_dob" } }),
+    textField(prefix + "_nominee_aadhaar", "Nominee Aadhaar", { pattern: "aadhaar", showIf: nomineeShown, kyc: { fill: { name: prefix + "_nominee_name", dob: prefix + "_nominee_dob", address: prefix + "_nominee_address" } } }),
     textField(prefix + "_nominee_email", "Nominee Email", { pattern: "email", type: "email", showIf: nomineeShown }),
     textField(prefix + "_nominee_mobile", "Nominee Mobile", { pattern: "mobile", type: "tel", showIf: nomineeShown }),
     textField(prefix + "_nominee_address", "Nominee Address", { full: true, showIf: nomineeShown }),
@@ -193,7 +193,7 @@ export const authStep = (id) => ({
     textField("auth_designation", "Designation"),
     textField("auth_email", "Email", { pattern: "email", type: "email", required: (A) => !isMinor(A.auth_dob) }),
     textField("auth_mobile", "Mobile", { pattern: "mobile", type: "tel", ph: "10 digits", required: (A) => !isMinor(A.auth_dob) }),
-    textField("auth_pan", "PAN", { pattern: "pan", required: false }),
+    textField("auth_pan", "PAN", { pattern: "pan", required: false, kyc: { name: "auth_name", dob: "auth_dob" } }),
     textField("auth_din", "DIN / DPIN (if any)", { required: false, showIf: (A) => !isMinor(A.auth_dob) }),
     ...personMinorFields("auth"),
   ],
@@ -670,7 +670,7 @@ export const TRADEMARK_FLOW = {
     { id: "owner", title: "Applicant Details", fields: [
       textField("tm_ownerEmail", "Email", { pattern: "email", type: "email", required: (A) => !isMinor(A.tm_owner_dob) }),
       textField("tm_ownerMobile", "Mobile", { pattern: "mobile", type: "tel", required: (A) => !isMinor(A.tm_owner_dob) }),
-      textField("tm_ownerPan", "PAN", { pattern: "pan", required: false }),
+      textField("tm_ownerPan", "PAN", { pattern: "pan", required: false, kyc: { name: "tm_ownerName", dob: "tm_owner_dob" } }),
       ynField("tm_startup", "Do you have MSME (Udyam) or Startup India registration?", { full: true, showIf: (A) => !!A.tm_ownerType && A.tm_ownerType !== "Individual", hint: "This qualifies you for the lower government filing fee that individual applicants already get." }),
       textField("tm_udyamNo", "Udyam Registration Number", { full: true, showIf: (A) => A.tm_ownerType !== "Individual" && A.tm_startup === "Yes" }),
       // Only an individual applicant can be a minor — a Company/LLP/Partnership can't.
@@ -721,7 +721,7 @@ export const MSME_FLOW = {
     ] },
     panStep("pan", "enterprise"),
     { id: "aadhaar", title: "Aadhaar", fields: [
-      textField("msme_aadhaar", "Aadhaar Number", { pattern: "aadhaar", ph: "12 digits" }),
+      textField("msme_aadhaar", "Aadhaar Number", { pattern: "aadhaar", ph: "12 digits", kyc: { fill: { name: "msme_aadhaarName", dob: "msme_dob", gender: "msme_gender" } } }),
       textField("msme_aadhaarName", "Name as per Aadhaar"),
       ynField("msme_otp", "Is this Aadhaar linked to the mobile number above?", { full: true, hint: "Udyam verification uses an OTP sent to the Aadhaar-linked mobile." }),
     ] },
@@ -1091,7 +1091,7 @@ export const FLOWS = {
         nw.push(cardsField("change_action", "What do you want to do?", ["Add", "Remove", "Replace", "Change role / designation"], { cols: 2, full: true }),
           { k: "chg_person", type: "personPick", label: "Which person?", required: true, full: true, showIf: personShown },
           textField("new_person", "Name of incoming person", { full: true, showIf: incomingShown }),
-          textField("new_personPan", "PAN of incoming person", { pattern: "pan", showIf: incomingShown }),
+          textField("new_personPan", "PAN of incoming person", { pattern: "pan", showIf: incomingShown, kyc: { name: "new_person" } }),
           textField("new_personEmail", "Email of incoming person", { pattern: "email", type: "email", required: false, showIf: incomingShown }),
           pickField("new_role", "Role", ["Director", "Designated Partner", "Partner", "Shareholder", "Authorized Signatory", "Other"], { showIf: (A) => A.change_action && A.change_action !== "Remove" }));
       }
@@ -1150,7 +1150,7 @@ export const FLOWS = {
           if (w === "Business Name") { f.push(textField("cur_name", "Name as per GST record", { full: true }), textField("new_name1", "Corrected / new name", { full: true })); }
           else if (w === "Business Address" || w === "Additional Place of Business") { f.push(...addressFields("new", w === "Business Address" ? "New principal place of business" : "Additional place of business"), cardsField("new_premises", "Nature of premises", ["Owned", "Rented", "Leased", "Consent / Shared", "Other"], { cols: 2, full: true })); }
           else if (w === "Business Activity") { f.push(areaField("cur_activity", "Activity as per GST record", { full: true }), areaField("new_activityDesc", "New activity / goods & services", { full: true }), textField("new_hsn", "HSN / SAC codes", { required: false, full: true })); }
-          else if (w === "Owner/Partner") { f.push(cardsField("change_action", "Action", ["Add", "Remove", "Replace"], { cols: 3, full: true }), textField("cur_person", "Existing person on record", { full: true }), textField("new_person", "Incoming person", { full: true, showIf: (A) => ["Add", "Replace"].includes(A.change_action) }), textField("new_personPan", "PAN of incoming person", { pattern: "pan", showIf: (A) => ["Add", "Replace"].includes(A.change_action) })); }
+          else if (w === "Owner/Partner") { f.push(cardsField("change_action", "Action", ["Add", "Remove", "Replace"], { cols: 3, full: true }), textField("cur_person", "Existing person on record", { full: true }), textField("new_person", "Incoming person", { full: true, showIf: (A) => ["Add", "Replace"].includes(A.change_action) }), textField("new_personPan", "PAN of incoming person", { pattern: "pan", showIf: (A) => ["Add", "Replace"].includes(A.change_action), kyc: { name: "new_person" } })); }
           else if (w === "Bank Details") { f.push(textField("cur_bank", "Bank account on record", { full: true }), textField("bank_name", "New Bank Name"), textField("bank_branch", "Branch"), textField("bank_account", "Account Number", { pattern: "digits" }), textField("bank_ifsc", "IFSC Code", { pattern: "ifsc" }), pickField("bank_type", "Account Type", ["Current", "Savings"])); }
           else { f.push(areaField("cur_other", "Current position", { full: true }), areaField("new_other", "Required amendment", { full: true })); }
           f.push(textField("gst_amend_date", "Date of the change", { type: "date" }));
@@ -1268,7 +1268,7 @@ export const FLOWS = {
           cardsField("tm_assign_type", "Type of assignment", ["Complete assignment", "Partial assignment", "With goodwill", "Without goodwill", "Licence / permitted use"], { cols: 2, full: true }),
           textField("tm_assignor", "Assignor (current owner)", { full: true }),
           textField("tm_assignee", "Assignee (new owner)", { full: true }),
-          textField("tm_assignee_pan", "Assignee PAN", { pattern: "pan" }),
+          textField("tm_assignee_pan", "Assignee PAN", { pattern: "pan", kyc: { name: "tm_assignee" } }),
           textField("tm_assign_date", "Date of assignment deed", { type: "date" }),
           textField("tm_assign_value", "Consideration (₹)", { type: "number", required: false }),
         ] });

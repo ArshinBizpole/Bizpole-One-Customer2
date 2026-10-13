@@ -1,5 +1,5 @@
 import React, { useState, useEffect, createContext } from "react";
-import ConfirmMsg from "../components/ConfirmMsg";
+import ProfileMenu from "../components/ProfileMenu";
 import { setSecureItem, getSecureItem } from "../utils/secureStorage";
 import axiosInstance from "../api/axiosInstance";
 import { Outlet, NavLink } from "react-router-dom";
@@ -10,13 +10,9 @@ import {
   ChevronDown,
   Menu,
   X,
-  HelpCircle,
-  LogOut,
   FileText,
   Plus,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { clearStorageKeepingApplications } from "../utils/applicationPrefill";
 
 
 // Context to provide selected company and quotes
@@ -174,13 +170,7 @@ const DashboardLayout = () => {
 
 
 
-  const navigate = useNavigate();
 
-  const [showConfirm, setShowConfirm] = useState(false);
-  const handleLogout = () => {
-    clearStorageKeepingApplications();
-    navigate("/");
-  };
   // Handle company selection
   const handleCompanySelect = (company) => {
     setSelectedCompany(company.BusinessName);
@@ -264,7 +254,9 @@ const uniqueCompanies = Array.from(
         loadQuotesForCompany,
       }}
     >
-      <div className="min-h-screen flex flex-col bg-gray-50">
+      {/* Locked to the screen height: only the page content (main) scrolls, so the
+          sidebars stay in place. */}
+      <div className="h-screen overflow-hidden flex flex-col bg-gray-50">
         {/* ✅ Top Navbar */}
         <header className="bg-white px-6 py-3 flex justify-between items-center shadow-sm">
           {/* Logo */}
@@ -338,16 +330,7 @@ const uniqueCompanies = Array.from(
               </button>
 
               {/* Profile */}
-              <NavLink
-                to="/profile"
-                className="flex items-center cursor-pointer"
-              >
-                <img
-                  src="/Images/user.jpg"
-                  alt="Profile"
-                  className="w-9 h-9 rounded-full shadow"
-                />
-              </NavLink>
+              <ProfileMenu />
             </div>
           </div>
 
@@ -360,13 +343,7 @@ const uniqueCompanies = Array.from(
             </button>
 
             {/* User Profile */}
-            <div className="flex items-center cursor-pointer">
-              <img
-                src="/Images/user.jpg"
-                alt="Profile"
-                className="w-9 h-9 rounded-full shadow"
-              />
-            </div>
+            <ProfileMenu />
 
             {/* Mobile Menu Button */}
             <button
@@ -510,12 +487,12 @@ const uniqueCompanies = Array.from(
         )}
 
         {/* ✅ Main Section */}
-        <div className="flex flex-1 p-2">
+        <div className="flex flex-1 min-h-0 p-2">
           {/* Sidebar */}
           <div
             className={`bg-[#221e1e] text-white transition-all duration-300
             ${isSidebarOpen ? "w-60" : "w-16"}
-            flex flex-col justify-between rounded-xl shadow-md`}
+            flex flex-col justify-between rounded-xl shadow-md overflow-y-auto`}
           >
             {/* Sidebar Top */}
             <div>
@@ -563,42 +540,8 @@ const uniqueCompanies = Array.from(
               </nav>
             </div>
 
-            {/* Sidebar Bottom */}
-            <div className="p-4 border-t border-gray-700 flex flex-col space-y-2">
-              <NavLink
-                to="/help"
-                className="flex items-center gap-3 py-2 px-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white"
-              >
-                <HelpCircle size={isSidebarOpen ? 24 : 20} />
-                {isSidebarOpen && (
-                  <span className="text-sm font-medium">Help</span>
-                )}
-              </NavLink>
-              <button
-                onClick={() => setShowConfirm(true)}
-                className="flex items-center gap-3 py-2 px-3 rounded-lg text-red-500 hover:bg-gray-700 hover:text-red-400"
-              >
-                <LogOut size={isSidebarOpen ? 24 : 20} />
-                {isSidebarOpen && (
-                  <span className="text-sm font-medium">Logout</span>
-                )}
-              </button>
-              {/* Confirm Logout Modal - moved outside button for correct event handling */}
-              <ConfirmMsg
-                open={showConfirm}
-                title="Logout"
-                message="Do you want to logout?"
-                confirmText="Logout"
-                cancelText="Cancel"
-                onConfirm={() => {
-                  setShowConfirm(false);
-                  handleLogout();
-                }}
-                onCancel={() => setShowConfirm(false)}
-                showCancel={true}
-                variant="delete"
-              />
-            </div>
+            {/* Help / Logout removed from the sidebar — Log out now lives in
+                the header profile menu (ProfileMenu). */}
           </div>
 
           {/* Sidebar Bottom */}

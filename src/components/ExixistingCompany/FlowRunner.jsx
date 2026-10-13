@@ -16,6 +16,7 @@ import { signedInContact, belongsToOtherCustomer } from "../../utils/application
 import { districtsFor } from "../../utils/districts";
 import SigninModal from "../Modals/SigninModal";
 import VoiceSpecifyInput from "./VoiceSpecifyInput";
+import KycVerify from "./KycVerify";
 import {
   FLOWS, ownerConfig, ownerBaseFields, newOwner, visibleFields, docItems, docGroups, isMinor,
   fieldError, today, rupee, newApplicationId, ADDON_PRICE, ADDON_SERVICE_ID, STATES, bizTypeFromConstitution,
@@ -2142,6 +2143,16 @@ function Field({ f, A, errors, setAnswer, state, bump, liveStateNames }) {
       {f.hint && <p className="text-xs text-gray-500 mb-1">{f.hint}</p>}
       <input type={f.type === "text" ? "text" : f.type} className={inputCls(errors[f.k])} value={A[f.k] || ""} onChange={(e) => setAnswer(f.k, e.target.value)} placeholder={f.ph || ""} />
       <ErrorText msg={errors[f.k]} />
+      {(f.pattern === "pan" || f.pattern === "aadhaar") && (
+        <KycVerify
+          kind={f.pattern}
+          value={A[f.k]}
+          context={() => ({ name: f.kyc?.name ? A[f.kyc.name] : "", dob: f.kyc?.dob ? A[f.kyc.dob] : "" })}
+          result={A[f.k + "__kyc"]}
+          setResult={(r) => setAnswer(f.k + "__kyc", r)}
+          onFill={(d) => fillFromAadhaar(f.kyc?.fill, d, (k) => A[k], setAnswer)}
+        />
+      )}
     </div>
   );
 }
@@ -2347,6 +2358,18 @@ function GstinLookupField({ f, A, errors, setAnswer, state, bump }) {
   );
 }
 
+// After an Aadhaar OTP check: copies the Aadhaar name / DOB / gender / address
+// into the fields named in `map` ({ name, dob, gender, address } → answer
+// keys), only where the customer left them empty.
+function fillFromAadhaar(map, d, get, set) {
+  if (!map || !d) return;
+  const vals = { name: d.name, dob: d.dob, gender: d.gender, address: d.address };
+  Object.entries(map).forEach(([part, key]) => {
+    const v = vals[part];
+    if (key && v && !String(get(key) || "").trim()) set(key, String(v).trim());
+  });
+}
+
 // GST state codes (first 2 digits of a GSTIN), keyed by STATES spelling.
 const GST_STATE_CODES = {
   "Jammu and Kashmir": "01", "Himachal Pradesh": "02", "Punjab": "03", "Chandigarh": "04",
@@ -2420,6 +2443,16 @@ function OwnersBody({ A, state, errors, bump }) {
                         onChange={(e) => setOwnerField(i, f.k, e.target.value)} />
                     )}
                     <ErrorText msg={errors["owner" + i + "_" + f.k]} />
+                    {(f.pattern === "pan" || f.pattern === "aadhaar") && (
+                      <KycVerify
+                        kind={f.pattern}
+                        value={o[f.k]}
+                        context={() => ({ name: o.name, dob: o.dob })}
+                        result={o[f.k + "__kyc"]}
+                        setResult={(r) => setOwnerField(i, f.k + "__kyc", r)}
+                        onFill={(d) => fillFromAadhaar({ name: "name", dob: "dob", address: "address" }, d, (k) => o[k], (k, v) => setOwnerField(i, k, v))}
+                      />
+                    )}
                   </div>
                 );
               })}
@@ -2478,6 +2511,16 @@ function OwnersBody({ A, state, errors, bump }) {
                       ) : (
                         <input type={f.type} max={f.type === "date" ? DOB_MAX : undefined} className={inputCls(errors["owner" + i + "_nominee_" + f.k])} value={(o.nominee || {})[f.k] || ""} placeholder={f.ph || ""}
                           onChange={(e) => setOwnerNomineeField(i, f.k, e.target.value)} />
+                      )}
+                      {(f.pattern === "pan" || f.pattern === "aadhaar") && (
+                        <KycVerify
+                          kind={f.pattern}
+                          value={(o.nominee || {})[f.k]}
+                          context={() => ({ name: (o.nominee || {}).name, dob: (o.nominee || {}).dob })}
+                          result={(o.nominee || {})[f.k + "__kyc"]}
+                          setResult={(r) => setOwnerNomineeField(i, f.k + "__kyc", r)}
+                          onFill={(d) => fillFromAadhaar({ name: "name", dob: "dob", address: "address" }, d, (k) => (o.nominee || {})[k], (k, v) => setOwnerNomineeField(i, k, v))}
+                        />
                       )}
                       <ErrorText msg={errors["owner" + i + "_nominee_" + f.k]} />
                     </div>
