@@ -1,18 +1,20 @@
-import { useState } from "react";
-import { verifyPan, sendAadhaarOtp, verifyAadhaarOtp } from "../../api/KycApi";
-
-const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
-const AADHAAR_RE = /^[2-9][0-9]{11}$/;
+import { useEffect, useState } from "react";
+import { verifyPan, sendAadhaarOtp, verifyAadhaarOtp, kycStatus } from "../../api/KycApi";
+import { PAN_RE, AADHAAR_RE, normalizeNumber, normalizeName, normalizeDob, currentKycResult } from "./kycRules";
 
 /* ---------------------------------------------------------------------------
    PAN / Aadhaar verification, shown under any PAN or Aadhaar box once a
-   complete number is typed. Optional — the customer can always continue.
+   complete number is typed. Where it's required, Continue stays blocked until
+   it passes (see kycBlockingError, used by FlowRunner's validateStep).
      PAN:     consent → Verify → valid / name & DOB match / Aadhaar linked.
+              Passes when valid, the name matches and (when a DOB is asked)
+              the DOB matches; "Aadhaar not linked" is only a warning.
      Aadhaar: consent → Send OTP → enter OTP → verified; name, DOB, gender,
               address from Aadhaar are handed to `onFill` (fills empty fields).
-   `result` / `setResult` persist the outcome alongside the answer (keyed to the
-   number, so editing the number drops it). `context()` gives { name, dob } of
-   the person, sent with a PAN for the name/DOB match.
+   A number the server already recorded as verified (same name/DOB for a PAN)
+   is accepted straight away, with no new check.
+   `result` / `setResult` persist the outcome alongside the answer. `context()`
+   gives { name, dob } of the person, sent with a PAN for the name/DOB match.
 --------------------------------------------------------------------------- */
 export default function KycVerify({ kind, value, context, result, setResult, onFill }) {
   const [consent, setConsent] = useState(false);
@@ -21,19 +23,41 @@ export default function KycVerify({ kind, value, context, result, setResult, onF
   const [refId, setRefId] = useState("");
   const [otp, setOtp] = useState("");
 
-  const number = kind === "pan" ? String(value || "").trim().toUpperCase() : String(value || "").replace(/\D/g, "");
+  const number = normalizeNumber(kind, value);
   const complete = kind === "pan" ? PAN_RE.test(number) : AADHAAR_RE.test(number);
-  const done = result && result.number === number ? result : null;
+  const ctx = context?.() || {};
+  const checkedName = normalizeName(ctx.name);
+  const checkedDob = normalizeDob(ctx.dob);
+  const done = currentKycResult(kind, value, result, ctx);
+
+  // Already verified before (on any application)? Then accept it without a
+  // new — paid — check.
+  useEffect(() => {
+    if (!complete || done || (kind === "pan" && !checkedName)) return undefined;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const res = await kycStatus(kind === "pan" ? { pan: number, name: ctx.name, dob: ctx.dob } : { aadhaar: number });
+      if (cancelled || !res?.success || !res.data?.verified) return;
+      setResult(kind === "pan"
+        ? { number, at: Date.now(), checkedName, checkedDob, valid: true, nameMatch: true, dobMatch: checkedDob ? true : null, aadhaarLinked: res.data.aadhaarLinked, passed: true, reused: true }
+        : { number, at: Date.now(), valid: true, passed: true, reused: true, masked: `XXXX XXXX ${number.slice(-4)}` });
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind, number, complete, !!done, checkedName, checkedDob]);
+
   if (!complete) return null;
 
   async function runPan() {
     setBusy(true);
     setError("");
-    const ctx = context?.() || {};
     const res = await verifyPan({ pan: number, name: ctx.name, dob: ctx.dob });
     setBusy(false);
     if (!res?.success) return setError(res?.message || "Couldn't verify this PAN.");
-    setResult({ number, at: Date.now(), ...res.data });
+    setResult({ number, at: Date.now(), checkedName, checkedDob, ...res.data });
   }
 
   async function sendOtp() {
@@ -54,7 +78,7 @@ export default function KycVerify({ kind, value, context, result, setResult, onF
     if (!res?.success) return setError(res?.message || "The OTP is incorrect or has expired.");
     const d = res.data || {};
     // Keep only what's needed to show the result — never the full Aadhaar.
-    setResult({ number, at: Date.now(), valid: true, name: d.name, masked: `XXXX XXXX ${number.slice(-4)}` });
+    setResult({ number, at: Date.now(), valid: true, passed: true, name: d.name, masked: `XXXX XXXX ${number.slice(-4)}` });
     setRefId("");
     onFill?.(d);
   }
@@ -63,22 +87,28 @@ export default function KycVerify({ kind, value, context, result, setResult, onF
     if (kind === "aadhaar") {
       return (
         <div className="mt-2 text-xs rounded-lg border border-green-200 bg-green-50 text-green-800 px-3 py-2">
-          ✓ Aadhaar verified{done.name ? <> — <b>{done.name}</b></> : ""}
+          ✓ Aadhaar verified{done.name ? <> — <b>{done.name}</b></> : done.reused ? " earlier" : ""}
         </div>
       );
     }
-    const warn = !done.valid || done.nameMatch === false || done.dobMatch === false;
+    const failed = !done.passed;
     const bits = [
       done.valid ? `PAN ${String(done.status || "valid").toLowerCase()}` : `PAN ${String(done.status || "not valid").toLowerCase()}`,
       done.nameMatch === true ? "name matches" : done.nameMatch === false ? "name does not match PAN records" : "",
       done.dobMatch === true ? "date of birth matches" : done.dobMatch === false ? "date of birth does not match" : "",
-      done.aadhaarLinked === true ? "Aadhaar linked" : done.aadhaarLinked === false ? "Aadhaar NOT linked" : "",
+      done.reused ? "verified earlier" : "",
     ].filter(Boolean);
     return (
-      <div className={`mt-2 text-xs rounded-lg border px-3 py-2 ${warn ? "border-amber-200 bg-amber-50 text-amber-800" : "border-green-200 bg-green-50 text-green-800"}`}>
-        {warn ? "⚠ " : "✓ "}{bits.join(" · ")}
-        {warn && (
-          <button type="button" onClick={() => setResult(null)} className="ml-2 underline font-semibold">Check again</button>
+      <div className={`mt-2 text-xs rounded-lg border px-3 py-2 ${failed ? "border-red-200 bg-red-50 text-red-700" : "border-green-200 bg-green-50 text-green-800"}`}>
+        {failed ? "✕ " : "✓ "}{bits.join(" · ")}
+        {failed && (
+          <>
+            <span className="block mt-1">Correct the PAN, name or date of birth, then verify again to continue.</span>
+            <button type="button" onClick={() => setResult(null)} className="mt-1 underline font-semibold">Check again</button>
+          </>
+        )}
+        {done.aadhaarLinked === false && (
+          <span className="block mt-1 text-amber-700">⚠ Aadhaar is not linked to this PAN.</span>
         )}
       </div>
     );
@@ -122,8 +152,7 @@ export default function KycVerify({ kind, value, context, result, setResult, onF
         </div>
       )}
 
-      {error && <p className="text-xs text-amber-700">{error}</p>}
-      <p className="text-[11px] text-gray-400">Optional — you can continue without verifying.</p>
+      {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
 }

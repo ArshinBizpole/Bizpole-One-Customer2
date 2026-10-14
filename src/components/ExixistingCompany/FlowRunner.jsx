@@ -3,12 +3,12 @@ import CryptoJS from "crypto-js";
 import { getSecureItem, setSecureItem, removeSecureItem } from "../../utils/secureStorage";
 import { lookupGstin, lookupGstinsByPan } from "../../api/GstinLookup";
 import { assignCustomer } from "../../api/CustomerApi";
-import { createLead, createCustomerCompany, convertLeadToDeal, createQuoteForApplication, uploadApplicationDocument, removeApplicationDocument } from "../../api/LeadApi";
+import { createLead, createLeadFollowUp, createCustomerCompany, convertLeadToDeal, createQuoteForApplication, uploadApplicationDocument, removeApplicationDocument } from "../../api/LeadApi";
 import { sendApplicationReceivedEmail } from "../../api/CustomerEmailApi";
 import { getAllStates } from "../../api/States";
 import { getAllServiceTypes, getPackagesByServiceType } from "../../api/ServiceType";
-import { createSupportTicket, getCompanyIdFromStorage } from "../../api/SupportTickets/SupportTicket";
-import { insertDeal, getCompanyDetails } from "../../api/DealsApi";
+import { getCompanyIdFromStorage } from "../../api/SupportTickets/SupportTicket";
+import { insertDeal, getCompanyDetails, createDealFollowUp } from "../../api/DealsApi";
 import { fetchFranchiseeGstInfo, calcGstAmount, splitGst } from "../../utils/gstCalc";
 import { loginWithPhone, signupWithPhone, verifyOtp } from "../../api/AuthApi";
 import { notifyTokenSet } from "../../utils/authSession";
@@ -17,6 +17,7 @@ import { districtsFor } from "../../utils/districts";
 import SigninModal from "../Modals/SigninModal";
 import VoiceSpecifyInput from "./VoiceSpecifyInput";
 import KycVerify from "./KycVerify";
+import { kycBlockingError } from "./kycRules";
 import {
   FLOWS, ownerConfig, ownerBaseFields, newOwner, visibleFields, docItems, docGroups, isMinor,
   fieldError, today, rupee, newApplicationId, ADDON_PRICE, ADDON_SERVICE_ID, STATES, bizTypeFromConstitution,
@@ -390,6 +391,22 @@ function validateStep(step, A, state) {
         });
       }
     });
+    // A PAN that's filled in must pass verification (valid, name and DOB
+    // match) before Continue; Director 1's Aadhaar must pass the OTP check.
+    // A nominee's PAN is checked like any other; their Aadhaar is optional.
+    state.owners.forEach((o, i) => {
+      const nominee = o.nominee || {};
+      const checks = [
+        ["owner" + i + "_pan", "pan", o.pan, o.pan__kyc, { name: o.name, dob: o.dob }],
+        ...(i === 0 ? [["owner" + i + "_aadhaar", "aadhaar", o.aadhaar, o.aadhaar__kyc, {}]] : []),
+        ...(isMinor(o.dob) ? [["owner" + i + "_nominee_pan", "pan", nominee.pan, nominee.pan__kyc, { name: nominee.name, dob: nominee.dob }]] : []),
+      ];
+      checks.forEach(([key, kind, value, result, ctx]) => {
+        if (errors[key]) return;
+        const e = kycBlockingError(kind, value, result, ctx);
+        if (e) errors[key] = e;
+      });
+    });
     // Date of birth can't fall in the current year (or later), for the owner
     // and their nominee alike.
     state.owners.forEach((o, i) => {
@@ -487,6 +504,17 @@ function validateFields(step, A, errors) {
     const required = typeof f.required === "function" ? f.required(A) : f.required;
     const e = fieldError({ ...f, required }, A[f.k]);
     if (e) errors[f.k] = e;
+    // A call-back time has to be in the future.
+    if (!e && f.type === "datetime-local" && A[f.k] && new Date(A[f.k]) <= new Date()) {
+      errors[f.k] = "Please choose a date and time in the future";
+    }
+    // A PAN / Aadhaar typed into any box must pass verification before
+    // Continue — except a nominee's Aadhaar, which stays optional.
+    if (!e && (f.pattern === "pan" || (f.pattern === "aadhaar" && !/nominee/i.test(f.k)))) {
+      const ctx = { name: f.kyc?.name ? A[f.kyc.name] : "", dob: f.kyc?.dob ? A[f.kyc.dob] : "" };
+      const ke = kycBlockingError(f.pattern, A[f.k], A[f.k + "__kyc"], ctx);
+      if (ke) errors[f.k] = ke;
+    }
     if (A[f.k] === "Other" && f.type === "cards" && f.otherText !== false) {
       const oe = fieldError({ required: true }, A[f.k + "__other"]);
       if (oe) errors[f.k + "__other"] = "Please specify";
@@ -610,12 +638,18 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
     // An open sign-in modal gets saved too, minus its callback — never reopen
     // a stale one on load (the effect below decides if one is needed).
     if (resume) { appRef.current.leadGate = null; appRef.current.signIn = null; }
+    // "Submitting…" only means a request is in flight in this page — one saved
+    // mid-request (reload, closed tab) must not leave Pay / Call Back disabled.
+    if (resume) appRef.current.__paying = false;
     // Progress now survives logout (clearStorageKeepingApplications) — stamp
     // whose it is, so another Customer on this browser never resumes it.
     if (!appRef.current.ownerCustomerId) appRef.current.ownerCustomerId = signedInContact()?.customerId || null;
   }
   const [, rerender] = useReducer((c) => c + 1, 0);
   const errorsRef = useRef({});
+  // "Request a Call" (Packages) / "Request a Call Back" (Payment) open this
+  // form for the preferred call-back date & time before anything is submitted.
+  const [callbackFormOpen, setCallbackFormOpen] = useState(false);
   // Every "State" pick field (business address, GST location, existing-GST
   // state) falls back to the static STATES list, but that list is only ever
   // as complete/correctly-spelled as we remember to keep it — a name that
@@ -799,7 +833,7 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
         state.submitted = {
           direct: true,
           title: "Request Sent",
-          message: "Thanks! A business advisor will call you within one working day with a recommendation.",
+          message: `Thanks! A business advisor will call you ${A.ex_callbackAt ? `on ${new Date(A.ex_callbackAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}` : "within one working day"} with a recommendation.`,
           change: "Talk to an Advisor",
           label: "Request",
           company: A.ex_name,
@@ -1140,8 +1174,17 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
             {step.type === "goToChange" && <GoToChangeBody onExit={onExit} />}
             {step.type === "review" && directMode && <ChangeReviewBody A={A} state={state} current={changeCurrent?.data} errors={errorsRef.current} onConfirm={(v) => { state.confirmed = v; bump(); }} onJump={jumpTo} steps={steps} />}
             {step.type === "review" && !directMode && <ReviewBody flowId={flowId} A={A} state={state} errors={errorsRef.current} onConfirm={(v) => { state.confirmed = v; bump(); }} onJump={jumpTo} />}
-            {step.type === "packages" && <PackagesBody A={A} state={state} bump={bump} onPay={goNext} onCallback={() => withSignIn(() => doCallback(flow, state, bump))} onBack={goBack} />}
-            {step.type === "payment" && <PaymentBody flow={flow} A={A} state={state} bump={bump} onPay={() => withSignIn(() => doPay(flow, state, bump))} onCallback={() => withSignIn(() => doCallback(flow, state, bump))} onBack={goBack} />}
+            {step.type === "packages" && <PackagesBody A={A} state={state} bump={bump} onPay={goNext} onCallback={() => withSignIn(() => setCallbackFormOpen(true))} onBack={goBack} />}
+            {step.type === "payment" && <PaymentBody flow={flow} A={A} state={state} bump={bump} onPay={() => withSignIn(() => doPay(flow, state, bump))} onCallback={() => withSignIn(() => setCallbackFormOpen(true))} onBack={goBack} />}
+            {callbackFormOpen && (
+              <CallbackRequestModal
+                onClose={() => setCallbackFormOpen(false)}
+                onSubmit={(request) => {
+                  setCallbackFormOpen(false);
+                  doCallback(flow, state, bump, request);
+                }}
+              />
+            )}
             {step.type === "owners" && <OwnersBody A={A} state={state} errors={errorsRef.current} bump={bump} />}
             {step.type === "docs" && <DocsBody step={step} A={A} state={state} errors={errorsRef.current} bump={bump} />}
             {step.type === "namecheck" && <NameCheckBody A={A} state={state} errors={errorsRef.current} setAnswer={setAnswer} bump={bump} />}
@@ -1405,7 +1448,16 @@ async function doPay(flow, state, bump) {
   // creation call below.
   const approvalTab = window.open("", "_blank");
   state.applicationId = state.applicationId || newApplicationId(flow.code);
-  await createQuoteForApplicationStep(flow, state, state.answers);
+  try {
+    await createQuoteForApplicationStep(flow, state, state.answers);
+  } catch (err) {
+    // Don't leave the buttons stuck on "Submitting…".
+    console.error("Quote creation failed:", err);
+    approvalTab?.close();
+    state.__paying = false;
+    bump();
+    return;
+  }
   openQuoteForApproval(state, approvalTab);
   const f = feeLines(flow, state.answers, state); // after the quote, so GST info is loaded
   setTimeout(() => {
@@ -1417,34 +1469,45 @@ async function doPay(flow, state, bump) {
   }, 1100);
 }
 
-// "Request a Call Back" payment option — same Quote as doPay (so the advisor
-// has the exact fee breakdown in front of them), but instead of opening it
-// for approval, raise a "callback" support ticket against it for the team to
-// follow up on. The ticket is non-fatal: the Quote itself (on the Deal) is
-// already enough for sales to pick this up.
-async function doCallback(flow, state, bump) {
+// "Request a Call" (Packages) / "Request a Call Back" (Payment), submitted from
+// CallbackRequestModal — same Quote as doPay (so the advisor has the exact fee
+// breakdown in front of them), but instead of opening it for approval, put a
+// follow-up on the Deal / Lead at the customer's preferred time. No support
+// ticket — those are only raised from the Customer support page.
+async function doCallback(flow, state, bump, request = {}) {
   if (state.__paying) return;
   state.__paying = true;
   bump();
   state.applicationId = state.applicationId || newApplicationId(flow.code);
   state.callbackRequested = true;
-  await createQuoteForApplicationStep(flow, state, state.answers);
+  try {
+    await createQuoteForApplicationStep(flow, state, state.answers);
+  } catch (err) {
+    // Don't leave the buttons stuck on "Submitting…".
+    console.error("Quote creation failed:", err);
+    state.__paying = false;
+    bump();
+    return;
+  }
   const f = feeLines(flow, state.answers, state); // after the quote, so GST info is loaded
-  if (state.quoteId || state.companyId) {
+  // Put the call on the advisor's follow-up list (CRM → Follow-ups, and the
+  // Deal / Lead Follow-up tab) at the time the customer picked — on the
+  // application's Deal, or its Lead before a Deal exists.
+  if (request.preferredAt) {
+    const followUpDate = new Date(request.preferredAt).toISOString();
+    const pkg = state.answers.selectedPackage;
+    const remark = `Call back request — ${state.serviceType} (quote total ${rupee(f.total)})${pkg ? `. Interested package: ${pkg.name} (${rupee(pkg.price)})` : ""}${request.note ? `. Note: ${request.note}` : ""}`;
     try {
-      await createSupportTicket({
-        category: "callback",
-        subject: `Call back request — ${state.serviceType}`,
-        description: `Requested from the ${state.serviceType} application (quote total ${rupee(f.total)})${state.answers.selectedPackage ? `. Interested package: ${state.answers.selectedPackage.name} (${rupee(state.answers.selectedPackage.price)})` : ""}.`,
-        priority: "medium",
-        quoteId: state.quoteId,
-        ...(state.companyId ? { companyId: state.companyId } : {}),
-      });
+      if (state.dealId) await createDealFollowUp({ dealId: state.dealId, followUpDate, remark });
+      else if (state.leadContact?.leadId) await createLeadFollowUp({ leadId: state.leadContact.leadId, followUpDate, remark });
     } catch (err) {
-      console.error("Call back ticket failed (non-fatal):", err);
+      console.error("Call back follow-up scheduling failed (non-fatal):", err);
     }
   }
-  state.submitted = { id: state.applicationId, service: state.serviceType, date: today(), amount: rupee(f.total), callback: true };
+  state.submitted = {
+    id: state.applicationId, service: state.serviceType, date: today(), amount: rupee(f.total), callback: true,
+    callAt: request.preferredAt ? new Date(request.preferredAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "",
+  };
   state.__paying = false;
   state.stepIndex = allSteps(state.flowId, state.answers).length - 1;
   bump();
@@ -1533,6 +1596,8 @@ async function raiseAdvisorLead(state, A) {
       lead_source: `startbusiness-${state.flowId}`,
       ...(franchiseeId ? { franchiseeId } : {}),
       followup_remark: remark,
+      // The advisor's follow-up is due at the time the customer picked.
+      ...(A.ex_callbackAt ? { followup_date: new Date(A.ex_callbackAt).toISOString() } : {}),
     });
     state.advisorLeadId = res?.lead?.id || null;
   } catch (err) {
@@ -3393,6 +3458,64 @@ function PackagesBody({ A, state, bump, onPay, onCallback, onBack }) {
   );
 }
 
+// yyyy-mm-ddThh:mm for a datetime-local input, in local time.
+const toLocalInput = (d) => {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+/* ---------------------------------------------------------------------------
+   Call-back request form — preferred date & time (required, not in the past)
+   and an optional note. Submitting hands { preferredAt, note } to doCallback.
+--------------------------------------------------------------------------- */
+function CallbackRequestModal({ onClose, onSubmit }) {
+  const [preferredAt, setPreferredAt] = useState("");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+  const min = toLocalInput(new Date());
+
+  function submit() {
+    if (!preferredAt) return setError("Please choose a date and time for the call.");
+    if (new Date(preferredAt) <= new Date()) return setError("Please choose a date and time in the future.");
+    onSubmit({ preferredAt, note: note.trim() });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+        <button type="button" onClick={onClose} aria-label="Close"
+          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl leading-none">
+          &times;
+        </button>
+        <h3 className="text-lg font-semibold text-gray-900 mb-5">Tell us when to call you.</h3>
+
+        <label className="block text-sm font-medium text-gray-700 mb-1">Preferred date & time<span className="text-red-500">*</span></label>
+        <input type="datetime-local" min={min} value={preferredAt}
+          onChange={(e) => { setPreferredAt(e.target.value); setError(""); }}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+
+        <label className="block text-sm font-medium text-gray-700 mt-4 mb-1">Note (optional)</label>
+        <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)}
+          placeholder="Anything you'd like the advisor to know"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+
+        {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+
+        <div className="flex gap-3 mt-5">
+          <button type="button" onClick={onClose}
+            className="flex-1 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50">
+            Cancel
+          </button>
+          <button type="button" onClick={submit}
+            className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700">
+            📞 Submit Request
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
   useEffect(() => {
     if (!state.gstInfo) ensureGstInfo(state).then(bump).catch(() => {});
@@ -3485,13 +3608,14 @@ function SuccessScreen({ state, onExit, onComplete, nextLabel, onRetryPayment })
       <h1 className="text-2xl font-bold text-gray-900">{s.callback ? "Call Back Requested" : "Application Submitted Successfully"}</h1>
       <p className="text-gray-500 mt-2">
         {s.callback
-          ? "Thanks! Your application and quote are saved. One of our advisors will call you shortly to go over the quote and help you with payment."
+          ? `Thanks! Your application and quote are saved. One of our advisors will call you ${s.callAt ? `on ${s.callAt}` : "shortly"} to go over the quote and help you with payment.`
           : "Your application has been received and is being processed. We've emailed a confirmation with your next steps."}
       </p>
       <div className="text-left border border-gray-200 rounded-lg p-4 mt-5">
         <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span className="text-gray-500">Service</span><b>{s.service || state.serviceType}</b></div>
         <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span className="text-gray-500">Application ID</span><b className="font-mono">{s.id || ""}</b></div>
         <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span className="text-gray-500">Submission Date</span><b>{s.date || today()}</b></div>
+        {s.callAt && <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span className="text-gray-500">Call Back On</span><b>{s.callAt}</b></div>}
         <div className="flex justify-between text-sm py-2"><span className="text-gray-500">{s.callback ? "Quote Amount" : "Amount Paid"}</span><b>{s.amount || ""}</b></div>
       </div>
       {onComplete ? (

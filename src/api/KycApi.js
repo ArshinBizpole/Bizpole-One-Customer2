@@ -13,7 +13,7 @@ const call = async (path, body) => {
   }
 };
 
-// { pan, name?, dob? (yyyy-mm-dd) } → { valid, nameMatch, dobMatch, aadhaarLinked, … }
+// { pan, name?, dob? (yyyy-mm-dd) } → { valid, nameMatch, dobMatch, aadhaarLinked, passed, … }
 export const verifyPan = ({ pan, name, dob }) => call("/api/kyc/pan/verify", { pan, name, dob, consent: true });
 
 // Sends an OTP to the Aadhaar-linked mobile → { referenceId }
@@ -22,4 +22,8 @@ export const sendAadhaarOtp = (aadhaar) => call("/api/kyc/aadhaar/otp", { aadhaa
 // → { name, dob (yyyy-mm-dd), gender, address, district, state, pincode, photo }
 export const verifyAadhaarOtp = (referenceId, otp) => call("/api/kyc/aadhaar/verify", { referenceId, otp });
 
-export default { verifyPan, sendAadhaarOtp, verifyAadhaarOtp };
+// Whether this number already passed a check (no new check, no charge):
+// { pan, name, dob } or { aadhaar } → { verified, aadhaarLinked? }
+export const kycStatus = (body) => call("/api/kyc/status", body);
+
+export default { verifyPan, sendAadhaarOtp, verifyAadhaarOtp, kycStatus };
