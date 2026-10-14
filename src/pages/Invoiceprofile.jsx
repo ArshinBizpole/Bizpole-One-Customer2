@@ -17,6 +17,26 @@ import { ProfileCompanyContext } from './ProfileLayout';
 import useSelectedCompany from '../hooks/useSelectedCompany';
 import { useNavigate } from 'react-router-dom';
 
+const INVOICES_PER_PAGE = 10;
+
+// Remember the open tab and invoice page across a trip to the invoice preview
+// and back. The page is stored with its company so a company switch starts at 1.
+const INVOICE_VIEW_KEY = 'invoiceProfileView';
+const readInvoiceView = () => {
+  try {
+    return JSON.parse(window.sessionStorage.getItem(INVOICE_VIEW_KEY)) || {};
+  } catch {
+    return {};
+  }
+};
+const writeInvoiceView = (patch) => {
+  try {
+    window.sessionStorage.setItem(INVOICE_VIEW_KEY, JSON.stringify({ ...readInvoiceView(), ...patch }));
+  } catch {
+    // storage unavailable — the page just won't be remembered
+  }
+};
+
 // showRefundLink: set true when this page is rendered outside the Profile section
 // (e.g. the dashboard's "Billing and Invoice" tab), where a subtle way to reach
 // Refunds is needed since Refunds no longer has its own sidebar entry there.
@@ -28,13 +48,14 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
   const { selectedCompanyId: contextCompanyId } = useContext(ProfileCompanyContext) || {};
   const { companyId: dashboardCompanyId } = useSelectedCompany();
   const selectedCompanyId = contextCompanyId || dashboardCompanyId || getCompanyIdFromStorage();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(() => readInvoiceView().tab || 'overview');
   const [expandedFaq, setExpandedFaq] = useState(null);
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showFullInvoice, setShowFullInvoice] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const [stats, setStats] = useState({
     totalInvoices: 0,
     totalAmount: 0,
@@ -46,10 +67,20 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
   useEffect(() => {
     // Close the previous company's invoice panel on a company switch.
     setSelectedInvoice(null);
+    const saved = readInvoiceView();
+    setCurrentPage(saved.companyId === String(selectedCompanyId) ? saved.page || 1 : 1);
     if (selectedCompanyId) {
       fetchInvoices(selectedCompanyId);
     }
   }, [selectedCompanyId]);
+
+  useEffect(() => {
+    writeInvoiceView({ tab: activeTab });
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (selectedCompanyId) writeInvoiceView({ companyId: String(selectedCompanyId), page: currentPage });
+  }, [selectedCompanyId, currentPage]);
 
   // Sum the real GST/Advance/Total figures straight off an order's ServiceDetails line items —
   // Subtotal is derived later as Total minus this real GST amount (not computed independently),
@@ -267,6 +298,12 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
 
   const selectedInvoiceBreakdown = selectedInvoice ? getInvoiceBreakdown(selectedInvoice) : null;
 
+  // Client-side pagination over the already-loaded invoices, 10 per page.
+  const totalPages = Math.max(1, Math.ceil(invoices.length / INVOICES_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * INVOICES_PER_PAGE;
+  const pagedInvoices = invoices.slice(pageStart, pageStart + INVOICES_PER_PAGE);
+
   return (
     <div>
       <div className="mx-auto px-6 py-10">
@@ -410,7 +447,7 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
               className="flex items-start gap-6" style={{ alignItems: 'flex-start' }}
             >
               {/* Table */}
-              <div className={`border border-gray-200 rounded-xl overflow-hidden transition-all ${selectedInvoice ? 'w-full lg:flex-1' : 'w-full'}`}>
+              <div className={`border border-gray-200 rounded-xl overflow-clip transition-all ${selectedInvoice ? 'w-full lg:flex-1' : 'w-full'}`}>
                 {loading ? (
                   <div className="p-12 text-center">
                     <div className="inline-block w-8 h-8 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin mb-3"></div>
@@ -443,7 +480,7 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {invoices.map((invoice, index) => {
+                      {pagedInvoices.map((invoice, index) => {
                         const isSelected = selectedInvoice === invoice;
                         const status = invoice.InvoiceStatus || invoice.Status || 'Unknown';
                         return (
@@ -484,6 +521,41 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
                       })}
                     </tbody>
                   </table>
+                )}
+                {!loading && !error && invoices.length > INVOICES_PER_PAGE && (
+                  <div className="sticky bottom-0 z-10 bg-white flex items-center justify-between px-5 py-3 border-t border-gray-200">
+                    <span className="text-xs text-gray-500">
+                      Showing {pageStart + 1}–{Math.min(pageStart + INVOICES_PER_PAGE, invoices.length)} of {invoices.length}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setCurrentPage(safePage - 1)}
+                        disabled={safePage === 1}
+                        className="text-xs font-medium text-gray-700 border border-gray-300 rounded-md px-3 py-1.5 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                      >
+                        Previous
+                      </button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`text-xs font-medium rounded-md w-8 py-1.5 transition-colors ${page === safePage
+                            ? 'bg-yellow-400 text-gray-900'
+                            : 'text-gray-700 hover:bg-gray-50'
+                            }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setCurrentPage(safePage + 1)}
+                        disabled={safePage === totalPages}
+                        className="text-xs font-medium text-gray-700 border border-gray-300 rounded-md px-3 py-1.5 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
 

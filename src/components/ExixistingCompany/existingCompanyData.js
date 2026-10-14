@@ -992,7 +992,7 @@ export const FLOWS = {
 
       if (purpose === "I'm not sure") {
         s.push({ id: "advice", title: "Talk to an Advisor", fields: [
-          noteField(() => ({ variant: "info", title: "No problem — let's figure it out together.", body: "Share a few details and a business advisor will call you within one working day with a recommendation." }), { full: true }),
+          noteField(() => ({ variant: "info", title: "No problem — let's figure it out together.", body: "Share a few details and a business advisor will call you at the time you choose with a recommendation." }), { full: true }),
           textField("ex_name", "Existing Company Name", { full: true }),
           // Everything a Lead needs (name, mobile, email, state, language) —
           // state + language also pick the franchisee the Lead is routed to.
@@ -1002,6 +1002,8 @@ export const FLOWS = {
           pickField("ex_state", "State", STATES),
           pickField("ex_language", "Preferred Language", LEAD_LANGUAGES),
           areaField("ex_query", "What are you trying to achieve?", { full: true }),
+          // Becomes the Lead's follow-up time for the advisor (raiseAdvisorLead).
+          textField("ex_callbackAt", "Preferred call-back date & time", { type: "datetime-local" }),
         ] });
         return s;
       }

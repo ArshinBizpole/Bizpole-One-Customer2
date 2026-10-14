@@ -72,3 +72,12 @@ export const removeApplicationDocument = async ({ leadId, companyId, docLabel })
   const res = await axiosInstance.post("/lead-generation/application-document/remove", leadId ? { leadId, docLabel } : { companyId, docLabel });
   return res.data;
 };
+
+/**
+ * List the Documents-step files uploaded in the application flows for a company.
+ * @param {Object} params - { companyId }
+ */
+export const listApplicationDocuments = async ({ companyId }) => {
+  const res = await axiosInstance.post("/lead-generation/application-document/list", { companyId });
+  return res.data;
+};
