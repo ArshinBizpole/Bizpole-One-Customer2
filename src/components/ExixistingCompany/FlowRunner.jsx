@@ -459,7 +459,7 @@ function validateStep(step, A, state) {
   } else if (step.type === "namecheck") {
     if (!nameCheckIsCurrent(A, state)) errors.__namecheck = "Check name availability to continue";
   } else if (step.type === "objective") {
-    if (A.br_objectiveAccepted !== "Yes") errors.br_objective = "Please review and accept the business objective to continue";
+    if (!String(A.br_objective || "").trim()) errors.br_objective = "Please enter the business objective to continue";
     if (!A.br_nicCode) errors.br_nicCode = "Select a NIC code to continue";
   } else if (step.type === "tmMarks") {
     if (!Array.isArray(A.tm_marks) || !A.tm_marks.length) errors.__marks = "Add at least one mark to register";
@@ -650,6 +650,10 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
   // "Request a Call" (Packages) / "Request a Call Back" (Payment) open this
   // form for the preferred call-back date & time before anything is submitted.
   const [callbackFormOpen, setCallbackFormOpen] = useState(false);
+  // A call-back already submitted for this application: clicking Request a
+  // Call again only tells the customer so — it never raises a second one.
+  const [callbackNoticeOpen, setCallbackNoticeOpen] = useState(false);
+  const openCallback = () => (state.callbackDone ? setCallbackNoticeOpen(true) : setCallbackFormOpen(true));
   // Every "State" pick field (business address, GST location, existing-GST
   // state) falls back to the static STATES list, but that list is only ever
   // as complete/correctly-spelled as we remember to keep it — a name that
@@ -1174,8 +1178,8 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
             {step.type === "goToChange" && <GoToChangeBody onExit={onExit} />}
             {step.type === "review" && directMode && <ChangeReviewBody A={A} state={state} current={changeCurrent?.data} errors={errorsRef.current} onConfirm={(v) => { state.confirmed = v; bump(); }} onJump={jumpTo} steps={steps} />}
             {step.type === "review" && !directMode && <ReviewBody flowId={flowId} A={A} state={state} errors={errorsRef.current} onConfirm={(v) => { state.confirmed = v; bump(); }} onJump={jumpTo} />}
-            {step.type === "packages" && <PackagesBody A={A} state={state} bump={bump} onPay={goNext} onCallback={() => withSignIn(() => setCallbackFormOpen(true))} onBack={goBack} />}
-            {step.type === "payment" && <PaymentBody flow={flow} A={A} state={state} bump={bump} onPay={() => withSignIn(() => doPay(flow, state, bump))} onCallback={() => withSignIn(() => setCallbackFormOpen(true))} onBack={goBack} />}
+            {step.type === "packages" && <PackagesBody A={A} state={state} bump={bump} onPay={goNext} onCallback={() => withSignIn(openCallback)} onBack={goBack} />}
+            {step.type === "payment" && <PaymentBody flow={flow} A={A} state={state} bump={bump} onPay={() => withSignIn(() => doPay(flow, state, bump))} onCallback={() => withSignIn(openCallback)} onBack={goBack} />}
             {callbackFormOpen && (
               <CallbackRequestModal
                 onClose={() => setCallbackFormOpen(false)}
@@ -1184,6 +1188,9 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
                   doCallback(flow, state, bump, request);
                 }}
               />
+            )}
+            {callbackNoticeOpen && (
+              <CallbackAlreadyRequestedModal callAt={state.callbackDone?.callAt} onClose={() => setCallbackNoticeOpen(false)} />
             )}
             {step.type === "owners" && <OwnersBody A={A} state={state} errors={errorsRef.current} bump={bump} />}
             {step.type === "docs" && <DocsBody step={step} A={A} state={state} errors={errorsRef.current} bump={bump} />}
@@ -1485,6 +1492,7 @@ async function doCallback(flow, state, bump, request = {}) {
   } catch (err) {
     // Don't leave the buttons stuck on "Submitting…".
     console.error("Quote creation failed:", err);
+    state.callbackRequested = false; // nothing was submitted — they may try again
     state.__paying = false;
     bump();
     return;
@@ -1494,12 +1502,15 @@ async function doCallback(flow, state, bump, request = {}) {
   // Deal / Lead Follow-up tab) at the time the customer picked — on the
   // application's Deal, or its Lead before a Deal exists.
   if (request.preferredAt) {
-    const followUpDate = new Date(request.preferredAt).toISOString();
+    // datetime-local gives "YYYY-MM-DDTHH:MM" in the customer's own time: the
+    // date goes in followup_date (a DATE), the time in followup_time.
+    const [followUpDate, followUpTime] = String(request.preferredAt).split("T");
     const pkg = state.answers.selectedPackage;
-    const remark = `Call back request — ${state.serviceType} (quote total ${rupee(f.total)})${pkg ? `. Interested package: ${pkg.name} (${rupee(pkg.price)})` : ""}${request.note ? `. Note: ${request.note}` : ""}`;
+    const callAt = new Date(request.preferredAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+    const remark = `Call back request — ${state.serviceType}. Call at ${callAt} (quote total ${rupee(f.total)})${pkg ? `. Interested package: ${pkg.name} (${rupee(pkg.price)})` : ""}${request.note ? `. Note: ${request.note}` : ""}`;
     try {
-      if (state.dealId) await createDealFollowUp({ dealId: state.dealId, followUpDate, remark });
-      else if (state.leadContact?.leadId) await createLeadFollowUp({ leadId: state.leadContact.leadId, followUpDate, remark });
+      if (state.dealId) await createDealFollowUp({ dealId: state.dealId, followUpDate, followUpTime, remark });
+      else if (state.leadContact?.leadId) await createLeadFollowUp({ leadId: state.leadContact.leadId, followUpDate, followUpTime, remark });
     } catch (err) {
       console.error("Call back follow-up scheduling failed (non-fatal):", err);
     }
@@ -1508,6 +1519,9 @@ async function doCallback(flow, state, bump, request = {}) {
     id: state.applicationId, service: state.serviceType, date: today(), amount: rupee(f.total), callback: true,
     callAt: request.preferredAt ? new Date(request.preferredAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "",
   };
+  // Saved with the application, so a second click (even after a reload) only
+  // says it's already been requested.
+  state.callbackDone = { callAt: state.submitted.callAt };
   state.__paying = false;
   state.stepIndex = allSteps(state.flowId, state.answers).length - 1;
   bump();
@@ -1584,7 +1598,8 @@ async function raiseAdvisorLead(state, A) {
   } catch (err) {
     console.warn("Franchisee assignment failed (non-fatal, lead still created):", err);
   }
-  const remark = `Talk to an Advisor — ${String(A.ex_name || "").trim()}\nWants to: ${String(A.ex_query || "").trim()}`;
+  const callAt = A.ex_callbackAt ? `\nCall at: ${new Date(A.ex_callbackAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}` : "";
+  const remark = `Talk to an Advisor — ${String(A.ex_name || "").trim()}\nWants to: ${String(A.ex_query || "").trim()}${callAt}`;
   try {
     const res = await createLead({
       name: String(A.ex_contact || "").trim(),
@@ -1597,7 +1612,8 @@ async function raiseAdvisorLead(state, A) {
       ...(franchiseeId ? { franchiseeId } : {}),
       followup_remark: remark,
       // The advisor's follow-up is due at the time the customer picked.
-      ...(A.ex_callbackAt ? { followup_date: new Date(A.ex_callbackAt).toISOString() } : {}),
+      // "YYYY-MM-DDTHH:MM" in the customer's time → date + time of the follow-up.
+      ...(A.ex_callbackAt ? { followup_date: String(A.ex_callbackAt).split("T")[0], followup_time: String(A.ex_callbackAt).split("T")[1] } : {}),
     });
     state.advisorLeadId = res?.lead?.id || null;
   } catch (err) {
@@ -2876,7 +2892,6 @@ function NameCheckBody({ A, state, errors, setAnswer, bump }) {
 function ObjectiveBody({ A, errors, setAnswer }) {
   if (!A.activityDesc) return <Note variant="warn" body="Go back and describe your business activity first — we'll turn it into a professional objective here." />;
   if (!A.br_objective) A.br_objective = generateBusinessObjective(A);
-  const accepted = A.br_objectiveAccepted === "Yes";
   const list = suggestedNicCodes(A);
   if (!A.br_nicCode && list.length) A.br_nicCode = list[0].code;
   return (
@@ -2886,10 +2901,6 @@ function ObjectiveBody({ A, errors, setAnswer }) {
       <textarea rows={4} className={inputCls()} value={A.br_objective} onChange={(e) => setAnswer("br_objective", e.target.value)} />
       <div className="flex gap-2 flex-wrap mt-2">
         <button type="button" onClick={() => setAnswer("br_objective", generateBusinessObjective(A))} className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-semibold">✨ Rephrase Again</button>
-        <button type="button" onClick={() => setAnswer("br_objectiveAccepted", accepted ? "No" : "Yes")}
-          className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${accepted ? "bg-blue-50 text-blue-700" : "bg-blue-600 text-white"}`}>
-          ✓ {accepted ? "Objective Accepted" : "Accept Objective"}
-        </button>
       </div>
       <ErrorText msg={errors.br_objective} />
       <div className="font-semibold text-sm text-gray-800 mt-5">Suggested NIC Code</div>
@@ -3249,7 +3260,7 @@ function reviewRows(flowId, A, state) {
       rows.push(["Proposed name", A.nc_target || "—"]);
       rows.push(["Availability status", statusLabel]);
     } else if (s.type === "objective") {
-      rows.push(["Business objective", A.br_objectiveAccepted === "Yes" ? (A.br_objective || "—") : "Not yet accepted"]);
+      rows.push(["Business objective", A.br_objective || "—"]);
       rows.push(["NIC Code", A.br_nicCode || "Not selected"]);
     } else if (s.type === "docs") {
       const items = docItems(s, A, state);
@@ -3468,11 +3479,66 @@ const toLocalInput = (d) => {
    Call-back request form — preferred date & time (required, not in the past)
    and an optional note. Submitting hands { preferredAt, note } to doCallback.
 --------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   Shown instead of the form when this application's call-back was already
+   submitted.
+--------------------------------------------------------------------------- */
+function CallbackAlreadyRequestedModal({ callAt, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6 text-center">
+        <button type="button" onClick={onClose} aria-label="Close"
+          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl leading-none">
+          &times;
+        </button>
+        <div className="text-3xl mb-2">📞</div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-1">Call back already requested</h3>
+        <p className="text-sm text-gray-600">
+          You've already submitted a call-back request for this application.
+          {callAt ? <> Our advisor will call you on <b>{callAt}</b>.</> : " Our advisor will call you shortly."}
+        </p>
+        <button type="button" onClick={onClose}
+          className="mt-5 w-full py-2.5 rounded-lg bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold text-sm">
+          OK
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function CallbackRequestModal({ onClose, onSubmit }) {
   const [preferredAt, setPreferredAt] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
-  const min = toLocalInput(new Date());
+  const now = new Date();
+  const selected = preferredAt ? new Date(preferredAt) : null;
+  const [viewMonth, setViewMonth] = useState(() => selected ? new Date(selected.getFullYear(), selected.getMonth(), 1) : new Date(now.getFullYear(), now.getMonth(), 1));
+  const [pickerOpen, setPickerOpen] = useState(true);
+  const monthStart = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
+  const daysInMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0).getDate();
+  const firstWeekday = monthStart.getDay();
+  const hour24 = selected?.getHours() ?? (now.getHours() % 12 || 12);
+  const hour12 = hour24 % 12 || 12;
+  const minute = selected?.getMinutes() ?? now.getMinutes();
+  const period = hour24 >= 12 ? "PM" : "AM";
+
+  function updateTime({ hour = hour12, minute: nextMinute = minute, period: nextPeriod = period } = {}) {
+    const date = selected || new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0);
+    let h = Number(hour) % 12;
+    if (nextPeriod === "PM") h += 12;
+    date.setHours(h, Number(nextMinute), 0, 0);
+    setPreferredAt(toLocalInput(date));
+    setError("");
+  }
+
+  function chooseDate(day) {
+    const date = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), day, selected?.getHours() ?? now.getHours(), selected?.getMinutes() ?? now.getMinutes());
+    if (date < now) return;
+    setPreferredAt(toLocalInput(date));
+    setError("");
+  }
+
+  const dateLabel = selected ? `${String(selected.getDate()).padStart(2, "0")}-${String(selected.getMonth() + 1).padStart(2, "0")}-${selected.getFullYear()} ${String(hour12).padStart(2, "0")}:${String(minute).padStart(2, "0")} ${period}` : "Select date and time";
 
   function submit() {
     if (!preferredAt) return setError("Please choose a date and time for the call.");
@@ -3482,33 +3548,59 @@ function CallbackRequestModal({ onClose, onSubmit }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+      <div className="relative bg-white rounded-xl shadow-xl w-full max-w-2xl p-5 sm:p-6">
         <button type="button" onClick={onClose} aria-label="Close"
-          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl leading-none">
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl leading-none">
           &times;
         </button>
-        <h3 className="text-lg font-semibold text-gray-900 mb-5">Tell us when to call you.</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Tell us when to call you.</h3>
+        <label className="block text-xs font-medium text-gray-700 mb-1">Preferred date &amp; time<span className="text-red-500">*</span></label>
+        <button type="button" onClick={() => setPickerOpen(!pickerOpen)} className="w-full flex items-center justify-between border border-gray-300 rounded-[11px] px-3 py-2 text-sm text-left hover:border-blue-400">
+          <span className={selected ? "text-gray-900" : "text-gray-400"}>{dateLabel}</span><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="shrink-0">
+            <path d="M4.06331 3.39665V0.72998M9.39665 3.39665V0.72998M3.39665 6.06331H10.0633M2.06331 12.73H11.3966C12.1325 12.73 12.73 12.1325 12.73 11.3966V3.39665C12.73 2.66076 12.1325 2.06331 11.3966 2.06331H2.06331C1.32743 2.06331 0.72998 2.66076 0.72998 3.39665V11.3966C0.72998 12.1325 1.32743 12.73 2.06331 12.73L4.06331 3.39665" stroke="#F3C625" strokeWidth="1.45957" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
 
-        <label className="block text-sm font-medium text-gray-700 mb-1">Preferred date & time<span className="text-red-500">*</span></label>
-        <input type="datetime-local" min={min} value={preferredAt}
-          onChange={(e) => { setPreferredAt(e.target.value); setError(""); }}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+        {pickerOpen && <div className="mt-3 grid grid-cols-1 sm:grid-cols-[1fr_1.12fr] gap-3 rounded-xl border border-gray-100 p-3">
+          <div className="min-w-0">
+            <div className="flex items-center justify-between mb-2">
+              <button type="button" aria-label="Previous month" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))} className="px-2 text-gray-500 hover:text-gray-900">‹</button>
+              <span className="text-xs font-semibold">{viewMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</span>
+              <button type="button" aria-label="Next month" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))} className="px-2 text-gray-500 hover:text-gray-900">›</button>
+            </div>
+            <div className="grid grid-cols-7 text-center text-[9px] text-gray-400 mb-1">{"Su Mo Tu We Th Fr Sa".split(" ").map((d) => <span key={d}>{d}</span>)}</div>
+            <div className="grid grid-cols-7 gap-y-1 text-center">{Array.from({ length: firstWeekday + daysInMonth }, (_, i) => {
+              const day = i - firstWeekday + 1;
+              if (day < 1) return <span key={`blank-${i}`} />;
+              const date = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), day);
+              const disabled = date < new Date(now.getFullYear(), now.getMonth(), now.getDate());
+              const isSelected = selected && selected.getFullYear() === date.getFullYear() && selected.getMonth() === date.getMonth() && selected.getDate() === day;
+              const isToday = now.getFullYear() === date.getFullYear() && now.getMonth() === date.getMonth() && now.getDate() === day;
+              return <button key={day} type="button" disabled={disabled} onClick={() => chooseDate(day)} className={`mx-auto h-6 w-6 rounded-full text-[10px] ${isSelected ? "bg-amber-400 text-gray-900 font-bold" : isToday ? "bg-amber-100 text-gray-800" : "text-gray-700 hover:bg-gray-100"} disabled:text-gray-300`}>{day}</button>;
+            })}</div>
+            <div className="flex justify-between mt-2 text-[10px]"><button type="button" onClick={() => { setViewMonth(new Date(now.getFullYear(), now.getMonth(), 1)); chooseDate(now.getDate()); }} className="rounded-full bg-amber-100 px-3 py-1 text-gray-700">Today</button><button type="button" onClick={() => { setPreferredAt(""); setError(""); }} className="text-gray-500 hover:text-gray-800">Clear</button></div>
+          </div>
+          <div className="grid grid-cols-3 gap-2 min-h-[190px]">
+            {[Array.from({ length: 12 }, (_, i) => i + 1), Array.from({ length: 60 }, (_, i) => i), ["AM", "PM"]].map((options, col) => <div key={col} className="max-h-[190px] overflow-y-auto rounded-lg bg-gray-50 p-1 space-y-0.5">{options.map((option) => {
+              const active = col === 0 ? Number(option) === hour12 : col === 1 ? Number(option) === minute : option === period;
+              return <button key={option} type="button" onClick={() => updateTime(col === 0 ? { hour: option } : col === 1 ? { minute: option } : { period: option })} className={`w-full rounded px-1 py-1 text-[10px] ${active ? "bg-amber-300 font-semibold text-gray-900" : "text-gray-600 hover:bg-white"}`}>{col === 1 ? String(option).padStart(2, "0") : option}</button>;
+            })}</div>)}
+          </div>
+        </div>}
 
-        <label className="block text-sm font-medium text-gray-700 mt-4 mb-1">Note (optional)</label>
-        <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)}
-          placeholder="Anything you'd like the advisor to know"
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+        <label className="block text-xs font-medium text-gray-700 mt-3 mb-1">Note (optional)</label>
+        <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything you'd like the advisor to know" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
 
         {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
 
-        <div className="flex gap-3 mt-5">
+        <div className="flex gap-3 mt-4">
           <button type="button" onClick={onClose}
             className="flex-1 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50">
             Cancel
           </button>
           <button type="button" onClick={submit}
             className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700">
-            📞 Submit Request
+            Submit Request
           </button>
         </div>
       </div>
