@@ -163,6 +163,11 @@ const SupportTickets = () => {
     setCheckingQuote(false);
   };
 
+  // Follow-up remark for the Lead/Deal. The "Call back request" prefix is what
+  // the customer's Calendar (/website/my-callbacks) recognises as theirs.
+  const callbackRemark = () =>
+    `Call back request — ${selectedService?.name || "New service"}${callbackForm.preferredDateTime ? `. Call at ${new Date(callbackForm.preferredDateTime).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}` : ""}${callbackForm.note.trim() ? `. Note: ${callbackForm.note.trim()}` : ""}`;
+
   const formatCallbackNote = () => {
     const parts = [];
     if (callbackForm.preferredDateTime) {
@@ -224,8 +229,9 @@ const SupportTickets = () => {
         try {
           await createLeadFollowUp({
             leadId,
-            followUpDate: new Date(callbackForm.preferredDateTime).toISOString(),
-            remark: callbackForm.note,
+            followUpDate: String(callbackForm.preferredDateTime).split("T")[0],
+            followUpTime: String(callbackForm.preferredDateTime).split("T")[1],
+            remark: callbackRemark(),
           });
         } catch (fuErr) {
           console.error("Lead follow-up scheduling failed (non-fatal):", fuErr);
@@ -319,8 +325,9 @@ const SupportTickets = () => {
         try {
           await createDealFollowUp({
             dealId,
-            followUpDate: new Date(callbackForm.preferredDateTime).toISOString(),
-            remark: callbackForm.note,
+            followUpDate: String(callbackForm.preferredDateTime).split("T")[0],
+            followUpTime: String(callbackForm.preferredDateTime).split("T")[1],
+            remark: callbackRemark(),
           });
         } catch (fuErr) {
           console.error("Deal follow-up scheduling failed (non-fatal):", fuErr);
