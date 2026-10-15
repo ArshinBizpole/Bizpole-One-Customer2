@@ -106,6 +106,10 @@ function App() {
     // "/existing-companies",
     "/associate",
     "/dashboard",
+
+    "/partner-privacy-policy",
+    "/partner-terms-and-conditions",
+    "/partner-referral-conduct-policy",
   ];
 
   const hideLayout = hideLayoutPaths.some((path) =>
