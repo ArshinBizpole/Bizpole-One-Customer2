@@ -30,12 +30,12 @@ const BizpoleOneDashboardLayout = () => {
     location.pathname.startsWith("/dashboard/bizpoleone/individual");
 
   return (
-    <div className="flex flex-col md:flex-row bg-gray-50 max-h-[100vh] min-h-[89]">
+    <div className="flex flex-col md:flex-row bg-gray-50 h-full min-h-0">
       {/* Sidebar */}
       <motion.aside
         animate={{ width: isCollapsed ? "80px" : "260px" }}
         transition={{ type: "spring", stiffness: 200, damping: 20 }}
-        className="bg-white flex flex-col justify-between shadow-sm relative min-h-[60px] md:min-h-screen w-full md:w-auto"
+        className="bg-white flex flex-col justify-between shadow-sm relative min-h-[60px] md:h-full w-full md:w-auto"
       >
         {/* Collapse Button (hide on mobile) */}
         <button
@@ -45,8 +45,9 @@ const BizpoleOneDashboardLayout = () => {
           {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
         </button>
 
-        {/* Sidebar Top */}
-        <div className="p-4 flex-1">
+        {/* Sidebar Top — scrolls on its own if the menu is taller than the
+            screen (kept off the aside so the collapse button isn't clipped) */}
+        <div className="p-4 flex-1 min-h-0 overflow-y-auto">
           <nav>
             <ul className="space-y-2">
               {/* Dashboard */}
@@ -266,7 +267,7 @@ const BizpoleOneDashboardLayout = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5 }}
-        className="flex-1 p-6 overflow-y-auto"
+        className="flex-1 min-h-0 p-6 overflow-y-auto"
       >
         <Outlet />
       </motion.main>

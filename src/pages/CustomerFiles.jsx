@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CustomerDocApi from '../api/CustomerDocApi';
+import { listApplicationDocuments } from '../api/LeadApi';
 import { getSecureItem } from "../utils/secureStorage";
 import { ProfileCompanyContext } from './ProfileLayout';
 
@@ -28,6 +29,10 @@ const fileTypes = [
   },
 ];
 
+// Per-person upload labels from the Start New Company Owners step
+// (existingCompanyData.js docStep groupedItems), e.g. "PAN – Ravi Kumar".
+const DIRECTOR_DOC_PREFIXES = ['PAN – ', 'Aadhaar / ID Proof – ', 'Photograph – ', 'Address Proof – ', 'Nominee ID Proof – '];
+
 const CustomerFiles = () => {
   const { selectedCompanyId } = useContext(ProfileCompanyContext);
   const [files, setFiles] = useState({ PAN: null, ADHAAR: null, PassportPhoto: null });
@@ -44,6 +49,12 @@ const CustomerFiles = () => {
   const [isUploading, setIsUploading] = useState({ PAN: false, ADHAAR: false, PassportPhoto: false });
   const [modalLoading, setModalLoading] = useState(false);
   const [loadingDocs, setLoadingDocs] = useState(true);
+  // Cards filled from an application upload (a file URL, not stored Base64).
+  const [applicationPersonalDocs, setApplicationPersonalDocs] = useState({ PAN: null, ADHAAR: null, PassportPhoto: null });
+  // Other personal files from applications (e.g. Address Proof), and every
+  // { companyId, docLabel } the server counted as this customer's own.
+  const [personalOtherDocs, setPersonalOtherDocs] = useState([]);
+  const [ownApplicationLabels, setOwnApplicationLabels] = useState([]);
 
   const inputRefs = {
     PAN: useRef(),
@@ -143,24 +154,48 @@ const CustomerFiles = () => {
         setUploadedDocs({ PAN: false, ADHAAR: false, PassportPhoto: false });
         setUploadedDocData({ PAN: '', ADHAAR: '', PassportPhoto: '' });
 
+        setApplicationPersonalDocs({ PAN: null, ADHAAR: null, PassportPhoto: null });
+        setPersonalOtherDocs([]);
+        setOwnApplicationLabels([]);
+
         const customerId = getUserData().FirstName;
-        const documents = await CustomerDocApi.getUploadedDocuments(customerId);
+        const [documents, applicationDocs] = await Promise.all([
+          CustomerDocApi.getUploadedDocuments(customerId).catch((error) => {
+            console.error('Error checking uploaded documents:', error);
+            return {};
+          }),
+          CustomerDocApi.getApplicationPersonalDocuments(),
+        ]);
         console.log('Fetched documents:', documents);
 
+        // A file uploaded here wins; the customer's own file from a Start New
+        // Company / Existing Company application only fills an empty card.
+        const fromApplication = {};
+        ['PAN', 'ADHAAR', 'PassportPhoto'].forEach((type) => {
+          if (!documents[type] && applicationDocs[type]?.url) fromApplication[type] = applicationDocs[type];
+        });
+
         const uploadedState = {
-          PAN: !!documents.PAN,
-          ADHAAR: !!documents.ADHAAR,
-          PassportPhoto: !!documents.PassportPhoto
+          PAN: !!(documents.PAN || fromApplication.PAN),
+          ADHAAR: !!(documents.ADHAAR || fromApplication.ADHAAR),
+          PassportPhoto: !!(documents.PassportPhoto || fromApplication.PassportPhoto)
         };
 
         const uploadedData = {
-          PAN: documents.PAN || '',
-          ADHAAR: documents.ADHAAR || '',
-          PassportPhoto: documents.PassportPhoto || ''
+          PAN: documents.PAN || fromApplication.PAN?.url || '',
+          ADHAAR: documents.ADHAAR || fromApplication.ADHAAR?.url || '',
+          PassportPhoto: documents.PassportPhoto || fromApplication.PassportPhoto?.url || ''
         };
 
         setUploadedDocs(uploadedState);
         setUploadedDocData(uploadedData);
+        setApplicationPersonalDocs({
+          PAN: fromApplication.PAN || null,
+          ADHAAR: fromApplication.ADHAAR || null,
+          PassportPhoto: fromApplication.PassportPhoto || null,
+        });
+        setPersonalOtherDocs(Array.isArray(applicationDocs.others) ? applicationDocs.others : []);
+        setOwnApplicationLabels(Array.isArray(applicationDocs.ownLabels) ? applicationDocs.ownLabels : []);
       } catch (error) {
         console.error('Error checking uploaded documents:', error);
         setUploadedDocs({ PAN: false, ADHAAR: false, PassportPhoto: false });
@@ -172,6 +207,85 @@ const CustomerFiles = () => {
 
     checkUploadedDocuments();
   }, [selectedCompanyId]);
+
+  // Files uploaded in the Start New Company / Existing Company flows live in
+  // application_documents (keyed by CompanyID), not CustomerProfileDocuments.
+  const [applicationDocs, setApplicationDocs] = useState([]);
+  const [loadingApplicationDocs, setLoadingApplicationDocs] = useState(false);
+
+  useEffect(() => {
+    if (!selectedCompanyId) {
+      setApplicationDocs([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingApplicationDocs(true);
+    listApplicationDocuments({ companyId: selectedCompanyId })
+      .then((res) => {
+        if (cancelled) return;
+        const docs = Array.isArray(res?.data) ? res.data : [];
+        // Most recently uploaded first, then one card per document name — the
+        // latest upload wins when the same name was uploaded more than once.
+        docs.sort((a, b) => (new Date(b.UploadedAt).getTime() || 0) - (new Date(a.UploadedAt).getTime() || 0));
+        const seen = new Set();
+        const latestPerName = docs.filter((doc) => {
+          const name = String(doc.DocLabel || '').trim().toLowerCase();
+          if (seen.has(name)) return false;
+          seen.add(name);
+          return true;
+        });
+        setApplicationDocs(latestPerName);
+      })
+      .catch((err) => {
+        console.error('Error fetching application documents:', err);
+        if (!cancelled) setApplicationDocs([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingApplicationDocs(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCompanyId]);
+
+  const formatUploadDate = (value) => {
+    const date = value ? new Date(value) : null;
+    if (!date || isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  // Selected company's application files, minus the ones counted as this
+  // customer's own (shown under Personal Documents), split into the company's
+  // documents and other directors' / partners' per-person files ("PAN – Name").
+  const ownLabelKeys = new Set(ownApplicationLabels.map((l) => `${l.companyId}|${l.docLabel}`));
+  const companyApplicationDocs = applicationDocs.filter((doc) => !ownLabelKeys.has(`${doc.CompanyID}|${doc.DocLabel}`));
+  const isPersonLabel = (label) => DIRECTOR_DOC_PREFIXES.some((prefix) => String(label || '').startsWith(prefix));
+  const companyOnlyDocs = companyApplicationDocs.filter((doc) => !isPersonLabel(doc.DocLabel));
+  const directorDocs = companyApplicationDocs.filter((doc) => isPersonLabel(doc.DocLabel));
+
+  const renderApplicationDocCard = ({ key, title, fileName, uploadedAt, url }) => (
+    <div key={key} className="bg-white rounded-lg border border-yellow-200 overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-200">
+        <h3 className="text-base font-semibold text-gray-900 break-words">{title}</h3>
+      </div>
+      <div className="p-4 flex flex-col items-center text-center">
+        <p className="text-sm font-medium text-gray-900">{title} Uploaded</p>
+        <p className="text-xs text-gray-500 mt-1 mb-3 max-w-full truncate" title={fileName || ''}>
+          {fileName || '-'} · {formatUploadDate(uploadedAt)}
+        </p>
+        {url && (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-28 px-2 py-1.5 text-sm font-medium text-center text-yellow-600 bg-white border border-yellow-600 rounded-md hover:bg-yellow-50"
+          >
+            View
+          </a>
+        )}
+      </div>
+    </div>
+  );
 
   // Upload flow functions
   const handleFileChange = (type, e) => {
@@ -289,6 +403,8 @@ const CustomerFiles = () => {
       setUploadStatus(prev => ({ ...prev, [type]: 'Uploaded successfully!' }));
       setUploadProgress(prev => ({ ...prev, [type]: 100 }));
       setUploadedDocs(prev => ({ ...prev, [type]: true }));
+      // The card now shows the file uploaded here, not the application one.
+      setApplicationPersonalDocs(prev => ({ ...prev, [type]: null }));
 
       // Store the preview as uploaded data
       setUploadedDocData(prev => ({ ...prev, [type]: previews[type] }));
@@ -318,6 +434,13 @@ const CustomerFiles = () => {
 
   // Preview uploaded doc from stored Base64 data
   const handlePreviewUploaded = (type) => {
+    // An application upload can be a PDF or other file the image preview can't
+    // show — open those in a new tab instead.
+    const applicationDoc = applicationPersonalDocs[type];
+    if (applicationDoc && !/\.(png|jpe?g|gif|webp|bmp)$/i.test(applicationDoc.fileName || applicationDoc.url)) {
+      window.open(applicationDoc.url, '_blank', 'noopener,noreferrer');
+      return;
+    }
     if (uploadedDocData[type]) {
       setModalUrl(uploadedDocData[type]);
       setModalType(type);
@@ -432,6 +555,10 @@ const CustomerFiles = () => {
           <h1 className="text-2xl font-semibold text-gray-900 mb-2">Document Upload</h1>
         </div>
 
+        {/* Personal Documents — the customer's own; the same for every company */}
+        <h3 className="text-lg font-semibold text-gray-900">Personal Documents</h3>
+        <p className="text-sm text-gray-600 mt-1 mb-4">Your own documents — the same for all your companies</p>
+
         {/* Document Cards */}
         <motion.div
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
@@ -507,6 +634,71 @@ const CustomerFiles = () => {
             </motion.div>
           ))}
         </motion.div>
+
+        {/* Other personal files from applications (e.g. Address Proof) */}
+        {!loadingDocs && personalOtherDocs.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            {personalOtherDocs.map((doc) =>
+              renderApplicationDocCard({
+                key: doc.label,
+                title: doc.label,
+                fileName: doc.fileName,
+                uploadedAt: doc.uploadedAt,
+                url: doc.url,
+              })
+            )}
+          </div>
+        )}
+
+        {/* Company Documents — only the company selected in the header dropdown */}
+        <div className="mt-12">
+          <h3 className="text-lg font-semibold text-gray-900">Company Documents</h3>
+          <p className="text-sm text-gray-600 mt-1 mb-4">Documents uploaded while applying for a service for this company</p>
+          {loadingApplicationDocs || loadingDocs ? (
+            <div className="flex items-center justify-center h-20">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-600"></div>
+            </div>
+          ) : companyApplicationDocs.length === 0 ? (
+            <div className="bg-white rounded-lg border border-yellow-200 px-6 py-8 text-sm text-gray-500 text-center">
+              No company documents uploaded from your applications yet.
+            </div>
+          ) : (
+            <>
+              {companyOnlyDocs.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {companyOnlyDocs.map((doc) =>
+                    renderApplicationDocCard({
+                      key: doc.ID,
+                      title: doc.DocLabel,
+                      fileName: doc.FileName,
+                      uploadedAt: doc.UploadedAt,
+                      url: doc.FileURL,
+                    })
+                  )}
+                </div>
+              )}
+              {directorDocs.length > 0 && (
+                <>
+                  <h4 className={`text-base font-semibold text-gray-900 mb-3 ${companyOnlyDocs.length > 0 ? 'mt-8' : ''}`}>
+                    Directors / Partners
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {directorDocs.map((doc) =>
+                      renderApplicationDocCard({
+                        key: doc.ID,
+                        title: doc.DocLabel,
+                        fileName: doc.FileName,
+                        uploadedAt: doc.UploadedAt,
+                        url: doc.FileURL,
+                      })
+                    )}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </div>
+
         {/* Upload Guidelines */}
         <div className="mt-12 bg-white rounded-lg border border-yellow-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Guidelines</h3>

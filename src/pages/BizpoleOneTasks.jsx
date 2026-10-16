@@ -123,6 +123,9 @@ export default function ServiceSelection() {
   const [loadingCompanyServices, setLoadingCompanyServices] = useState(false);
   const [companyServicesError, setCompanyServicesError] = useState(null);
   const [responseFields, setResponseFields] = useState([]);
+  // Why the Todo Task list is empty when the service has forms, but none for
+  // this company's constitution (see the formConfig effect).
+  const [constitutionNotice, setConstitutionNotice] = useState("");
   const [responseFieldsLoading, setResponseFieldsLoading] = useState(false);
   const [serviceFormFullMapping, setServiceFormFullMapping] = useState(null);
   const [selectedService, setSelectedService] = useState(navService || null);
@@ -245,8 +248,11 @@ export default function ServiceSelection() {
           });
           setTasksFromApi(data || []);
 
-          // Fetch approval status
-          const respFields = await getResponseFieldsBySerId(selectedService.ServiceID);
+          // Fetch approval status — only possible when the order line is linked
+          // to a catalog service (a line without a ServiceID has no forms).
+          const respFields = selectedService.ServiceID
+            ? await getResponseFieldsBySerId(selectedService.ServiceID)
+            : null;
 
           if (!respFields?.results || respFields.results.length === 0) {
             setApprovalStatus("No Records Found");
@@ -425,14 +431,38 @@ export default function ServiceSelection() {
     }
   }, [activeTab, selectedService]);
 
-  // Fetch formConfig
+  // Fetch formConfig — only the forms mapped for this company's constitution
+  // (business type). Same rule as the admin checklist
+  // (serviceFormChecklist.ts → filterChecklistByConstitution): a service's
+  // forms are each tied to a constitution (FormMaster), and nothing is shown
+  // unless the company's constitution positively selects it — collecting
+  // another business type's documents is worse than collecting none.
   useEffect(() => {
+    if (selectedService && !selectedService.ServiceID) {
+      // Order line not linked to a catalog service (e.g. a Partnership Firm
+      // registration, which has no ServiceMaster entry yet) — no forms to show.
+      setFormConfig([]);
+      setConstitutionNotice("This service isn't fully set up yet, so there are no tasks to show. Our team will contact you.");
+      setService(selectedService);
+      return;
+    }
     if (selectedService?.ServiceID) {
       setFormConfig([]);
-      serviceFormMapping(selectedService.ServiceID, selectedService.OrderID)
+      setConstitutionNotice("");
+      const formCompanyId = selectedService?.CompanyID || selectedService?.companyId || companyId;
+      serviceFormMapping(selectedService.ServiceID, selectedService.OrderID, formCompanyId)
         .then((res) => {
-          if (res?.data) setFormConfig(res.data);
-          else if (Array.isArray(res)) setFormConfig(res);
+          const all = res?.data || (Array.isArray(res) ? res : []);
+          const c = res?.constitution;
+          const formId = c?.resolved ? c.formId : null;
+          const visible = formId == null ? [] : all.filter((item) => Number(item.FormId ?? item.FormID) === Number(formId));
+          setFormConfig(visible);
+          if (all.length > 0 && visible.length === 0) {
+            const hasConstitution = !!(c?.formId || (typeof c?.raw === "string" && c.raw.trim()));
+            setConstitutionNotice(hasConstitution
+              ? "No documents"
+              : "Your company's business type isn't set yet, so we can't show which documents you need. Please update it in Profile → Company Details, or contact support.");
+          }
           setService(selectedService);
         })
         .catch((err) => {
@@ -1253,7 +1283,7 @@ const displayedUpcomingTasks =
     <div>Loading...</div>
 ) : filteredCurrentTasks.length === 0 ? (
     <div className="py-6 text-center text-gray-500">
-        No Records Found
+        {constitutionNotice || "No Records Found"}
     </div>
 ) : (
     filteredCurrentTasks.map((task) => (

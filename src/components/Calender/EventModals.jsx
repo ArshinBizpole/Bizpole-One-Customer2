@@ -1,12 +1,14 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Clock, Users, FileText, User, Calendar as CalendarIcon } from 'lucide-react';
+import { X, Clock, Users, FileText, User, Phone, Calendar as CalendarIcon } from 'lucide-react';
 import { EVENT_TYPES } from './constants';
 import { format } from 'date-fns';
 
 export const EventDetailsModal = ({ selectedEvent, setSelectedEvent, handleDeleteEvent }) => {
   if (!selectedEvent) return null;
   const eventType = EVENT_TYPES[selectedEvent.type] || EVENT_TYPES.MEETING;
+  // Call-backs come from the server: show their remarks and status, read-only.
+  const readOnly = !!selectedEvent.readOnly;
   // const meetingType = MEETING_TYPES[selectedEvent.meetingType] || MEETING_TYPES.IN_PERSON;
 
   const getEventIcon = () => {
@@ -15,6 +17,7 @@ export const EventDetailsModal = ({ selectedEvent, setSelectedEvent, handleDelet
       case "PRESENTATION": return <FileText size={14} />;
       case "TEAM": return <User size={14} />;
       case "PERSONAL": return <CalendarIcon size={14} />;
+      case "CALL_BACK": return <Phone size={14} />;
       default: return <Users size={14} />;
     }
   };
@@ -73,11 +76,20 @@ export const EventDetailsModal = ({ selectedEvent, setSelectedEvent, handleDelet
               </div>
               {/* Description */}
               <div>
-                <div className="text-gray-700 font-medium mb-2">Description</div>
-                <p className="text-gray-600 bg-gray-50 p-4 rounded-lg">
+                <div className="text-gray-700 font-medium mb-2">{readOnly ? 'Remarks' : 'Description'}</div>
+                <p className="text-gray-600 bg-gray-50 p-4 rounded-lg whitespace-pre-line">
                   {selectedEvent.description || <span className="italic text-gray-400">No description</span>}
                 </p>
               </div>
+              {readOnly && (
+                <div className="flex items-center text-gray-700">
+                  <span className="font-medium mr-2">Status:</span>
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-sky-100 text-sky-800 capitalize">
+                    {selectedEvent.status || 'Scheduled'}
+                  </span>
+                </div>
+              )}
+              {!readOnly && (<>
               {/* Priority */}
               <div className="flex items-center text-gray-700">
                 <span className="font-medium mr-2">Priority:</span>
@@ -112,6 +124,7 @@ export const EventDetailsModal = ({ selectedEvent, setSelectedEvent, handleDelet
                 <span className="font-medium mr-2">Repeat:</span>
                 <span>{selectedEvent.repeat ? 'Every day' : 'No'}</span>
               </div>
+              </>)}
             </div>
             <div className="flex justify-end gap-3 mt-8">
               <button
@@ -120,12 +133,14 @@ export const EventDetailsModal = ({ selectedEvent, setSelectedEvent, handleDelet
               >
                 Close
               </button>
+              {!readOnly && (
               <button
                 onClick={handleDeleteEvent}
                 className="px-5 py-2.5 bg-red-500 text-white rounded-lg font-medium text-sm hover:bg-red-600 transition-colors"
               >
                 Delete Event
               </button>
+              )}
             </div>
           </div>
         </motion.div>

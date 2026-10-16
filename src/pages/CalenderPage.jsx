@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import format from "date-fns/format";
 import parse from "date-fns/parse";
@@ -15,7 +15,29 @@ import EventComponent from "../components/Calender/EventComponent";
 import CalendarToolbar from "../components/Calender/CalendarToolbar";
 import CalendarDayHeader from "../components/Calender/CalendarDayHeader";
 import { EventDetailsModal, AddEventModal } from "../components/Calender/EventModals";
-import { initialEvents, EVENT_TYPES } from "../components/Calender/constants";
+import { EVENT_TYPES } from "../components/Calender/constants";
+import { getMyCallbacks } from "../api/CalendarApi";
+
+// "Call back request — Business Registration (quote total …). Note: …" →
+// "Call back request — Business Registration"
+const callbackTitle = (remark) => String(remark || "Call back").split(/ \(|\. |: |\n/)[0];
+
+// A call-back follow-up → a read-only calendar event, marked at its date &
+// time (local). One saved without a time shows as an all-day event.
+const toCallbackEvent = (cb) => {
+  const start = new Date(`${cb.followUpDate}T${cb.followUpTime || "00:00"}`);
+  return {
+    id: `callback-${cb.source}-${cb.id}`,
+    title: `📞 ${callbackTitle(cb.remark)}`,
+    start,
+    end: cb.followUpTime ? new Date(start.getTime() + 30 * 60 * 1000) : start,
+    allDay: !cb.followUpTime,
+    type: "CALL_BACK",
+    description: cb.remark,
+    status: cb.status,
+    readOnly: true,
+  };
+};
 
 const locales = {
   "en-US": enUS,
@@ -32,7 +54,26 @@ const localizer = dateFnsLocalizer({
 const CalendarPage = () => {
   const [view, setView] = useState("month");
   const [date, setDate] = useState(new Date());
-  const [events, setEvents] = useState(initialEvents);
+  const [events, setEvents] = useState([]);
+
+  // Real data: the customer's call-backs (the times they asked to be called).
+  useEffect(() => {
+    let cancelled = false;
+    getMyCallbacks().then((callbacks) => {
+      if (cancelled) return;
+      const loaded = callbacks.map(toCallbackEvent).filter((e) => !isNaN(e.start.getTime()));
+      // Keep any events added on this page meanwhile.
+      setEvents((prev) => [...loaded, ...prev.filter((e) => !e.readOnly)]);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Sidebar "Upcoming Events": soonest first, from now on.
+  const upcomingEvents = events
+    .filter((e) => e.start >= new Date(new Date().setHours(0, 0, 0, 0)))
+    .sort((a, b) => a.start - b.start);
   const [showEventModal, setShowEventModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [newEvent, setNewEvent] = useState({
@@ -140,7 +181,7 @@ const CalendarPage = () => {
             handleSelectSlot={handleSelectSlot}
             activeFilter={activeFilter}
             setActiveFilter={setActiveFilter}
-            events={events}
+            events={upcomingEvents}
             setSelectedEvent={setSelectedEvent}
           />
 

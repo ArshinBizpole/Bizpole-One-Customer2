@@ -16,7 +16,30 @@ export const buildQuotePreviewUrl = (quoteId) => {
  * (after the sign-in check) so the browser doesn't block the new tab.
  * `services` is used to look up service names; falls back to AllServicesCache.
  */
+// A cart entry carries a real price only when it came from the price master
+// for the selected state — a missing price is stored as {} (Services page) or
+// the zero placeholder flagged priceMissing (ServiceDetails).
+const PRICE_KEYS = ["ProfessionalFee", "VendorFee", "GovernmentFee", "GovtFee", "ContractFee", "ContractorFee"];
+const hasPrice = (p) =>
+  !!p && !p.priceMissing && PRICE_KEYS.some((k) => p[k] !== undefined && p[k] !== null && p[k] !== "");
+
 export async function proceedToQuote({ cart, services = [] }) {
+  // No made-up prices: if any selected service has no price for the chosen
+  // state, tell the customer which and create no quote (checked before the
+  // tab opens, so no blank tab is left behind).
+  const unpriced = Object.keys(cart || {}).filter((sid) => !hasPrice(cart[sid]));
+  if (unpriced.length) {
+    let cache = [];
+    try { cache = JSON.parse(localStorage.getItem("AllServicesCache") || "[]"); } catch { cache = []; }
+    const nameOf = (sid) =>
+      cart[sid]?.ServiceName ||
+      services.find((s) => String(s.ServiceID) === String(sid))?.ServiceName ||
+      cache.find((s) => String(s.ServiceID) === String(sid))?.ServiceName ||
+      `Service #${sid}`;
+    toast.error(`Price isn't available yet for ${unpriced.map(nameOf).join(", ")} in your state. Remove it from your selection or contact us for a quote.`);
+    return;
+  }
+
   // Open the tab synchronously, tied to this click, so the browser
   // doesn't block it — then redirect it once the quote is ready below.
   const previewTab = window.open("", "_blank");
@@ -48,10 +71,12 @@ export async function proceedToQuote({ cart, services = [] }) {
         } catch (error) { console.error("Error fetching services:", error); }
       }
       const price = cart[sid] || {};
-      const professionalFee = Number(price.ProfessionalFee ?? 100);
-      const vendorFee = Number(price.VendorFee ?? 100);
-      const govtFee = Number(price.GovernmentFee ?? 100);
-      const contractorFee = Number(price.ContractFee ?? 100);
+      // Every entry here has a real price (checked above) — a fee the price
+      // master leaves out is simply 0, never a made-up default.
+      const professionalFee = Number(price.ProfessionalFee ?? 0);
+      const vendorFee = Number(price.VendorFee ?? 0);
+      const govtFee = Number(price.GovernmentFee ?? price.GovtFee ?? 0);
+      const contractorFee = Number(price.ContractFee ?? price.ContractorFee ?? 0);
       const discount = Number(price.Discount ?? 0);
       const rounding = Number(price.Rounding ?? 0);
       const gstAmount = calcGstAmount(professionalFee, vendorFee, gstEligible);

@@ -48,6 +48,12 @@ import ServiceDetails from "./pages/ServiceDetails";
 import ProductList from "./pages/ProductView/ProductList";
 import Partners from "./pages/Partners";
 import TrademarkSearch from "./pages/TrademarkSearch";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsAndConditions from "./pages/TermsAndConditions";
+import CancellationRefundPolicy from "./pages/CancellationRefundPolicy";
+import AssociatePrivacyPolicy from "./pages/associate/AssociatePrivacyPolicy";
+import AssociateTermsAndConditions from "./pages/associate/AssociateTermsAndConditions";
+import AssociateReferralConductPolicy from "./pages/associate/AssociateReferralConductPolicy";
 
 
 import Plansandpricing from "./pages/Plansandpricing";
@@ -113,6 +119,10 @@ function App() {
     "/dashboard",
     "/r/",
     "/affiliate/dashboard",
+
+    "/partner-privacy-policy",
+    "/partner-terms-and-conditions",
+    "/partner-referral-conduct-policy",
   ];
 
   const hideLayout = hideLayoutPaths.some((path) =>
@@ -163,6 +173,12 @@ function App() {
           <Route path="/payments" element={<Payment />} />
           <Route path="/quiz" element={<Quiz />} />
           <Route path="/questions" element={<BusinessQuizWizard />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+          <Route path="/cancellation-refund-policy" element={<CancellationRefundPolicy />} />
+          <Route path="/partner-privacy-policy" element={<AssociatePrivacyPolicy />} />
+          <Route path="/partner-terms-and-conditions" element={<AssociateTermsAndConditions />} />
+          <Route path="/partner-referral-conduct-policy" element={<AssociateReferralConductPolicy />} />
 
           {/* Referral & Affiliate Programme */}
           <Route path="/r/:code" element={<ReferralLanding />} />

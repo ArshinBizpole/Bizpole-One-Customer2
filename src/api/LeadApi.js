@@ -11,10 +11,10 @@ export const createLead = async (payload) => {
 
 /**
  * Schedule a follow-up on a Lead.
- * @param {Object} payload - { leadId, followUpDate, remark }
+ * @param {Object} payload - { leadId, followUpDate (YYYY-MM-DD), followUpTime? (HH:MM), remark }
  */
-export const createLeadFollowUp = async ({ leadId, followUpDate, remark }) => {
-  const res = await axiosInstance.post("/followup/create", { leadId, followUpDate, remark });
+export const createLeadFollowUp = async ({ leadId, followUpDate, followUpTime, remark }) => {
+  const res = await axiosInstance.post("/followup/create", { leadId, followUpDate, followUpTime, remark });
   return res.data;
 };
 
@@ -70,5 +70,14 @@ export const uploadApplicationDocument = async ({ file, leadId, companyId, docLa
  */
 export const removeApplicationDocument = async ({ leadId, companyId, docLabel }) => {
   const res = await axiosInstance.post("/lead-generation/application-document/remove", leadId ? { leadId, docLabel } : { companyId, docLabel });
+  return res.data;
+};
+
+/**
+ * List the Documents-step files uploaded in the application flows for a company.
+ * @param {Object} params - { companyId }
+ */
+export const listApplicationDocuments = async ({ companyId }) => {
+  const res = await axiosInstance.post("/lead-generation/application-document/list", { companyId });
   return res.data;
 };

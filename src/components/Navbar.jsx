@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { FaBars, FaTimes } from "react-icons/fa";
 import SigninModal from "./Modals/SigninModal";
+import ProfileMenu from "./ProfileMenu";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -108,14 +109,17 @@ export default function Navbar() {
           {/* RIGHT SIDE */}
           <div className="hidden md:flex items-center gap-3">
             {hasToken ? (
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => navigate("/dashboard/bizpoleone")}
-                className="px-5 py-2 rounded-full bg-black text-white text-sm font-medium shadow-md"
-              >
-                Dashboard →
-              </motion.button>
+              <>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => navigate("/dashboard/bizpoleone")}
+                  className="px-5 py-2 rounded-full bg-black text-white text-sm font-medium shadow-md"
+                >
+                  Dashboard →
+                </motion.button>
+                <ProfileMenu />
+              </>
             ) : (
               <>
                 {/* Sign In */}
@@ -141,13 +145,16 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* MOBILE BUTTON */}
-          <button
-            className="md:hidden text-black"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <FaTimes size={22} /> : <FaBars size={22} />}
-          </button>
+          {/* MOBILE: profile (when signed in) + menu button */}
+          <div className="md:hidden flex items-center gap-3">
+            {hasToken && <ProfileMenu />}
+            <button
+              className="text-black"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <FaTimes size={22} /> : <FaBars size={22} />}
+            </button>
+          </div>
         </div>
 
         {/* MOBILE MENU */}
