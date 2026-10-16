@@ -501,27 +501,7 @@ export function selectedNiceClass(A) {
   const m = (A.tm_class || "").match(/^Class (\d+)/);
   return m ? (NICE_CLASSES.find((c) => c.no === Number(m[1])) || null) : null;
 }
-export function runTrademarkSearchSim(name, tmClass) {
-  const h = hashStr(name.toLowerCase());
-  const count = h % 4;
-  const cls = (tmClass || "Class 35 — Advertising & Business Management").split(" — ")[0];
-  const suffixes = ["Pro", "Hub", "Zone", "World", "India", "Global", "Plus", "Mart"];
-  const owners = ["Nova Ventures Pvt Ltd", "Bluepeak Industries", "Trident Commerce LLP", "Silverline Traders", "Orbit Retail Pvt Ltd"];
-  const statuses = ["Registered", "Under Examination", "Opposed"];
-  const sims = ["Highly Similar", "Similar", "Similar"];
-  const results = [];
-  const exactHit = name && h % 5 === 0;
-  for (let i = 0; i < count; i++) {
-    results.push({
-      mark: i === 0 && exactHit ? name : `${name} ${suffixes[(h + i * 7) % suffixes.length]}`,
-      class: cls,
-      status: statuses[(h + i) % statuses.length],
-      similarity: i === 0 && exactHit ? "Identical" : sims[(h + i) % sims.length],
-      owner: owners[(h + i * 3) % owners.length],
-    });
-  }
-  return results;
-}
+// Results come from the live register via runTrademarkSearch (api/TrademarkApi.js).
 export function tmRiskLevel(results) {
   if (!results) return null;
   if (results.some((x) => x.similarity === "Identical")) return { level: "High", variant: "err", note: "An identical mark already exists in the register. Registration is very likely to face objection or opposition — we strongly recommend choosing a different name." };

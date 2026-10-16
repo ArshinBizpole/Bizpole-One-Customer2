@@ -47,6 +47,7 @@ import Services from "./pages/Services";
 import ServiceDetails from "./pages/ServiceDetails";
 import ProductList from "./pages/ProductView/ProductList";
 import Partners from "./pages/Partners";
+import TrademarkSearch from "./pages/TrademarkSearch";
 
 
 import Plansandpricing from "./pages/Plansandpricing";
@@ -155,6 +156,7 @@ function App() {
           <Route path="/services/:id" element={<ServiceDetails />} />
           <Route path="/products" element={<ProductList />} />
           <Route path="/partners" element={<Partners />} />
+          <Route path="/trademark-search" element={<TrademarkSearch />} />
           <Route path="/startbusiness/apply" element={<NewCompanyFlow />} />
           <Route path="/startbusiness/about" element={<Tellabout />} />
           <Route path="/startbusiness/subscriptions" element={<Subscription />} />

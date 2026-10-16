@@ -17,6 +17,7 @@ export default function Navbar() {
     { label: "Services", path: "/services" },
     { label: "Product", path: "/products" },
     { label: "Bizpole One", path: "/bizpoleone" },
+    { label: "Trademark Search", path: "/trademark-search" },
     { label: "Partners", path: "/partners" },
   ];
 

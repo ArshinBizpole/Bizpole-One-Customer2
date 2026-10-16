@@ -6,6 +6,7 @@ import { assignCustomer } from "../../api/CustomerApi";
 import { createLead, createCustomerCompany, convertLeadToDeal, createQuoteForApplication, uploadApplicationDocument, removeApplicationDocument } from "../../api/LeadApi";
 import { sendApplicationReceivedEmail } from "../../api/CustomerEmailApi";
 import { getAllStates } from "../../api/States";
+import { runTrademarkSearch } from "../../api/TrademarkApi";
 import { getAllServiceTypes, getPackagesByServiceType } from "../../api/ServiceType";
 import { createSupportTicket, getCompanyIdFromStorage } from "../../api/SupportTickets/SupportTicket";
 import { insertDeal, getCompanyDetails } from "../../api/DealsApi";
@@ -22,7 +23,7 @@ import {
   fieldError, today, rupee, newApplicationId, ADDON_PRICE, ADDON_SERVICE_ID, STATES, bizTypeFromConstitution,
   recommendBusinessType, suggestedBusinessNames, runNameCheckSim,
   generateBusinessObjective, suggestedNicCodes, tmClassMatches,
-  selectedNiceClass, runTrademarkSearchSim, tmRiskLevel, NICE_CLASSES,
+  selectedNiceClass, tmRiskLevel, NICE_CLASSES,
   TM_MARK_TYPES, TM_LANGUAGES, newTmMark, tmMarks, tmMarkLabel, tmGovtFee,
 } from "./existingCompanyData";
 import {
@@ -131,7 +132,9 @@ function leadFromSignedInCustomer(state, bump, run, { immediate = false } = {}) 
 // (Trademark's Public Trademark Search). Flows whose Step 1 is the no-OTP
 // "leadDetails" form have a Lead by now but no sign-in yet, so this still
 // opens LeadCaptureModal, which then only verifies (no second Lead).
-function requireVerifiedCustomer(state, bump, run) {
+// Also used outside the wizard by the standalone Trademark Search page, with a
+// minimal state ({ serviceType, flowId }) to gate the search report.
+export function requireVerifiedCustomer(state, bump, run) {
   // otpVerified is saved with the application, but the session it proved can
   // be gone since (logout keeps applications, or the token expired) — without
   // a token the applicant isn't signed in any more, so verify again.
@@ -1701,7 +1704,8 @@ function LeadDetailsBody({ state, errors, bump }) {
    as before, for sales/CRM tracking, once sign-in succeeds. Whatever check the
    applicant was trying to run resumes automatically right after.
 --------------------------------------------------------------------------- */
-function LeadCaptureModal({ state, bump }) {
+// title/subtitle override the details form's heading (e.g. the Trademark Search page).
+export function LeadCaptureModal({ state, bump, title, subtitle }) {
   const [states, setStates] = useState([]);
   // Already entered on a "leadDetails" Step 1 (Lead raised, just not verified
   // yet) — prefill from it and go straight to the details form to confirm.
@@ -1710,8 +1714,9 @@ function LeadCaptureModal({ state, bump }) {
     name: lc?.name || "", mobile: lc?.mobile || "", email: lc?.email || "",
     country: lc?.country || "India", state: lc?.state || "", language: lc?.language || "",
   });
-  // phase: "intro" (why sign up) -> "details" (contact form) -> "otp" (verify code) -> "done" (auto-continues)
-  const [phase, setPhase] = useState(lc ? "details" : "intro");
+  // phase: "details" (contact form) -> "otp" (verify code) -> "done" (auto-continues).
+  // Opens straight on the form — no separate "why sign up" screen first.
+  const [phase, setPhase] = useState("details");
   const [accountMode, setAccountMode] = useState("login"); // "login" (existing account) | "signup" (first time)
   const [submitting, setSubmitting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -1883,32 +1888,6 @@ function LeadCaptureModal({ state, bump }) {
         >
           &times;
         </button>
-        {phase === "intro" && (
-          <div>
-            {state.leadGate?.reason === "documents" ? (
-              <>
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">Sign up to upload your documents</h3>
-                <p className="text-sm text-gray-600 mb-5">
-                  Your documents are saved securely to your account — quick mobile verification, and your application stays saved too.
-                </p>
-              </>
-            ) : (
-              <>
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">Sign up to view your results</h3>
-                <p className="text-sm text-gray-600 mb-5">
-                  Sign up to see your result — quick mobile verification, and your application stays saved to your account.
-                </p>
-              </>
-            )}
-            <button
-              type="button"
-              onClick={() => setPhase("details")}
-              className="w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold"
-            >
-              Sign Up
-            </button>
-          </div>
-        )}
         {phase === "done" && (
           <Note variant="ok" title="Signed in!" body="Continuing with your check now." />
         )}
@@ -1956,8 +1935,10 @@ function LeadCaptureModal({ state, bump }) {
         )}
         {phase === "details" && (
           <form onSubmit={submitDetails}>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Sign in to check that…</h3>
-            <p className="text-xs text-gray-500 mb-4">We'll verify your mobile with a code emailed to you, so your application is saved to your own account.</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+              {title || (state.leadGate?.reason === "documents" ? "Sign up to upload your documents" : "Sign in to check that…")}
+            </h3>
+            <p className="text-xs text-gray-500 mb-4">{subtitle || "We'll verify your mobile with a code emailed to you, so your application is saved to your own account."}</p>
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name<span className="text-red-500 ml-0.5">*</span></label>
@@ -2906,20 +2887,29 @@ function TmSearchBody({ flow, step, A, state, errors, setAnswer, bump, liveState
     }
     requireVerifiedCustomer(state, bump, () => {
       setSaving(true);
-      syncCustomerCompany(state, A, bump, flow).finally(() => {
-        const results = runTrademarkSearchSim(name, A.tm_class);
-        state.tmSearch = { for: name.toLowerCase(), results, at: today() };
-        A.tm_searchDone = "Yes";
-        setSaving(false);
-        bump();
-      });
+      syncCustomerCompany(state, A, bump, flow)
+        .catch(() => {})
+        .then(() => runTrademarkSearch(name, A.tm_class).then(
+          (results) => ({ results, failed: false }),
+          // Don't block the application on a registry outage — the attorney
+          // runs the search before filing anyway (see TmResultsBody).
+          () => ({ results: [], failed: true })
+        ))
+        .then(({ results, failed }) => {
+          state.tmSearch = { for: name.toLowerCase(), results, failed, at: today() };
+          A.tm_searchDone = "Yes";
+        })
+        .finally(() => {
+          setSaving(false);
+          bump();
+        });
     });
   }
   return (
     <div>
       <FieldsBody step={step} A={A} errors={errors} setAnswer={setAnswer} state={state} bump={bump} liveStateNames={liveStateNames} />
       <p className="text-sm text-gray-700 mt-5 mb-3">We'll check the public register for identical or similar marks to <b>{A.tm_name || "your trademark"}</b> in {A.tm_class || "the selected class"}.</p>
-      <button type="button" onClick={run} disabled={saving} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-60">🔍 {saving ? "Saving your details…" : isCurrent ? "Run search again" : "Run Public Trademark Search"}</button>
+      <button type="button" onClick={run} disabled={saving} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-60">🔍 {saving ? "Searching the register…" : isCurrent ? "Run search again" : "Run Public Trademark Search"}</button>
       {isCurrent && (
         <div className="mt-4 space-y-3">
           <div className="font-semibold text-sm text-gray-800">Search Results</div>
@@ -2934,6 +2924,7 @@ function TmSearchBody({ flow, step, A, state, errors, setAnswer, bump, liveState
 function TmResultsBody({ A, state }) {
   const isCurrent = tmSearchIsCurrent(A, state);
   if (!isCurrent) return <Note variant="warn" body="Please run the public trademark search in the previous step to see results here." />;
+  if (state.tmSearch?.failed) return <Note variant="warn" body="We couldn't reach the trademark register just now. You can try again, or continue — our trademark attorney will run a full search before filing." />;
   const r = state.tmSearch?.results || [];
   if (!r.length) return <Note variant="ok" body={`No identical or closely similar trademarks found in the public register for "${A.tm_name || ""}" in ${A.tm_class || "the selected class"}.`} />;
   return (
@@ -2960,6 +2951,7 @@ function TmResultsBody({ A, state }) {
 function TmRiskNote({ A, state }) {
   const isCurrent = tmSearchIsCurrent(A, state);
   if (!isCurrent) return <Note variant="warn" body="Please run the public trademark search first to see the assessment." />;
+  if (state.tmSearch?.failed) return null;
   const risk = tmRiskLevel(state.tmSearch?.results || []);
   return <Note variant={risk.variant === "ok" ? "ok" : "warn"} title={`Risk level: ${risk.level}`} body={risk.note} />;
 }
@@ -3007,9 +2999,20 @@ function TmMarksBody({ flow, A, state, errors, setAnswer, bump }) {
     clearMarkErrors(); // indices shift
     setAnswer("tm_marks", marks.filter((_, j) => j !== i));
   }
+  const [searching, setSearching] = useState({}); // key -> true while in flight
+  const [searchFailed, setSearchFailed] = useState({}); // key -> true if the register was unreachable
   function search(text) {
-    state.tmMarkSearch[text.trim().toLowerCase()] = runTrademarkSearchSim(text.trim(), A.tm_class);
-    bump();
+    const key = text.trim().toLowerCase();
+    if (searching[key]) return;
+    setSearching((s) => ({ ...s, [key]: true }));
+    setSearchFailed((s) => ({ ...s, [key]: false }));
+    runTrademarkSearch(text.trim(), A.tm_class)
+      .then((results) => { state.tmMarkSearch[key] = results; })
+      .catch(() => setSearchFailed((s) => ({ ...s, [key]: true })))
+      .finally(() => {
+        setSearching((s) => ({ ...s, [key]: false }));
+        bump();
+      });
   }
   const err = (i, k) => errors[`mark${i}_${k}`];
 
@@ -3053,8 +3056,9 @@ function TmMarksBody({ flow, A, state, errors, setAnswer, bump }) {
                     <p className="text-xs text-green-700 mt-1">✓ Searched in the Public Trademark Search step.</p>
                   ) : key ? (
                     <div className="mt-2">
-                      <button type="button" onClick={() => search(m.text)} className="text-xs font-semibold text-blue-600 hover:underline">🔍 {results ? "Search again" : "Run public search for this mark"}</button>
-                      {risk && <div className="mt-2"><Note variant={risk.variant === "ok" ? "ok" : "warn"} title={`${results.length} similar mark(s) — risk: ${risk.level}`} body={risk.note} /></div>}
+                      <button type="button" onClick={() => search(m.text)} disabled={searching[key]} className="text-xs font-semibold text-blue-600 hover:underline disabled:opacity-60">🔍 {searching[key] ? "Searching…" : results ? "Search again" : "Run public search for this mark"}</button>
+                      {searchFailed[key] && <p className="text-xs text-amber-700 mt-1">Couldn't reach the trademark register — try again, or our attorney will check this mark before filing.</p>}
+                      {risk &&<div className="mt-2"><Note variant={risk.variant === "ok" ? "ok" : "warn"} title={`${results.length} similar mark(s) — risk: ${risk.level}`} body={risk.note} /></div>}
                     </div>
                   ) : null}
                 </div>
@@ -3160,6 +3164,7 @@ function reviewRows(flowId, A, state) {
       rows.push(["Trademark class", A.tm_class || "Not selected yet"]);
     } else if (s.id === "results") {
       if (!tmSearchIsCurrent(A, state)) rows.push(["Public trademark search", "Not run yet"]);
+      else if (state.tmSearch?.failed) rows.push(["Public trademark search", "Register unavailable — attorney will search before filing"]);
       else {
         const r = state.tmSearch?.results || [];
         rows.push(["Public trademark search", r.length ? `${r.length} potentially similar trademark(s) found` : "No identical or closely similar trademarks found"]);
