@@ -18,7 +18,7 @@ function readUser() {
 
 // Header profile picture + its popup card: the signed-in customer's name,
 // email and photo (initials when there's none), Account Settings, the two
-// platforms and Log out. Opens on click (and on hover where a mouse is used);
+// platforms and Log out. Opens on click only (no hover);
 // closes on an outside click or Esc. Shared by every header (dashboard,
 // profile pages, public site); Log out asks for confirmation, then clears the
 // session (keeping in-progress applications) and returns to the home page.
@@ -27,8 +27,6 @@ export default function ProfileMenu() {
   const [open, setOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const boxRef = useRef(null);
-  const closeTimer = useRef(null);
-  const canHover = typeof window !== "undefined" && window.matchMedia?.("(hover: hover)").matches;
 
   const user = readUser() || {};
   const name = `${user.FirstName || user.firstName || ""} ${user.LastName || user.lastName || ""}`.trim() || "Customer";
@@ -59,8 +57,6 @@ export default function ProfileMenu() {
     };
   }, [open]);
 
-  useEffect(() => () => clearTimeout(closeTimer.current), []);
-
   // Re-read the stored user when the profile photo is changed elsewhere.
   const [, setPhotoTick] = useState(0);
   useEffect(() => {
@@ -69,8 +65,6 @@ export default function ProfileMenu() {
     return () => window.removeEventListener("profile-photo-changed", onPhoto);
   }, []);
 
-  const hoverOpen = () => { if (!canHover) return; clearTimeout(closeTimer.current); setOpen(true); };
-  const hoverClose = () => { if (!canHover) return; closeTimer.current = setTimeout(() => setOpen(false), 200); };
   const go = (path) => { setOpen(false); navigate(path); };
 
   const avatar = (size, ring) => (
@@ -80,7 +74,7 @@ export default function ProfileMenu() {
   );
 
   return (
-    <div ref={boxRef} className="relative" onMouseEnter={hoverOpen} onMouseLeave={hoverClose}>
+    <div ref={boxRef} className="relative">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

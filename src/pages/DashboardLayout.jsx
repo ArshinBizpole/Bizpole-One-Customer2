@@ -25,6 +25,19 @@ const DashboardLayout = () => {
   const [selectedCompany, setSelectedCompany] = useState("");
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+
+  // Close the company dropdown on a click outside it (or Esc).
+  useEffect(() => {
+    if (!showCompanyDropdown) return;
+    const onDown = (e) => { if (!e.target.closest("[data-company-dropdown]")) setShowCompanyDropdown(false); };
+    const onKey = (e) => { if (e.key === "Escape") setShowCompanyDropdown(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [showCompanyDropdown]);
   const [companies, setCompanies] = useState([]);
   const [quotes, setQuotes] = useState([]);
 
@@ -267,7 +280,7 @@ const uniqueCompanies = Array.from(
           {/* Desktop Right Section */}
           <div className="hidden lg:flex items-center space-x-6">
             {/* Company Dropdown */}
-            <div className="relative">
+            <div className="relative" data-company-dropdown>
               <button
                 className="px-6 py-2 rounded-full font-semibold text-black bg-[#FFC42A40] hover:bg-[#FFC42A70] transition flex items-center gap-2"
                 onClick={() => setShowCompanyDropdown((prev) => !prev)}
@@ -359,7 +372,7 @@ const uniqueCompanies = Array.from(
         {isMobileMenuOpen && (
           <div className="lg:hidden bg-white shadow-md px-6 py-4 space-y-4">
             {/* Company Dropdown for Mobile */}
-            <div className="relative">
+            <div className="relative" data-company-dropdown>
               <button
                 className="w-full px-6 py-2 rounded-full font-semibold text-black bg-[#FFC42A40] hover:bg-[#FFC42A70] transition flex items-center justify-center gap-2"
                 onClick={() => setShowCompanyDropdown((prev) => !prev)}

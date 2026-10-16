@@ -74,9 +74,12 @@ const withPickedState = (flow, stateName) => {
   };
 };
 
-const ServiceDetails = () => {
+// embedded: shown inside another page (e.g. Pricing & Plans) instead of the /services/:id route —
+// takes serviceId as a prop, shows a Back button, and drops the public-site layout and Get Started CTA.
+const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
   const navigate = useNavigate();
-  const { id: SERVICE_ID } = useParams();
+  const { id: routeServiceId } = useParams();
+  const SERVICE_ID = serviceId ?? routeServiceId;
 
   // State management
   const [service, setService] = useState(null);
@@ -411,10 +414,19 @@ const ServiceDetails = () => {
 
   return (
     <>
-      <ToastContainer position="top-right" autoClose={3000} />
+      {!embedded && <ToastContainer position="top-right" autoClose={3000} />}
       <SigninModal isOpen={showSigninModal} onClose={() => setShowSigninModal(false)} />
-      <div className="bg-gray-100 min-h-screen pt-10 pb-20 font-sans mt-26">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className={embedded ? "pb-10 font-sans" : "bg-gray-100 min-h-screen pt-10 pb-20 font-sans mt-26"}>
+        <div className={embedded ? "" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}>
+          {embedded && onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="text-sm font-semibold text-gray-700 hover:text-black"
+            >
+              ← Back to services
+            </button>
+          )}
           {/* Service details fetch status */}
           {loading && (
             <div className="text-center text-gray-500 py-8">Loading service details...</div>
@@ -706,7 +718,7 @@ const ServiceDetails = () => {
           )}
 
           {/* ── CTA ── */}
-          {service && (
+          {service && !embedded && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
