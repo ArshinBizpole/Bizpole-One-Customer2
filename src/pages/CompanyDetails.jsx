@@ -18,6 +18,7 @@ import { motion } from "framer-motion";
 import { getCompanyDetails } from "../api/CompanyApi";
 import { updateMyCompanyDetails } from "../api/CompanyChangeApi";
 import { ToastContainer, toast } from "react-toastify";
+import { DOB_MAX, dobError } from "../utils/dob";
 import "react-toastify/dist/ReactToastify.css";
 import { ProfileCompanyContext } from "./ProfileLayout";
 
@@ -41,6 +42,7 @@ const EditField = ({
   type = "text",
   placeholder = "",
   textarea = false,
+  max,
 }) => (
   <div>
     <label className="block text-xs text-gray-500 mb-1.5">{label}</label>
@@ -55,6 +57,7 @@ const EditField = ({
     ) : (
       <input
         type={type}
+        max={max}
         value={value || ""}
         onChange={onChange}
         placeholder={placeholder}
@@ -344,6 +347,8 @@ const CompanyDetails = () => {
   const cancelEditDirector = () => setIsEditingDirector(false);
 
   const handleSaveDirector = async () => {
+    const dobErr = dobError(directorForm.dateOfBirth);
+    if (dobErr) return toast.error(dobErr);
     try {
       // TODO: wire to a real update endpoint for director/promoter info
       setIsEditingDirector(false);
@@ -797,6 +802,7 @@ const CompanyDetails = () => {
                   <EditField
                     label="Date of Birth"
                     type="date"
+                    max={DOB_MAX}
                     value={directorForm.dateOfBirth}
                     onChange={(e) =>
                       setDirectorForm({

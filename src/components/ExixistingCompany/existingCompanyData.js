@@ -15,6 +15,9 @@
 //   live APIclub.in lookup is gated behind an API key the prototype ships blank
 //   (`const APICLUB_KEY = ""`), so the simulation is what actually runs there too.
 
+import { ALL_LANGUAGES, languagesForState } from "../../utils/stateLanguages";
+import { sanitize } from "../../utils/formValidation";
+
 export const YN = ["Yes", "No"];
 
 // Full list of Indian states + union territories, spelled to match
@@ -35,9 +38,7 @@ export const STATES = [
 ];
 
 // Same languages as FlowRunner's lead forms (sent lower-cased as preferred_language).
-export const LEAD_LANGUAGES = [
-  "English", "Hindi", "Marathi", "Tamil", "Telugu", "Gujarati", "Bengali", "Kannada", "Malayalam",
-];
+export const LEAD_LANGUAGES = ALL_LANGUAGES;
 
 export const BIZ_TYPES = [
   "Private Limited Company", "Limited Liability Partnership (LLP)", "One Person Company (OPC)",
@@ -141,7 +142,7 @@ export function addressFields(prefix, label) {
     // A company being registered here must have its registered office in
     // India, so this is a single-option pick rather than free text — explicit
     // and visible, but not an invitation to enter an invalid country.
-    pickField(p + "country", "Country", ["India"]),
+    pickField(p + "country", "Country", ["India"], { def: "India" }),
     // District options follow the chosen State (see FlowRunner's "district"
     // field) — changing the State clears a District picked for the old one.
     pickField(p + "state", "State", STATES, { clears: p + "district" }),
@@ -176,10 +177,10 @@ export function personMinorFields(prefix, showIf) {
   const dobKey = prefix + "_dob";
   const nomineeShown = (A) => (!showIf || showIf(A)) && isMinor(A[dobKey]);
   return [
-    textField(dobKey, "Date of Birth", { type: "date", showIf }),
+    textField(dobKey, "Date of Birth", { type: "date", dob: true, showIf }),
     noteField(() => ({ variant: "warn", title: "This person is under 18", body: "A nominee/guardian's details are required for them — see below." }), { full: true, showIf: nomineeShown }),
     textField(prefix + "_nominee_name", "Nominee / Guardian Full Name", { full: true, showIf: nomineeShown }),
-    textField(prefix + "_nominee_dob", "Nominee Date of Birth", { type: "date", showIf: nomineeShown }),
+    textField(prefix + "_nominee_dob", "Nominee Date of Birth", { type: "date", dob: true, showIf: nomineeShown }),
     textField(prefix + "_nominee_pan", "Nominee PAN", { pattern: "pan", showIf: nomineeShown, kyc: { name: prefix + "_nominee_name", dob: prefix + "_nominee_dob" } }),
     textField(prefix + "_nominee_aadhaar", "Nominee Aadhaar", { pattern: "aadhaar", showIf: nomineeShown, kyc: { fill: { name: prefix + "_nominee_name", dob: prefix + "_nominee_dob", address: prefix + "_nominee_address" } } }),
     textField(prefix + "_nominee_email", "Nominee Email", { pattern: "email", type: "email", showIf: nomineeShown }),
@@ -707,7 +708,7 @@ export const MSME_FLOW = {
         { name: "msme_name", biztype: "msme_type", address: "msme", pan: true }),
       textField("msme_name", "Enterprise Name", { full: true }),
       pickField("msme_type", "Type of Organisation", BIZ_TYPES),
-      textField("msme_startDate", "Date of commencement", { type: "date" }),
+      textField("msme_startDate", "Date of Incorporation", { type: "date" }),
       ...addressFields("msme", "Enterprise address"),
     ] },
     { id: "applicant", title: "Applicant Details", fields: [
@@ -731,7 +732,7 @@ export const MSME_FLOW = {
     ] },
     { id: "investment", title: "Investment", fields: [
       cardsField("msme_investment", "Investment in plant, machinery & equipment", ["Up to ₹1 Crore (Micro)", "₹1 Cr – ₹10 Cr (Small)", "₹10 Cr – ₹50 Cr (Medium)", "Above ₹50 Crore"], { cols: 2 }),
-      textField("msme_investAmt", "Exact investment amount (₹)", { type: "number", required: false }),
+      textField("msme_investAmt", "Exact investment amount (₹)", { type: "number", pattern: "digits", required: false, range: (A) => MSME_INVEST_RANGE[A.msme_investment] }),
     ] },
     { id: "turnover", title: "Annual Turnover", fields: [
       cardsField("msme_turnover", "Annual turnover", ["Up to ₹5 Crore", "₹5 Cr – ₹50 Cr", "₹50 Cr – ₹250 Cr", "Above ₹250 Crore"], { cols: 2 }),
@@ -740,7 +741,7 @@ export const MSME_FLOW = {
     { id: "employees", title: "Employees", fields: [
       textField("msme_male", "Male employees", { type: "number", pattern: "digits" }),
       textField("msme_female", "Female employees", { type: "number", pattern: "digits" }),
-      textField("msme_total", "Total employees", { type: "number", pattern: "digits" }),
+      textField("msme_total", "Total employees", { type: "number", pattern: "digits", readOnly: true, hint: "Calculated from male + female employees." }),
     ] },
     bankStep("bank"),
     docStep(["PAN of Enterprise / Proprietor", "Aadhaar Card", "Business Address Proof", "Bank Account Details", "GST Certificate (if registered)", "Other Supporting Document"]),
@@ -999,8 +1000,8 @@ export const FLOWS = {
           textField("ex_contact", "Contact Person"),
           textField("ex_mobile", "Mobile", { pattern: "mobile", type: "tel" }),
           textField("ex_email", "Email", { pattern: "email", type: "email" }),
-          pickField("ex_state", "State", STATES),
-          pickField("ex_language", "Preferred Language", LEAD_LANGUAGES),
+          pickField("ex_state", "State", STATES, { language: "ex_language" }),
+          pickField("ex_language", "Preferred Language", (A) => languagesForState(A.ex_state)),
           areaField("ex_query", "What are you trying to achieve?", { full: true }),
           // Becomes the Lead's follow-up time for the advisor (raiseAdvisorLead).
           textField("ex_callbackAt", "Preferred call-back date & time", { type: "datetime-local" }),
@@ -1457,15 +1458,53 @@ export const EXISTING_MENU = [
    Validation — ported from RULES / fieldError / validateStep
 --------------------------------------------------------------------------- */
 export const RULES = {
-  pan: { re: /^[A-Z]{5}[0-9]{4}[A-Z]$/i, msg: "Enter a valid PAN (e.g. ABCDE1234F)" },
+  pan: { re: /^[A-Z]{5}[0-9]{4}[A-Z]$/, msg: "Enter a valid PAN (e.g. ABCDE1234F)" },
   aadhaar: { re: /^[0-9]{12}$/, msg: "Aadhaar must be 12 digits" },
   mobile: { re: /^[6-9][0-9]{9}$/, msg: "Enter a valid 10-digit mobile number" },
   email: { re: /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i, msg: "Enter a valid email address" },
   pin: { re: /^[1-9][0-9]{5}$/, msg: "Pincode must be 6 digits" },
-  ifsc: { re: /^[A-Z]{4}0[A-Z0-9]{6}$/i, msg: "Enter a valid IFSC (e.g. HDFC0001234)" },
+  ifsc: { re: /^[A-Z]{4}0[A-Z0-9]{6}$/, msg: "Enter a valid IFSC (e.g. HDFC0001234)" },
   digits: { re: /^[0-9]+$/, msg: "Numbers only" },
-  gstin: { re: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[A-Z0-9]{1}Z[A-Z0-9]{1}$/i, msg: "Enter a valid 15-character GSTIN" },
+  gstin: { re: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[A-Z0-9]{1}Z[A-Z0-9]{1}$/, msg: "Enter a valid 15-character GSTIN" },
 };
+// Puts a typed value into the form its pattern needs (capitals for IDs,
+// lowercase email, digits only for numbers) as the user types.
+const INPUT_FORMAT = {
+  pan: sanitize.pan,
+  gstin: sanitize.gstin,
+  ifsc: sanitize.ifsc,
+  aadhaar: sanitize.aadhaar,
+  email: sanitize.email,
+  pin: (v) => sanitize.postal(v),
+  digits: sanitize.digits,
+};
+// Answers worked out from other answers rather than typed — recomputed by
+// FlowRunner whenever any answer changes.
+const sumOf = (A, keys) => (keys.every((k) => String(A[k] ?? "") === "") ? "" : String(keys.reduce((t, k) => t + (Number(A[k]) || 0), 0)));
+export const DERIVED_ANSWERS = {
+  msme_total: (A) => sumOf(A, ["msme_male", "msme_female"]),
+};
+// Rupee bounds for the exact investment amount, keyed by the bracket picked.
+const CRORE = 10000000;
+const MSME_INVEST_RANGE = {
+  "Up to ₹1 Crore (Micro)": { min: 0, max: CRORE, label: "up to ₹1 Crore" },
+  "₹1 Cr – ₹10 Cr (Small)": { min: CRORE + 1, max: 10 * CRORE, label: "between ₹1 Crore and ₹10 Crore" },
+  "₹10 Cr – ₹50 Cr (Medium)": { min: 10 * CRORE + 1, max: 50 * CRORE, label: "between ₹10 Crore and ₹50 Crore" },
+  "Above ₹50 Crore": { min: 50 * CRORE + 1, label: "above ₹50 Crore" },
+};
+// True when a typed amount is past the top of the field's range — the
+// keystroke is refused so the box can't go beyond the chosen bracket.
+export const exceedsRange = (f, A, v) => {
+  const r = f.range && f.range(A);
+  return !!(r && r.max != null && v !== "" && Number(v) > r.max);
+};
+export const rangeError = (f, A, v) => {
+  const r = f.range && f.range(A);
+  if (!r || v == null || String(v).trim() === "") return "";
+  const n = Number(v);
+  return (r.min != null && n < r.min) || (r.max != null && n > r.max) ? `Amount must be ${r.label}` : "";
+};
+export const formatInput =(pattern, v) => (INPUT_FORMAT[pattern] ? INPUT_FORMAT[pattern](String(v ?? "")) : v);
 export function fieldError(f, value) {
   const v = Array.isArray(value) ? value : String(value == null ? "" : value).trim();
   const empty = Array.isArray(v) ? v.length === 0 : v === "";

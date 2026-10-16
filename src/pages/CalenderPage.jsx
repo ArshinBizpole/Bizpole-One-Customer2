@@ -28,7 +28,7 @@ const toCallbackEvent = (cb) => {
   const start = new Date(`${cb.followUpDate}T${cb.followUpTime || "00:00"}`);
   return {
     id: `callback-${cb.source}-${cb.id}`,
-    title: `📞 ${callbackTitle(cb.remark)}`,
+    title: callbackTitle(cb.remark),
     start,
     end: cb.followUpTime ? new Date(start.getTime() + 30 * 60 * 1000) : start,
     allDay: !cb.followUpTime,
