@@ -11,6 +11,7 @@ import { fetchFranchiseeGstInfo, calcGstAmount, splitGst } from "../utils/gstCal
 import { proceedToQuote } from "../utils/proceedToQuote";
 import { motion, AnimatePresence } from "framer-motion";
 import SigninModal from "../components/Modals/SigninModal";
+import ServiceDetails from "./ServiceDetails";
 import { Building2, FileText, Scale, CheckCircle2, Wallet, Globe2, Tag, Sparkles, Briefcase, Receipt, FileCheck2, DollarSign, ShoppingCart, MapPin, ArrowRight, X, Loader2 } from "lucide-react";
 // Icons
 const IconSearch = () => (
@@ -368,8 +369,11 @@ const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price, onSele
   );
 };
 
-const Services = () => {
+// embedded: rendered inside another page (e.g. Pricing & Plans tab) — skip the page hero and full-screen height
+const Services = ({ embedded = false }) => {
   const [services, setServices] = useState([]);
+  // embedded only: service whose "Know More" details are shown in place of the list
+  const [detailServiceId, setDetailServiceId] = useState(null);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -494,6 +498,11 @@ const Services = () => {
   }, [stateId, services]);
 
   const handleLearnMore = (serviceId) => {
+    if (embedded) {
+      setDetailServiceId(serviceId);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     navigate(`/services/${serviceId}`, { state: { serviceId } });
   };
 
@@ -550,11 +559,21 @@ const Services = () => {
     }
   }, [bulkPrices]);
 
+  if (embedded && detailServiceId) {
+    return (
+      <ServiceDetails
+        serviceId={detailServiceId}
+        embedded
+        onBack={() => setDetailServiceId(null)}
+      />
+    );
+  }
+
   return (
     <>
-      <ToastContainer position="top-right" autoClose={3000} />
+      {!embedded && <ToastContainer position="top-right" autoClose={3000} />}
       <SigninModal isOpen={showSigninModal} onClose={() => setShowSigninModal(false)} />
-      <div className="min-h-screen bg-gray-50">
+      <div className={embedded ? "" : "min-h-screen bg-gray-50"}>
 
         {/* State selection modal */}
         {showStateModal && (
@@ -636,7 +655,7 @@ const Services = () => {
           </div>
         )}
         {/* Page Header */}
-        <div className=" border-b border-gray-100">
+        {!embedded && <div className=" border-b border-gray-100">
           <div className="max-w-7xl mt-26 mb-18 mx-auto px-6 py-10 text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 text-[#c9a700] text-xs font-semibold rounded-full mb-4 border border-amber-100">
               <IconStar /> Explore Our Services
@@ -648,9 +667,9 @@ const Services = () => {
               Professional business services tailored to help your company thrive in today's competitive market
             </p>
           </div>
-        </div>
+        </div>}
 
-        <div className="max-w-7xl mx-auto px-6 py-8 flex gap-6">
+        <div className={embedded ? "flex gap-6" : "max-w-7xl mx-auto px-6 py-8 flex gap-6"}>
           {/* Sidebar */}
           <motion.aside
             animate={{ width: sidebarOpen ? 240 : 0, opacity: sidebarOpen ? 1 : 0 }}

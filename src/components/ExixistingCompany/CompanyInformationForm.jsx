@@ -103,6 +103,7 @@ import React, { useState, useEffect } from "react";
 import { getAllStates } from "../../api/States";
 import { assignCustomer } from "../../api/CustomerApi";
 import { setSecureItem } from "../../utils/secureStorage";
+import { sanitize } from "../../utils/formValidation";
 
 const CompanyInformationForm = ({ onNext, initialData }) => {
   const [form, setForm] = useState({
@@ -168,7 +169,8 @@ const CompanyInformationForm = ({ onNext, initialData }) => {
   }, []);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name } = e.target;
+    const value = name === "pan" ? sanitize.pan(e.target.value) : e.target.value;
     setForm((prev) => ({
       ...prev,
       [name]: value,
