@@ -18,9 +18,11 @@ import SigninModal from "../Modals/SigninModal";
 import VoiceSpecifyInput from "./VoiceSpecifyInput";
 import KycVerify from "./KycVerify";
 import { kycBlockingError } from "./kycRules";
+import { languagesForState, languageForState } from "../../utils/stateLanguages";
+import { DOB_MAX, DOB_ERROR, dobError } from "../../utils/dob";
 import {
   FLOWS, ownerConfig, ownerBaseFields, newOwner, visibleFields, docItems, docGroups, isMinor,
-  fieldError, today, rupee, newApplicationId, ADDON_PRICE, ADDON_SERVICE_ID, STATES, bizTypeFromConstitution,
+  fieldError, formatInput, exceedsRange, rangeError, DERIVED_ANSWERS, today, rupee, newApplicationId, ADDON_PRICE, ADDON_SERVICE_ID, STATES, bizTypeFromConstitution,
   recommendBusinessType, suggestedBusinessNames, runNameCheckSim,
   generateBusinessObjective, suggestedNicCodes, tmClassMatches,
   selectedNiceClass, runTrademarkSearchSim, tmRiskLevel, NICE_CLASSES,
@@ -340,9 +342,6 @@ function allSteps(flowId, A) {
   ]);
 }
 
-// Latest allowed date of birth: 31 Dec of last year (yyyy-mm-dd, compared as a string).
-const DOB_MAX = `${new Date().getFullYear() - 1}-12-31`;
-const DOB_ERROR = `Date of birth must be before ${new Date().getFullYear()}.`;
 function validateStep(step, A, state) {
   const errors = {};
   if (step.type === "owners") {
@@ -407,7 +406,7 @@ function validateStep(step, A, state) {
         if (e) errors[key] = e;
       });
     });
-    // Date of birth can't fall in the current year (or later), for the owner
+    // Date of birth can't be in the future, for the owner
     // and their nominee alike.
     state.owners.forEach((o, i) => {
       if (o.dob && o.dob > DOB_MAX) errors["owner" + i + "_dob"] = DOB_ERROR;
@@ -424,7 +423,7 @@ function validateStep(step, A, state) {
       } else seenMobile[m] = i;
     });
     if (cfg.shareholding && n) {
-      const total = state.owners.reduce((sum, o) => sum + (Number(o.shareholding) || 0), 0);
+      const total = Math.round(state.owners.reduce((sum, o) => sum + (Number(o.shareholding) || 0), 0) * 100) / 100;
       // Exactly 100% once everyone's share is entered; until then (details
       // still to be added later) just don't let it exceed 100%.
       const allEntered = n >= cfg.minCount && state.owners.every((o) => String(o.shareholding || "").trim() !== "");
@@ -504,6 +503,10 @@ function validateFields(step, A, errors) {
     const required = typeof f.required === "function" ? f.required(A) : f.required;
     const e = fieldError({ ...f, required }, A[f.k]);
     if (e) errors[f.k] = e;
+    // A Date of Birth can't be in the current year or later.
+    if (!e && f.dob && dobError(A[f.k])) errors[f.k] = DOB_ERROR;
+    // An amount has to sit inside the bracket chosen alongside it.
+    if (!e && rangeError(f, A, A[f.k])) errors[f.k] = rangeError(f, A, A[f.k]);
     // A call-back time has to be in the future.
     if (!e && f.type === "datetime-local" && A[f.k] && new Date(A[f.k]) <= new Date()) {
       errors[f.k] = "Please choose a date and time in the future";
@@ -694,8 +697,14 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   function setAnswer(k, v) {
-    appRef.current.answers[k] = v;
+    const answers = appRef.current.answers;
+    answers[k] = v;
     delete errorsRef.current[k];
+    Object.entries(DERIVED_ANSWERS).forEach(([dk, calc]) => {
+      if (dk === k) return;
+      const dv = calc(answers);
+      if (answers[dk] !== dv) { answers[dk] = dv; delete errorsRef.current[dk]; }
+    });
     bump();
   }
 
@@ -704,6 +713,10 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
   const flow = FLOWS[flowId];
 
   const steps = useMemo(() => allSteps(flowId, A), [flowId, JSON.stringify(A), state.owners.length, JSON.stringify(state.documents)]);
+  // Fields with a default (e.g. Country = India) start filled in.
+  steps.forEach((s) => (s.fields || []).forEach((f) => {
+    if (f.def != null && !A[f.k]) A[f.k] = f.def;
+  }));
   const stepIndex = Math.min(state.stepIndex, steps.length - 1);
   const step = steps[stepIndex];
   // Furthest step reached so far — the sidebar can jump forward up to it.
@@ -1527,14 +1540,6 @@ async function doCallback(flow, state, bump, request = {}) {
   bump();
 }
 
-const LEAD_LANGUAGES = [
-  { label: "English", value: "english" }, { label: "Hindi", value: "hindi" },
-  { label: "Marathi", value: "marathi" }, { label: "Tamil", value: "tamil" },
-  { label: "Telugu", value: "telugu" }, { label: "Gujarati", value: "gujarati" },
-  { label: "Bengali", value: "bengali" }, { label: "Kannada", value: "kannada" },
-  { label: "Malayalam", value: "malayalam" },
-];
-
 /* ---------------------------------------------------------------------------
    Details — literal Step 1 for flows with no natural "checking procedure" to
    gate a lead-capture modal behind (GST/Trademark/MSME/IEC — see
@@ -1719,6 +1724,11 @@ function LeadDetailsBody({ state, errors, bump }) {
   function set(k, v) {
     form[k] = v;
     delete errors["lead_" + k];
+    // Preferred Language follows the State (stateLanguages.js).
+    if (k === "state") {
+      form.language = languageForState(v, form.language).toLowerCase();
+      if (form.language) delete errors.lead_language;
+    }
     bump();
   }
 
@@ -1762,7 +1772,7 @@ function LeadDetailsBody({ state, errors, bump }) {
         <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Language<span className="text-red-500 ml-0.5">*</span></label>
         <select className={inputCls(errors.lead_language)} value={form.language} onChange={(e) => set("language", e.target.value)}>
           <option value="">Select Language</option>
-          {LEAD_LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+          {languagesForState(form.state).map((l) => <option key={l} value={l.toLowerCase()}>{l}</option>)}
         </select>
         <ErrorText msg={errors.lead_language} />
       </div>
@@ -1823,7 +1833,10 @@ function LeadCaptureModal({ state, bump }) {
   }, [phase]);
 
   function set(k, v) {
-    setForm((f) => ({ ...f, [k]: v }));
+    // Preferred Language follows the State (stateLanguages.js).
+    setForm((f) => (k === "state"
+      ? { ...f, state: v, language: languageForState(v, f.language).toLowerCase() }
+      : { ...f, [k]: v }));
   }
 
   function finish() {
@@ -2071,7 +2084,7 @@ function LeadCaptureModal({ state, bump }) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Language<span className="text-red-500 ml-0.5">*</span></label>
                 <select className={inputCls()} value={form.language} onChange={(e) => set("language", e.target.value)}>
                   <option value="">Select Language</option>
-                  {LEAD_LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+                  {languagesForState(form.state).map((l) => <option key={l} value={l.toLowerCase()}>{l}</option>)}
                 </select>
               </div>
             </div>
@@ -2161,13 +2174,16 @@ function Field({ f, A, errors, setAnswer, state, bump, liveStateNames }) {
     // shares the exact STATES array reference — swap in the live, DB-backed
     // list once it's loaded so the saved value is guaranteed to match
     // `indiastates.state_name` (see liveStateNames fetch in FlowRunner).
-    const opts = f.opts === STATES && liveStateNames?.length ? [...liveStateNames, "Other"] : f.opts;
+    const baseOpts = typeof f.opts === "function" ? f.opts(A) : f.opts;
+    const opts = baseOpts === STATES && liveStateNames?.length ? [...liveStateNames, "Other"] : baseOpts;
     return (
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">{f.label}<ReqMark f={f} A={A} /></label>
         {f.hint && <p className="text-xs text-gray-500 mb-1">{f.hint}</p>}
         <select className={inputCls(errors[f.k])} value={A[f.k] || ""} onChange={(e) => {
           if (f.clears && e.target.value !== A[f.k]) setAnswer(f.clears, "");
+          // A State that also picks the Preferred Language (stateLanguages.js).
+          if (f.language) setAnswer(f.language, languageForState(e.target.value, A[f.language]));
           setAnswer(f.k, e.target.value);
         }}>
           <option value="">Select…</option>
@@ -2222,7 +2238,7 @@ function Field({ f, A, errors, setAnswer, state, bump, liveStateNames }) {
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1">{f.label}<ReqMark f={f} A={A} /></label>
       {f.hint && <p className="text-xs text-gray-500 mb-1">{f.hint}</p>}
-      <input type={f.type === "text" ? "text" : f.type} className={inputCls(errors[f.k])} value={A[f.k] || ""} onChange={(e) => setAnswer(f.k, e.target.value)} placeholder={f.ph || ""} />
+      <input type={f.type === "text" ? "text" : f.type} max={f.dob ? DOB_MAX : undefined} className={inputCls(errors[f.k]) + (f.readOnly ? " bg-gray-100 cursor-not-allowed" : "")} readOnly={!!f.readOnly} value={A[f.k] || ""} onChange={(e) => { const v = formatInput(f.pattern, e.target.value); if (!exceedsRange(f, A, v)) setAnswer(f.k, v); }} placeholder={f.ph || ""} />
       <ErrorText msg={errors[f.k]} />
       {(f.pattern === "pan" || f.pattern === "aadhaar") && (
         <KycVerify
@@ -2472,7 +2488,17 @@ function OwnersBody({ A, state, errors, bump }) {
   const n = state.owners.length;
   const capReached = !!(cfg.maxCount && n >= cfg.maxCount);
   const primaryLabel = cfg.label.split(" / ")[0];
-  const shareTotal = state.owners.reduce((sum, o) => sum + (Number(o.shareholding) || 0), 0);
+  const round2 = (x) => Math.round(x * 100) / 100;
+  const shareTotal = round2(state.owners.reduce((sum, o) => sum + (Number(o.shareholding) || 0), 0));
+  const capitalTotal = state.owners.reduce((sum, o) => sum + (Number(o.capital) || 0), 0);
+  // What's left of the 100% once everyone else's share is counted — a box
+  // can't be typed past it (lower someone else first to give this one more).
+  const shareLeft = (i) => round2(100 - state.owners.reduce((sum, o, j) => (j === i ? sum : sum + (Number(o.shareholding) || 0)), 0));
+  function setShareholding(i, raw) {
+    const v = raw.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1").replace(/(\.\d{2})\d+$/, "$1");
+    if (v !== "" && Number(v) > shareLeft(i)) return;
+    setOwnerField(i, "shareholding", v);
+  }
 
   // The count error from the last Continue is stale once a card is added/removed.
   function addOwner() { if (!capReached) { state.owners.push(newOwner()); delete errors.__owners; bump(); } }
@@ -2521,7 +2547,7 @@ function OwnersBody({ A, state, errors, bump }) {
                         onChange={(v) => setOwnerField(i, f.k, v)} />
                     ) : (
                       <input type={f.type} max={f.type === "date" ? DOB_MAX : undefined} className={inputCls(errors["owner" + i + "_" + f.k])} value={o[f.k] || ""} placeholder={f.ph || ""}
-                        onChange={(e) => setOwnerField(i, f.k, e.target.value)} />
+                        onChange={(e) => setOwnerField(i, f.k, formatInput(f.pattern, e.target.value))} />
                     )}
                     <ErrorText msg={errors["owner" + i + "_" + f.k]} />
                     {(f.pattern === "pan" || f.pattern === "aadhaar") && (
@@ -2566,14 +2592,15 @@ function OwnersBody({ A, state, errors, bump }) {
               {cfg.shareholding && (
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Shareholding %{star}</label>
-                  <input type="number" min="0" max="100" className={inputCls(errors["owner" + i + "_shareholding"])} value={o.shareholding || ""} onChange={(e) => setOwnerField(i, "shareholding", e.target.value)} placeholder="e.g. 50" />
+                  <input type="text" inputMode="decimal" className={inputCls(errors["owner" + i + "_shareholding"])} value={o.shareholding || ""} onChange={(e) => setShareholding(i, e.target.value)} placeholder="e.g. 50" />
+                  <p className="text-xs text-gray-500 mt-1">Max {Math.max(0, shareLeft(i))}% left</p>
                   <ErrorText msg={errors["owner" + i + "_shareholding"]} />
                 </div>
               )}
               {cfg.capital && (
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Capital Contribution (₹){star}</label>
-                  <input type="number" min="0" className={inputCls(errors["owner" + i + "_capital"])} value={o.capital || ""} onChange={(e) => setOwnerField(i, "capital", e.target.value)} placeholder="e.g. 50000" />
+                  <input type="number" min="0" className={inputCls(errors["owner" + i + "_capital"])} value={o.capital || ""} onChange={(e) => setOwnerField(i, "capital", formatInput("digits", e.target.value))} placeholder="e.g. 50000" />
                   <ErrorText msg={errors["owner" + i + "_capital"]} />
                 </div>
               )}
@@ -2591,7 +2618,7 @@ function OwnersBody({ A, state, errors, bump }) {
                           onChange={(v) => setOwnerNomineeField(i, f.k, v)} />
                       ) : (
                         <input type={f.type} max={f.type === "date" ? DOB_MAX : undefined} className={inputCls(errors["owner" + i + "_nominee_" + f.k])} value={(o.nominee || {})[f.k] || ""} placeholder={f.ph || ""}
-                          onChange={(e) => setOwnerNomineeField(i, f.k, e.target.value)} />
+                          onChange={(e) => setOwnerNomineeField(i, f.k, formatInput(f.pattern, e.target.value))} />
                       )}
                       {(f.pattern === "pan" || f.pattern === "aadhaar") && (
                         <KycVerify
@@ -2624,6 +2651,9 @@ function OwnersBody({ A, state, errors, bump }) {
           <div className="mt-3"><Note variant="info" body={<>Total shareholding: <b>{shareTotal}%</b> (must total 100%)</>} /></div>
           <ErrorText msg={errors.__shareholding} />
         </>
+      )}
+      {cfg.capital && n > 0 && (
+        <div className="mt-3"><Note variant="info" body={<>Total capital: <b>{rupee(capitalTotal)}</b></>} /></div>
       )}
     </div>
   );

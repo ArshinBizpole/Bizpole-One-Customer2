@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 // import { Check, Calendar, Sparkles, ArrowRight } from "lucide-react";
 import { Check, X } from "lucide-react";
 import { setSecureItem, getSecureItem } from "../utils/secureStorage";
+import Services from "./Services";
 
 const PlansAndPricing = () => {
   const [activeTab, setActiveTab] = useState("packages");
@@ -259,13 +260,9 @@ const PlansAndPricing = () => {
   //     0
   //   );
 
-  // 🔹 Switch between tabs (navigate for services)
+  // 🔹 Switch between tabs
   const handleTabClick = (tab) => {
-    if (tab === "services") {
-      navigate("/services");
-    } else {
-      setActiveTab(tab);
-    }
+    setActiveTab(tab);
   };
 
   // 🔹 Render package cards with better error handling
@@ -416,15 +413,18 @@ const PlansAndPricing = () => {
           </div>
         </div>
 
+        {/* Individual services — Services loads its own data, so it doesn't wait on the packages fetch */}
+        {activeTab === "services" && <Services embedded />}
+
         {/* Loading / Error */}
-        {loading && (
+        {activeTab === "packages" && loading && (
           <div className="text-center py-20">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#F3C625]"></div>
             <p className="mt-4 text-gray-600">Loading options...</p>
           </div>
         )}
 
-        {error && (
+        {activeTab === "packages" && error && (
           <div className="text-center py-20">
             <p className="text-red-500 text-lg">{error}</p>
             <button
