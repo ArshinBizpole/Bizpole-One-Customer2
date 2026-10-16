@@ -1,4 +1,5 @@
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { SHOW_CUSTOMER_REFER_AND_EARN } from "./utils/featureFlags";
 import { useEffect } from "react";
 import AOS from "aos";
 import useAutoLogout from "./hooks/useAutoLogout";
@@ -226,7 +227,11 @@ function App() {
                   <Route path="billing" element={<Invoiceprofile showRefundLink />} />
                   <Route path="refunds" element={<Refunds />} />
                   <Route path="support" element={<SupportTickets />} />
-                  <Route path="referrals" element={<Referrals />} />
+                  <Route
+                    path="referrals"
+                    element={SHOW_CUSTOMER_REFER_AND_EARN ? <Referrals /> : <Navigate to="/dashboard/bizpoleone" replace />}
+                  />
+                  <Route path="trademark-search" element={<TrademarkSearch embedded />} />
                 </Route>
               </Route>
 

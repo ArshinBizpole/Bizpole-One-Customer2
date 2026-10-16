@@ -1,8 +1,8 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { FaSearch, FaRegCopyright, FaChevronLeft, FaChevronRight, FaArrowRight, FaFilePdf, FaLock } from "react-icons/fa";
-import { searchTrademarks } from "../api/TrademarkApi";
+import { FaSearch, FaRegCopyright, FaChevronLeft, FaChevronRight, FaArrowRight, FaFilePdf, FaLock, FaHistory, FaChevronDown } from "react-icons/fa";
+import { searchTrademarks, getTrademarkSearchHistory, getTrademarkSearchHistoryEntry } from "../api/TrademarkApi";
 import { NICE_CLASSES } from "../components/ExixistingCompany/existingCompanyData";
 import { LeadCaptureModal, requireVerifiedCustomer } from "../components/ExixistingCompany/FlowRunner";
 import TrademarkReport from "../components/Trademark/TrademarkReport";
@@ -18,6 +18,29 @@ const SEARCH_TYPES = [
   { value: "APPLICATION_NUMBER", label: "Application no.", placeholder: "e.g. 5123456" },
 ];
 
+const typeLabel = (value) => SEARCH_TYPES.find((t) => t.value === value)?.label || value;
+// Local calendar date as YYYY-MM-DD (the report's date format).
+const localDate = (d) => new Date(d).toLocaleDateString("en-CA");
+const fileSafe = (s) => String(s || "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "search";
+
+// The off-screen report's images are lazy-loaded, so they never load on their
+// own; force them and wait (bounded) before the PDF snapshot.
+async function waitForImages(el) {
+  const imgs = Array.from(el.querySelectorAll("img"));
+  imgs.forEach((img) => { img.loading = "eager"; });
+  await Promise.all(
+    imgs.map((img) =>
+      img.complete
+        ? null
+        : new Promise((resolve) => {
+            img.addEventListener("load", resolve, { once: true });
+            img.addEventListener("error", resolve, { once: true });
+            setTimeout(resolve, 5000);
+          })
+    )
+  );
+}
+
 const MASKED_ROW = {
   applicationNumber: "•••••••",
   wordMark: "••••••",
@@ -27,7 +50,9 @@ const MASKED_ROW = {
   image: null,
 };
 
-export default function TrademarkSearch() {
+// embedded: shown inside the customer dashboard (/dashboard/bizpoleone/trademark-search)
+// rather than as a full website page — tighter spacing, no full-screen height.
+export default function TrademarkSearch({ embedded = false }) {
   const navigate = useNavigate();
   const reportRef = useRef(null);
   const [downloading, setDownloading] = useState(false);
@@ -48,7 +73,70 @@ export default function TrademarkSearch() {
   const [, setGateTick] = useState(0);
   const bumpGate = () => setGateTick((t) => t + 1);
   const [unlocked, setUnlocked] = useState(false);
-  const askToSignIn = () => requireVerifiedCustomer(gate, bumpGate, () => setUnlocked(true));
+
+  // Signed-in customer's saved searches + free-search allowance (server counts).
+  const [history, setHistory] = useState({ signedIn: false, items: [], usage: { used: 0, limit: 10 } });
+  const limitReached = history.signedIn && history.usage.used >= history.usage.limit;
+  const [historyReport, setHistoryReport] = useState(null); // saved search being rendered for its PDF
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [historyOpen, setHistoryOpen] = useState(false); // history list starts collapsed
+  const historyReportRef = useRef(null);
+  // The search on screen, and whether the server saved it to the history
+  // (it only does when the visitor was already signed in).
+  const lastSearch = useRef(null);
+
+  const loadHistory = useCallback(async () => {
+    if (!localStorage.getItem("token")) return;
+    try {
+      setHistory(await getTrademarkSearchHistory());
+    } catch {
+      /* history is a convenience — the search still works without it */
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
+
+  const markLimitReached = (err) => {
+    const usage = err.response?.data?.usage;
+    setHistory((h) => ({ ...h, signedIn: true, usage: usage || { used: h.usage.limit, limit: h.usage.limit } }));
+  };
+
+  const searchParams = (params, nextPage) => ({
+    q: params.q,
+    type: params.type,
+    classes: params.tmClass ? [params.tmClass] : [],
+    limit: PAGE_SIZE,
+    offset: nextPage * PAGE_SIZE,
+    track: true,
+  });
+
+  // After sign-in: a search run while signed out wasn't saved, so run it again
+  // now that we know who it is (served from the server cache, no new lookup)
+  // to save it and count it. Over the free limit it stays locked.
+  const onVerified = async () => {
+    const last = lastSearch.current;
+    if (!last || last.saved) {
+      setUnlocked(true);
+      loadHistory();
+      return;
+    }
+    try {
+      await searchTrademarks(searchParams(last.params, last.page));
+      last.saved = true;
+      setUnlocked(true);
+    } catch (err) {
+      if (err.response?.data?.limitReached) {
+        markLimitReached(err);
+        setError(err.response.data.message);
+      } else {
+        setUnlocked(true); // couldn't save it to the history, but they did sign in
+      }
+    }
+    loadHistory();
+  };
+  const askToSignIn = () => requireVerifiedCustomer(gate, bumpGate, onVerified);
 
   const activeType = SEARCH_TYPES.find((t) => t.value === type);
 
@@ -56,21 +144,43 @@ export default function TrademarkSearch() {
     setLoading(true);
     setError("");
     try {
-      const data = await searchTrademarks({
-        q: params.q,
-        type: params.type,
-        classes: params.tmClass ? [params.tmClass] : [],
-        limit: PAGE_SIZE,
-        offset: nextPage * PAGE_SIZE,
-      });
+      const data = await searchTrademarks(searchParams(params, nextPage));
       setResult(data);
       setSubmitted(params);
       setPage(nextPage);
+      lastSearch.current = { params, page: nextPage, saved: !!data?.usage };
+      if (data?.usage) {
+        setHistory((h) => ({ ...h, signedIn: true, usage: { used: data.usage.used, limit: data.usage.limit } }));
+        loadHistory();
+      }
       if (!unlocked && data?.results?.length) askToSignIn();
     } catch (err) {
+      if (err.response?.data?.limitReached) markLimitReached(err);
       setError(err.response?.data?.message || "Could not search trademarks right now. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Rebuild a saved search's report from its stored results — no new lookup.
+  const downloadHistoryReport = async (item) => {
+    setDownloadingId(item.id);
+    setError("");
+    try {
+      const entry = await getTrademarkSearchHistoryEntry(item.id);
+      setHistoryReport(entry);
+      // Let the off-screen report render before snapshotting it.
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await waitForImages(historyReportRef.current);
+      await saveElementAsPdf(
+        historyReportRef.current,
+        `Trademark-Search-Report-${fileSafe(entry.query)}-${localDate(entry.createdAt)}`
+      );
+    } catch {
+      setError("Could not download that report. Please try again.");
+    } finally {
+      setHistoryReport(null);
+      setDownloadingId(null);
     }
   };
 
@@ -88,8 +198,7 @@ export default function TrademarkSearch() {
     if (!reportRef.current) return;
     setDownloading(true);
     try {
-      const safe = submitted.q.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "search";
-      await saveElementAsPdf(reportRef.current, `Trademark-Search-Report-${safe}`);
+      await saveElementAsPdf(reportRef.current, `Trademark-Search-Report-${fileSafe(submitted.q)}`);
     } catch {
       setError("Could not generate the PDF. Please try again.");
     } finally {
@@ -103,11 +212,19 @@ export default function TrademarkSearch() {
   const hasPrev = page > 0;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={embedded ? "" : "min-h-screen bg-gray-50"}>
       {/* Hero + search */}
-      <section className="relative overflow-hidden bg-white border-b border-gray-200">
+      <section
+        className={`relative overflow-hidden bg-white border-gray-200 ${
+          embedded ? "border rounded-2xl" : "border-b"
+        }`}
+      >
         <div className="absolute top-0 right-0 w-1/3 h-full bg-yellow-400/10 skew-x-12 transform translate-x-1/2" />
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 py-14 md:py-20">
+        <div
+          className={`relative z-10 max-w-5xl mx-auto px-4 sm:px-6 ${
+            embedded ? "py-8 md:py-10" : "py-14 md:py-20"
+          }`}
+        >
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold mb-4">
               <FaRegCopyright /> Indian Trademark Registry
@@ -121,6 +238,26 @@ export default function TrademarkSearch() {
             </p>
           </motion.div>
 
+          {limitReached ? (
+            <div className="bg-white rounded-2xl shadow-lg border border-yellow-300 p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <p className="text-lg font-bold text-black">
+                  Your {history.usage.limit} free trademark searches have been used
+                </p>
+                <p className="text-sm text-gray-600 mt-1">
+                  You can still download the reports of your past searches below. For more searches and a detailed
+                  conflict check, talk to our trademark experts.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate(`/services/${TRADEMARK_SERVICE_ID}`)}
+                className="shrink-0 inline-flex items-center gap-2 px-6 py-3 rounded-full bg-black text-white font-medium"
+              >
+                Talk to a trademark expert <FaArrowRight />
+              </button>
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg border border-gray-200 p-4 md:p-5">
             <div className="flex flex-wrap gap-2 mb-4">
               {SEARCH_TYPES.map((t) => (
@@ -173,13 +310,110 @@ export default function TrademarkSearch() {
                 {loading ? "Searching…" : "Search"}
               </motion.button>
             </div>
-            {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+            {history.signedIn && (
+              <p className="mt-3 text-xs text-gray-500">
+                {history.usage.used} of {history.usage.limit} free searches used
+              </p>
+            )}
           </form>
+          )}
+
+          {/* Search history — signed-in customers' saved searches */}
+          {history.signedIn && history.items.length > 0 && (
+            <div className="mt-6 bg-white rounded-2xl border border-gray-200">
+              <button
+                type="button"
+                onClick={() => setHistoryOpen((o) => !o)}
+                aria-expanded={historyOpen}
+                className="w-full flex items-center gap-2 px-4 md:px-5 py-4 font-semibold text-black text-left"
+              >
+                <FaHistory className="text-yellow-500" /> Your search history
+                <span className="text-xs font-normal text-gray-500">({history.items.length})</span>
+                <FaChevronDown
+                  className={`ml-auto text-gray-500 transition-transform ${historyOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {historyOpen && (
+              <ul className="divide-y divide-gray-100 px-4 md:px-5 pb-2 border-t border-gray-100">
+                {history.items.map((item) => (
+                  <li key={item.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-black truncate">“{item.query}”</p>
+                      <p className="text-xs text-gray-500">
+                        {typeLabel(item.queryType)} · {item.classNumbers ? `Class ${item.classNumbers}` : "All classes"} ·{" "}
+                        {item.totalCount != null ? `${Number(item.totalCount).toLocaleString("en-IN")} results` : "Results saved"} ·{" "}
+                        {new Date(item.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => downloadHistoryReport(item)}
+                        disabled={downloadingId !== null}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black text-white text-xs font-medium disabled:opacity-50"
+                      >
+                        <FaFilePdf /> {downloadingId === item.id ? "Preparing…" : "Download report"}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
+      {/* Errors open as a popup instead of inline text. */}
+      {error && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="tm-error-title"
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setError("")}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p id="tm-error-title" className="text-lg font-semibold text-black mb-2">
+              {error.includes("free trademark searches")
+                ? "Free searches used up"
+                : error.startsWith("Enter at least")
+                  ? "Check your search"
+                  : "Something went wrong"}
+            </p>
+            <p className="text-sm text-gray-600 mb-6">{error}</p>
+            <button
+              type="button"
+              autoFocus
+              onClick={() => setError("")}
+              className="w-full px-6 py-2.5 rounded-full bg-yellow-400 text-black font-semibold hover:bg-yellow-500"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Off-screen copy of a saved search's report, rendered only while its
+          PDF is being made. */}
+      {historyReport && (
+        <div aria-hidden="true" style={{ position: "fixed", left: -10000, top: 0, width: 1100 }}>
+          <TrademarkReport
+            ref={historyReportRef}
+            results={historyReport.results}
+            query={historyReport.query}
+            classes={historyReport.classNumbers || "All"}
+            total={historyReport.totalCount ?? historyReport.results.length}
+            reportDate={localDate(historyReport.createdAt)}
+          />
+        </div>
+      )}
+
       {/* Results */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
+      <section className={`max-w-6xl mx-auto ${embedded ? "py-6" : "px-4 sm:px-6 py-10"}`}>
         {loading && !result && (
           <div className="space-y-3">
             {[0, 1, 2].map((i) => (

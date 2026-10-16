@@ -5,6 +5,7 @@ import useSelectedCompany from "../../hooks/useSelectedCompany";
 import { getRelationshipReferral } from "../../api/DashboardApi";
 import { getReferralMe } from "../../api/ReferralApi";
 import { CopyButton } from "../referrals/ReferralLinkCard";
+import { SHOW_CUSTOMER_REFER_AND_EARN } from "../../utils/featureFlags";
 
 const RelationshipReferral = () => {
   const { companyId } = useSelectedCompany();
@@ -26,7 +27,7 @@ const RelationshipReferral = () => {
     // failing just hides its half — never the whole card.
     Promise.allSettled([
       getRelationshipReferral(companyId),
-      getReferralMe("customer", companyId),
+      SHOW_CUSTOMER_REFER_AND_EARN ? getReferralMe("customer", companyId) : Promise.resolve(null),
     ]).then(([rmRes, refRes]) => {
       if (cancelled) return;
       const rmData = rmRes.status === "fulfilled" ? rmRes.value : null;
@@ -42,17 +43,19 @@ const RelationshipReferral = () => {
   const referrer = programme?.programmeEnabled ? programme.referrer : null;
   const terms = programme?.terms || {};
 
+  const gridCls = SHOW_CUSTOMER_REFER_AND_EARN ? "grid grid-cols-1 gap-4 lg:grid-cols-2" : "grid grid-cols-1 gap-4";
+
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 animate-pulse">
+      <div className={`${gridCls} animate-pulse`}>
         <div className="h-48 rounded-2xl bg-white shadow-sm" />
-        <div className="h-48 rounded-2xl bg-yellow-50" />
+        {SHOW_CUSTOMER_REFER_AND_EARN && <div className="h-48 rounded-2xl bg-yellow-50" />}
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div className={gridCls}>
       {/* Relationship manager */}
       <div className="rounded-2xl border border-gray-100 bg-white p-4 md:p-5 shadow-sm">
         <div className="mb-4 flex items-center gap-2.5">
@@ -95,6 +98,7 @@ const RelationshipReferral = () => {
       </div>
 
       {/* Referral */}
+      {SHOW_CUSTOMER_REFER_AND_EARN && (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-yellow-400 bg-yellow-50 p-5 text-center">
         <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-yellow-100 text-yellow-700">
           <Gift className="h-5 w-5" />
@@ -129,6 +133,7 @@ const RelationshipReferral = () => {
           </>
         )}
       </div>
+      )}
     </div>
   );
 };
