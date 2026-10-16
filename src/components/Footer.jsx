@@ -1,5 +1,6 @@
 import { FaFacebookF, FaLinkedinIn, FaInstagram } from "react-icons/fa";
 import { FiPhone, FiMail, FiMapPin } from "react-icons/fi";
+import { Link } from "react-router-dom";
 
 export default function Footer() {
   return (
@@ -36,7 +37,9 @@ export default function Footer() {
         <div>
           <h3 className="font-semibold mb-4">Licence</h3>
           <ul className="space-y-2 text-sm text-gray-600">
-            <li><a href="#" className="hover:text-black">Privacy Policy</a></li>
+            <li><Link to="/privacy-policy" className="hover:text-black">Privacy Policy</Link></li>
+            <li><Link to="/terms-and-conditions" className="hover:text-black">Terms and Conditions</Link></li>
+            <li><Link to="/cancellation-refund-policy" className="hover:text-black">Cancellation and Refund Policy</Link></li>
             <li><a href="#" className="hover:text-black">Copyright</a></li>
             <li><a href="#" className="hover:text-black">Email Address</a></li>
           </ul>

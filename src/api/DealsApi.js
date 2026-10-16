@@ -164,11 +164,11 @@ export const insertDeal = async (payload) => {
 
 /**
  * Schedule a follow-up on a Deal.
- * @param {Object} payload - { dealId, followUpDate, remark }
+ * @param {Object} payload - { dealId, followUpDate (YYYY-MM-DD), followUpTime? (HH:MM), remark }
  */
-export const createDealFollowUp = async ({ dealId, followUpDate, remark }) => {
+export const createDealFollowUp = async ({ dealId, followUpDate, followUpTime, remark }) => {
     try {
-        const response = await axiosInstance.post("/deal-followup/create", { dealId, followUpDate, remark });
+        const response = await axiosInstance.post("/deal-followup/create", { dealId, followUpDate, followUpTime, remark });
         return response.data;
     } catch (error) {
         console.error("Error creating deal follow-up:", error);

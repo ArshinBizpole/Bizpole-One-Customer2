@@ -163,10 +163,32 @@ const getDocumentUrl = (docType, download = false) => {
   return url;
 };
 
+/**
+ * The current customer's own documents uploaded in the Start New Company /
+ * Existing Company flows (a director matched to them by mobile, email or PAN,
+ * or an unnamed applicant label). Returns { PAN, ADHAAR, PassportPhoto }, each
+ * { url, fileName, companyId, uploadedAt } or null; `others` (other personal
+ * files, e.g. Address Proof); and `ownLabels` ({ companyId, docLabel } of every
+ * file counted as theirs).
+ */
+const getApplicationPersonalDocuments = async () => {
+  const empty = { PAN: null, ADHAAR: null, PassportPhoto: null, others: [], ownLabels: [] };
+  const customerId = getUserData().CustomerID;
+  if (!customerId) return empty;
+  try {
+    const response = await axiosInstance.get(`/customer-documents/${customerId}/application-personal`);
+    return { ...empty, ...(response.data?.data || {}) };
+  } catch (error) {
+    console.error("Error fetching application documents:", error);
+    return empty;
+  }
+};
+
 export default {
   uploadDocument,
   // getAllDocuments,
   getUploadedDocuments,
+  getApplicationPersonalDocuments,
   postAllDocuments,
   getDocumentUrl,
 };

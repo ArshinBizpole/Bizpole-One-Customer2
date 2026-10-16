@@ -250,8 +250,10 @@ const ServiceDetails = () => {
   };
 
   const addToSelection = (priceForState) => {
-    // If price is not available, use a default object
+    // If price is not available, use a zero placeholder flagged priceMissing —
+    // proceedToQuote refuses to quote it rather than inventing a price.
     const priceObj = priceForState || {
+      priceMissing: true,
       ProfessionalFee: 0,
       VendorFee: 0,
       GovtFee: 0,
