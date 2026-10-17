@@ -155,26 +155,20 @@ const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
     }
   }, [stateId]);
 
-  // Use Features from API as Key Benefits
-  const benefits = service?.Features && Array.isArray(service.Features)
-    ? service.Features.map(f => f.FeatureName)
-    : [
-      "Limited Liability Protection",
-      "Separate Legal Entity",
-      "Easy Fund Raising",
-      "Tax Benefits",
-      "Perpetual Succession",
-    ];
+  // Key Benefits = ServiceFeatures. /filterServices sends them as plain names
+  // (["..."]); older responses sent {FeatureName} objects — accept both. No
+  // hard-coded fallback: a service without features just hides the section.
+  const benefits = (Array.isArray(service?.Features) ? service.Features : [])
+    .map(f => (typeof f === "string" ? f : f?.FeatureName))
+    .filter(Boolean);
 
-  // Use Deliverables from API as What's Included
-  const whatsIncluded = service?.Deliverables && Array.isArray(service.Deliverables)
-    ? service.Deliverables.map(d => d.label)
-    : [
-      "Company Name Approval",
-      "MOA & AOA",
-      "Digital Signature",
-      "PAN & TAN",
-    ];
+  // What's Included = ServiceDeliverables for this service only. Some services
+  // have the same deliverable saved several times — show each label once.
+  const whatsIncluded = [...new Set(
+    (Array.isArray(service?.Deliverables) ? service.Deliverables : [])
+      .map(d => (typeof d === "string" ? d : d?.label)?.trim())
+      .filter(Boolean)
+  )];
 
   const tabs = [
     { id: "eligibility", label: "ELIGIBILITY CRITERIA", icon: <FaClipboardCheck size={13} /> },
@@ -456,9 +450,14 @@ const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
                   </div>
 
                   {/* Meta */}
-                  <p className="text-gray-400 text-xs mb-6 ml-12 bg-yellow-50 w-max px-2 py-0.5 rounded-full">
-                    {service?.Category?.CategoryName || "Incorporation"} &nbsp;·&nbsp; ⏱ {service?.EstimatedTAT || service?.Duration || "7–10"} Days
-                  </p>
+                  {(service?.Category?.CategoryName || service?.EstimatedTAT || service?.Duration) && (
+                    <p className="text-gray-400 text-xs mb-6 ml-12 bg-yellow-50 w-max px-2 py-0.5 rounded-full">
+                      {[
+                        service?.Category?.CategoryName,
+                        (service?.EstimatedTAT || service?.Duration) && `⏱ ${service?.EstimatedTAT || service?.Duration} Days`,
+                      ].filter(Boolean).join("  ·  ")}
+                    </p>
+                  )}
 
                   {serviceDescription && (
                     <p className="text-gray-600 text-sm leading-relaxed">
@@ -537,6 +536,7 @@ const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
                     </motion.button>
 
                     {/* What's Included */}
+                    {whatsIncluded.length > 0 && (
                     <div className="mb-5">
                       <h4 className="text-sm font-extrabold text-gray-900 mb-3">
                         What's Included
@@ -558,6 +558,7 @@ const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
                         ))}
                       </ul>
                     </div>
+                    )}
 
                     {/* Action Buttons */}
                     <div className="space-y-2">
@@ -613,7 +614,7 @@ const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
           )}
 
           {/* ── KEY BENEFITS ── */}
-          {service && (
+          {service && benefits.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}

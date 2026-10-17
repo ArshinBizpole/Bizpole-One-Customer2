@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import CryptoJS from 'crypto-js';
 import { getInvoiceDetails } from '../api/Companyinvoice';
 import { initPayment } from '../api/Orders/Order';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { getSecureItem } from '../utils/secureStorage';
 import {
   getOrderStatusLabel as customerOrderStatusLabel,
@@ -172,7 +174,13 @@ const MyOrderDetails = () => {
   // Same generate-and-open mechanism as the "Create Payment Link" action in the
   // Client app's Orders > Receipts tab: call initiatePayment directly with the
   // real pending amount, then open the returned payment link straight away.
+  // True while a payment link is being created — blocks repeat clicks, which
+  // used to fire several links at once and let the same balance be paid twice.
+  const [paying, setPaying] = useState(false);
+
   const handlePayBalance = async (orderObj, pendingAmount) => {
+    if (paying) return;
+    setPaying(true);
     try {
       // The order object doesn't carry customer contact fields — the payer here is
       // always the logged-in customer, so fall back to their own profile in storage.
@@ -210,6 +218,10 @@ const MyOrderDetails = () => {
       }
     } catch (error) {
       console.error('Pay balance error:', error);
+      // e.g. "This order is already fully paid" from the server's overpayment guard
+      toast.error(error?.response?.data?.message || 'Could not start the payment. Please try again.');
+    } finally {
+      setPaying(false);
     }
   };
 
@@ -221,6 +233,9 @@ const MyOrderDetails = () => {
       ? Number(order.totalAmount)
       : orderItems.reduce((sum, item) => sum + (item.total || 0), 0);
   const hasPendingAmount = totalPendingAmount > 0;
+  // Invoice is downloadable only when nothing is pending AND the received amount covers
+  // the order total — guards against a missing/zero PendingAmount on an unpaid order.
+  const isFullyPaid = !hasPendingAmount && (totalAmount <= 0 || totalAdvanceAmount >= totalAmount - 0.5);
 
   // order.OrderID here can be the OrderCodeId string (e.g. "OR0000123") rather than the
   // raw numeric primary key — extract the trailing digits so lookups against numeric
@@ -437,13 +452,16 @@ const MyOrderDetails = () => {
                   <MessageCircle className="w-4 h-4" />
                   Contact Support
                 </button>
-                <button
-                  onClick={handleDownloadInvoice}
-                  className="flex items-center justify-center gap-2 border border-gray-200 bg-white text-gray-700 px-6 py-2.5 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  Download Invoice
-                </button>
+                {/* Invoice only once the order is fully paid */}
+                {isFullyPaid && (
+                  <button
+                    onClick={handleDownloadInvoice}
+                    className="flex items-center justify-center gap-2 border border-gray-200 bg-white text-gray-700 px-6 py-2.5 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download Invoice
+                  </button>
+                )}
                 <button
                   onClick={() => goToTasks(item)}
                   className="flex items-center justify-center gap-2 border border-gray-200 bg-white text-gray-700 px-6 py-2.5 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors"
@@ -454,10 +472,11 @@ const MyOrderDetails = () => {
                 {hasPendingAmount && (
                   <button
                     onClick={() => handlePayBalance(order, totalPendingAmount)}
-                    className="flex items-center justify-center gap-2 border border-gray-200 bg-white text-gray-700 px-6 py-2.5 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors"
+                    disabled={paying}
+                    className="flex items-center justify-center gap-2 border border-gray-200 bg-white text-gray-700 px-6 py-2.5 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <CreditCard className="w-4 h-4" />
-                    Pay Balance
+                    {paying ? 'Processing...' : 'Pay Balance'}
                   </button>
                 )}
               </div>
@@ -474,6 +493,7 @@ const MyOrderDetails = () => {
       animate={{ opacity: 1 }}
       className="min-h-screen p-4 md:p-8 bg-gray-50/50"
     >
+      <ToastContainer position="top-right" autoClose={3000} />
       <div className="max-w-5xl mx-auto">
 
         {/* Header */}
@@ -705,25 +725,29 @@ const MyOrderDetails = () => {
                 initial="hidden"
                 animate="visible"
               >
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleDownloadInvoice}
-                  className="w-full flex items-center justify-center gap-2 bg-amber-400 text-black px-6 py-2.5 rounded-full text-sm font-medium hover:bg-amber-500 transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  Download Invoice
-                </motion.button>
+                {/* Invoice only once the order is fully paid */}
+                {isFullyPaid && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleDownloadInvoice}
+                    className="w-full flex items-center justify-center gap-2 bg-amber-400 text-black px-6 py-2.5 rounded-full text-sm font-medium hover:bg-amber-500 transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download Invoice
+                  </motion.button>
+                )}
 
                 {hasPendingAmount ? (
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-700 px-6 py-2.5 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-700 px-6 py-2.5 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     onClick={() => handlePayBalance(order, totalPendingAmount)}
+                    disabled={paying}
                   >
                     <CreditCard className="w-4 h-4" />
-                    Pay Balance
+                    {paying ? 'Processing...' : 'Pay Balance'}
                   </motion.button>
                 ) : (
                   <motion.button
