@@ -342,7 +342,7 @@ export function suggestedBusinessNames(A) {
   return suf.map((s) => `${kw} ${s}`);
 }
 
-function suggestAlternatives(name) {
+export function suggestAlternatives(name) {
   const suffixes = ["Ventures", "Enterprises", "Solutions", "Global", "Industries", "Traders", "Innovations", "Associates"];
   const h = hashStr(name.toLowerCase());
   return [`${name} ${suffixes[h % suffixes.length]}`, `${name} ${suffixes[(h + 1) % suffixes.length]}`, `${name} ${suffixes[(h + 2) % suffixes.length]}`];
@@ -502,27 +502,7 @@ export function selectedNiceClass(A) {
   const m = (A.tm_class || "").match(/^Class (\d+)/);
   return m ? (NICE_CLASSES.find((c) => c.no === Number(m[1])) || null) : null;
 }
-export function runTrademarkSearchSim(name, tmClass) {
-  const h = hashStr(name.toLowerCase());
-  const count = h % 4;
-  const cls = (tmClass || "Class 35 — Advertising & Business Management").split(" — ")[0];
-  const suffixes = ["Pro", "Hub", "Zone", "World", "India", "Global", "Plus", "Mart"];
-  const owners = ["Nova Ventures Pvt Ltd", "Bluepeak Industries", "Trident Commerce LLP", "Silverline Traders", "Orbit Retail Pvt Ltd"];
-  const statuses = ["Registered", "Under Examination", "Opposed"];
-  const sims = ["Highly Similar", "Similar", "Similar"];
-  const results = [];
-  const exactHit = name && h % 5 === 0;
-  for (let i = 0; i < count; i++) {
-    results.push({
-      mark: i === 0 && exactHit ? name : `${name} ${suffixes[(h + i * 7) % suffixes.length]}`,
-      class: cls,
-      status: statuses[(h + i) % statuses.length],
-      similarity: i === 0 && exactHit ? "Identical" : sims[(h + i) % sims.length],
-      owner: owners[(h + i * 3) % owners.length],
-    });
-  }
-  return results;
-}
+// Results come from the live register via runTrademarkSearch (api/TrademarkApi.js).
 export function tmRiskLevel(results) {
   if (!results) return null;
   if (results.some((x) => x.similarity === "Identical")) return { level: "High", variant: "err", note: "An identical mark already exists in the register. Registration is very likely to face objection or opposition — we strongly recommend choosing a different name." };
@@ -543,12 +523,13 @@ export function newcoBusinessSteps(A) {
     ] },
     { id: "name", title: "Business Name", fields: [
       ynField("hasName", "Do you already have a preferred business/company name?"),
-      textField("name1", "Preferred Name 1", { showIf: (A) => A.hasName === "Yes", full: true }),
-      textField("name2", "Preferred Name 2", { showIf: (A) => A.hasName === "Yes", full: true, required: false }),
-      textField("name3", "Preferred Name 3", { showIf: (A) => A.hasName === "Yes", full: true, required: false }),
+      textField("name1", "Proposed Name 1", { showIf: (A) => A.hasName === "Yes", full: true }),
+      textField("name2", "Proposed Name 2", { showIf: (A) => A.hasName === "Yes", full: true, required: false }),
+      textField("name3", "Proposed Name 3", { showIf: (A) => A.hasName === "Yes", full: true, required: false }),
       { type: "suggestNames", showIf: (A) => A.hasName === "No", full: true },
     ] },
-    { id: "namecheck", title: "Name Availability Check", type: "namecheck" },
+    // Name availability (MCA + trademark) is checked on the Business Name step
+    // itself — see NameCheckBody in FlowRunner.jsx.
     { id: "activity", title: "Business Activity", fields: [
       cardsField("activity", "What does your business do?", ACTIVITIES, { cols: 3 }),
       areaField("activityDesc", "Describe your business activity", { full: true, ph: "e.g. We design and sell custom industrial packaging to FMCG manufacturers." }),

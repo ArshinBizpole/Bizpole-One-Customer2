@@ -48,19 +48,19 @@ const NewCompanyServiceMenu = ({ onBack }) => {
           border: 1.5px solid #F5C518;
           border-radius: 12px;
           background: #fff;
-          padding: 12px 14px;
+          padding: 16px 18px;
           display: flex; align-items: center; gap: 12px;
           cursor: pointer;
           transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
         }
         .svm-card:hover { background: #FFFBEA; transform: translateY(-2px); }
         .svm-ic {
-          width: 38px; height: 38px; border-radius: 10px; flex: none;
+          width: 44px; height: 44px; border-radius: 12px; flex: none;
           background: #FFFBEA; color: #92620a;
           display: flex; align-items: center; justify-content: center;
         }
-        .svm-title { font-weight: 700; font-size: 13.5px; color: #1a1a1a; }
-        .svm-desc { font-size: 11.5px; color: #9ca3af; margin-top: 1px; }
+        .svm-title { font-weight: 700; font-size: 15px; color: #1a1a1a; }
+        .svm-desc { font-size: 12.5px; color: #9ca3af; margin-top: 1px; }
         .svm-arrow { color: #cbb56a; flex: none; }
 
         .svm-back-btn {
@@ -76,41 +76,34 @@ const NewCompanyServiceMenu = ({ onBack }) => {
       `}</style>
 
       <motion.div
-        className="svm-root w-full max-w-5xl shadow-sm"
-        initial={{ opacity: 0, x: 80, scale: 0.97 }}
-        animate={{ opacity: 1, x: 0, scale: 1 }}
-        exit={{ opacity: 0, x: -80, scale: 0.97 }}
+        className="svm-root fixed inset-0 z-40 overflow-y-auto"
+        initial={{ opacity: 0, x: 80 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -80 }}
         transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-        style={{ borderRadius: 28, overflow: "hidden", position: "relative" }}
+        style={{ background: "#f9fafb" }}
       >
-        <div className="flex flex-col lg:flex-row relative" style={{ minHeight: 480 }}>
+        <div className="flex flex-col lg:flex-row relative" style={{ minHeight: "100vh" }}>
 
           {/* ════ LEFT — WHITE PANEL ════ */}
           <div
             className="lg:w-[52%]"
-            style={{ display: "flex", flexDirection: "column", padding: "22px 28px 0", position: "relative" }}
+            style={{
+              display: "flex", flexDirection: "column", justifyContent: "center",
+              padding: "32px clamp(20px, 6vw, 88px)", position: "relative",
+            }}
           >
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 18, fontWeight: 800, color: "#1a1a1a" }}>
-                Bizpo<span style={{ color: "#F5C518" }}>1</span>e
-              </div>
-              <div style={{ fontSize: 8, color: "#9ca3af", fontWeight: 500 }}>
-                <span style={{ color: "#F5C518" }}>Start</span>{" · "}
-                <span style={{ color: "#ef4444" }}>Run</span>{" · "}
-                <span style={{ color: "#1a1a1a" }}>Grow</span>
-              </div>
-            </div>
 
-            <div style={{ marginBottom: 18 }}>
-              <h1 style={{ fontSize: 19, fontWeight: 700, color: "#1a1a1a", marginBottom: 4 }}>
+            <div style={{ marginBottom: 24 }}>
+              <h1 style={{ fontSize: 26, fontWeight: 700, color: "#1a1a1a", marginBottom: 6 }}>
                 What Would You Like to Register?
               </h1>
-              <p style={{ fontSize: 11, color: "#9ca3af" }}>
+              <p style={{ fontSize: 13, color: "#9ca3af" }}>
                 Pick a service to begin — you can add more registrations later in the flow.
               </p>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 560 }}>
               {SERVICES.map((s, idx) => {
                 const Icon = s.icon;
                 return (
@@ -123,7 +116,7 @@ const NewCompanyServiceMenu = ({ onBack }) => {
                     whileTap={{ scale: 0.98 }}
                     onClick={() => s.go(navigate)}
                   >
-                    <span className="svm-ic"><Icon size={18} /></span>
+                    <span className="svm-ic"><Icon size={20} /></span>
                     <span style={{ flex: 1 }}>
                       <span className="svm-title" style={{ display: "block" }}>{s.title}</span>
                       <span className="svm-desc" style={{ display: "block" }}>{s.desc}</span>
@@ -176,7 +169,7 @@ const NewCompanyServiceMenu = ({ onBack }) => {
               transition={{ delay: 0.3, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
               style={{
                 position: "relative", zIndex: 2,
-                width: "70%", maxWidth: 260, height: "62%", maxHeight: 300,
+                width: "60%", maxWidth: 380, height: "55%", maxHeight: 440,
                 borderRadius: 22,
                 background: "rgba(255,255,255,0.22)",
                 border: "1px solid rgba(255,255,255,0.35)",

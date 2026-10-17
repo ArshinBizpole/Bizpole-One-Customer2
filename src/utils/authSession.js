@@ -1,8 +1,10 @@
 import { getTokenExpiryMs } from "./jwt";
 
 // Keys that represent the logged-in session — cleared on logout/expiry.
-// (Deliberately excludes things like "PartnerID" referral attribution, which should
-// survive a logged-out session.)
+// (Deliberately excludes the referral scan token — referralScanToken/ExpiresAt, see
+// utils/referralAttribution — which must survive a logged-out session until signup, and the
+// separate affiliate session — see utils/affiliateSession. The legacy "PartnerID" key is no
+// longer used at all; it is purged on app load.)
 const SESSION_KEYS = [
   "token",
   "partnerToken",

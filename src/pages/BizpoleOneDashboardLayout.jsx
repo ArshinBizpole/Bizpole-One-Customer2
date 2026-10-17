@@ -11,9 +11,12 @@ import {
   Wrench,
   Receipt,
   LifeBuoy,
+  Gift,
+  SearchCheck,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { SHOW_CUSTOMER_REFER_AND_EARN } from "../utils/featureFlags";
 
 const BizpoleOneDashboardLayout = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -161,6 +164,23 @@ const BizpoleOneDashboardLayout = () => {
                 </NavLink>
               </li> */}
 
+              {/* Trademark Search — same page as the website's /trademark-search,
+                  with the customer's search history and report downloads */}
+              <li>
+                <NavLink
+                  to="/dashboard/bizpoleone/trademark-search"
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-3 rounded-lg font-medium transition-all ${isActive
+                      ? "bg-[#FFC42A] text-white shadow-inner"
+                      : "text-gray-600 hover:bg-gray-50"
+                    }`
+                  }
+                >
+                  <SearchCheck size={20} />
+                  {!isCollapsed && <span>Trademark Search</span>}
+                </NavLink>
+              </li>
+
               {/* Pricing & Plans */}
               <li>
                 <NavLink
@@ -208,6 +228,24 @@ const BizpoleOneDashboardLayout = () => {
                   {!isCollapsed && <span>Customer supports</span>}
                 </NavLink>
               </li>
+
+              {/* Refer & Earn */}
+              {SHOW_CUSTOMER_REFER_AND_EARN && (
+              <li>
+                <NavLink
+                  to="/dashboard/bizpoleone/referrals"
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-3 rounded-lg font-medium transition-all ${isActive
+                      ? "bg-[#FFC42A] text-white shadow-inner"
+                      : "text-gray-600 hover:bg-gray-50"
+                    }`
+                  }
+                >
+                  <Gift size={20} />
+                  {!isCollapsed && <span>Refer &amp; Earn</span>}
+                </NavLink>
+              </li>
+              )}
             </ul>
           </nav>
         </div>
