@@ -70,7 +70,7 @@ export default function Navbar() {
             className="cursor-pointer flex items-center"
           >
             <img
-              src="/Images/logo.webp"
+              src="/Images/image.png"
               alt="Bizpole Logo"
               className="h-10"
             />

@@ -237,7 +237,7 @@ const Subscription = () => {
 
           {/* Logo + Skip */}
           <div style={{ position:"absolute",top:20,left:24,right:24,display:"flex",alignItems:"center",justifyContent:"space-between",zIndex:10 }}>
-            <img src="/Images/logo.webp" alt="Bizpole" style={{ height:36,width:"auto" }} />
+            <img src="/Images/image.png" alt="Bizpole" style={{ height:36,width:"auto" }} />
             <motion.button className="skip-btn" whileHover={{ scale:1.04 }} whileTap={{ scale:0.97 }}
               onClick={() => navigate("/dashboard/bizpoleone")}>
               Skip for now →

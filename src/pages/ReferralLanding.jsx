@@ -53,7 +53,7 @@ const ReferralLanding = () => {
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <header className="border-b border-gray-200 bg-white px-4 py-3">
-        <img src="/Images/logo.webp" alt="Bizpole" className="h-9" />
+        <img src="/Images/image.png" alt="Bizpole" className="h-9" />
       </header>
       <main className="flex flex-1 items-center justify-center px-4 py-8">
         <div className="w-full max-w-md rounded-2xl border border-dashed border-yellow-400 bg-white p-6 text-center shadow-sm">

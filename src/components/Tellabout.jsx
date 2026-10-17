@@ -282,7 +282,7 @@ const Tellabout = () => {
             </div>
 
             {/* Logo */}
-            <motion.img src="/Images/logo.webp" alt="Bizpole"
+            <motion.img src="/Images/image.png" alt="Bizpole"
               style={{ height:36,width:90,position:"relative",zIndex:4 }}
               initial={{ opacity:0,y:-10 }} animate={{ opacity:1,y:0 }} transition={{ delay:0.2 }}
             />

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { ArrowLeft, ArrowRight, Check, Home } from "lucide-react";
 import CryptoJS from "crypto-js";
 import { getSecureItem, setSecureItem, removeSecureItem } from "../../utils/secureStorage";
 import { lookupGstin, lookupGstinsByPan } from "../../api/GstinLookup";
@@ -6,7 +8,7 @@ import { assignCustomer } from "../../api/CustomerApi";
 import { createLead, createLeadFollowUp, createCustomerCompany, convertLeadToDeal, createQuoteForApplication, uploadApplicationDocument, removeApplicationDocument } from "../../api/LeadApi";
 import { sendApplicationReceivedEmail } from "../../api/CustomerEmailApi";
 import { getAllStates } from "../../api/States";
-import { runTrademarkSearch } from "../../api/TrademarkApi";
+import { runTrademarkSearch, checkBusinessName } from "../../api/TrademarkApi";
 import { getAllServiceTypes, getPackagesByServiceType } from "../../api/ServiceType";
 import { getCompanyIdFromStorage } from "../../api/SupportTickets/SupportTicket";
 import { insertDeal, getCompanyDetails, createDealFollowUp } from "../../api/DealsApi";
@@ -19,13 +21,16 @@ import { districtsFor } from "../../utils/districts";
 import SigninModal from "../Modals/SigninModal";
 import VoiceSpecifyInput from "./VoiceSpecifyInput";
 import KycVerify from "./KycVerify";
+import FlowStepGuide from "./FlowStepGuide";
+import NameCheckReport from "../Trademark/NameCheckReport";
+import { saveElementAsPdf } from "../../utils/elementToPdf";
 import { kycBlockingError } from "./kycRules";
 import { languagesForState, languageForState } from "../../utils/stateLanguages";
 import { DOB_MAX, DOB_ERROR, dobError } from "../../utils/dob";
 import {
   FLOWS, ownerConfig, ownerBaseFields, newOwner, visibleFields, docItems, docGroups, isMinor,
   fieldError, formatInput, exceedsRange, rangeError, DERIVED_ANSWERS, today, rupee, newApplicationId, ADDON_PRICE, ADDON_SERVICE_ID, STATES, bizTypeFromConstitution,
-  recommendBusinessType, suggestedBusinessNames, runNameCheckSim,
+  recommendBusinessType, suggestedBusinessNames, suggestAlternatives,
   generateBusinessObjective, suggestedNicCodes, tmClassMatches,
   selectedNiceClass, tmRiskLevel, NICE_CLASSES,
   TM_MARK_TYPES, TM_LANGUAGES, newTmMark, tmMarks, tmMarkLabel, tmGovtFee,
@@ -218,7 +223,7 @@ function resolveCompanyName(flow, A) {
   // Existing Company ("ex-*") flows declare no companyNameFor: a new entity's
   // own name field (when the flow registers one) wins, else the existing
   // company they named (ex_name) — so Documents has a Company to key off.
-  return (A.nc_target || A.name1 || A.gst_bizname || A.msme_name || A.iec_bizname || A.other_bizname || A.ex_name || "").trim();
+  return (ncTarget(A) || A.gst_bizname || A.msme_name || A.iec_bizname || A.other_bizname || A.ex_name || "").trim();
 }
 // Address fields' key prefix for this flow's own addressFields() step (e.g.
 // "gst" -> gst_addr1/gst_state/..., "msme" -> msme_addr1/msme_state/...).
@@ -459,8 +464,6 @@ function validateStep(step, A, state) {
     if (!(lf.country || "").trim()) errors.lead_country = "Please enter your country.";
     if (!lf.state) errors.lead_state = "Please select your state.";
     if (!lf.language) errors.lead_language = "Please select your preferred language.";
-  } else if (step.type === "namecheck") {
-    if (!nameCheckIsCurrent(A, state)) errors.__namecheck = "Check name availability to continue";
   } else if (step.type === "objective") {
     if (!String(A.br_objective || "").trim()) errors.br_objective = "Please enter the business objective to continue";
     if (!A.br_nicCode) errors.br_nicCode = "Select a NIC code to continue";
@@ -492,6 +495,10 @@ function validateStep(step, A, state) {
     if (!tmSearchIsCurrent(A, state)) errors.__search = "Run the public trademark search to continue";
   } else {
     validateFields(step, A, errors);
+    // Business Name: the chosen name must have been checked (MCA + trademark).
+    if (step.id === "name" && A.hasName === "Yes" && !errors.name1 && !nameCheckIsCurrent(A, state)) {
+      errors.__namecheck = "Check name availability to continue";
+    }
     if (step.id === "proceed" && A.tm_proceed === "No, I want to choose a different name") {
       errors.tm_proceed = "Go back and update the trademark name, or select 'Yes, proceed' to continue.";
     }
@@ -538,9 +545,32 @@ function validateFields(step, A, errors) {
   return errors;
 }
 
+// Proposed names on the Business Name step, de-duplicated, in order.
+function proposedNames(A) {
+  return [A.name1, A.name2, A.name3]
+    .map((n) => (n || "").trim())
+    .filter((n, i, all) => n && all.findIndex((m) => m.toLowerCase() === n.toLowerCase()) === i);
+}
+// The name being checked: the one picked among the proposed names, else Name 1
+// (a pick that was since edited away no longer counts).
+function ncTarget(A) {
+  const names = proposedNames(A);
+  const picked = (A.nc_target || "").trim();
+  return names.find((n) => n.toLowerCase() === picked.toLowerCase()) || names[0] || "";
+}
+
+// 2–3 proposed names and the applicant hasn't confirmed the one being checked.
+function needsNameConfirm(A) {
+  if (A.hasName !== "Yes" || proposedNames(A).length < 2) return false;
+  return (A.nc_confirmed || "").trim().toLowerCase() !== ncTarget(A).toLowerCase();
+}
+
+// Only a live MCA + trademark check counts. Applications saved before that
+// existed hold simulated results (no `source`), so those names get checked again.
 function nameCheckIsCurrent(A, state) {
-  const key = (A.nc_target || "").trim().toLowerCase();
-  return key ? state.nameChecks[key] || null : null;
+  const key = ncTarget(A).toLowerCase();
+  const entry = key ? state.nameChecks[key] : null;
+  return entry?.source === "live" ? entry : null;
 }
 function tmSearchIsCurrent(A, state) {
   return A.tm_searchDone === "Yes" && state.tmSearch && state.tmSearch.for === (A.tm_name || "").trim().toLowerCase();
@@ -576,7 +606,9 @@ function ErrorText({ msg }) {
 }
 function ReqMark({ f, A }) {
   const required = typeof f.required === "function" ? f.required(A) : f.required;
-  return required === false ? null : <span className="text-red-500 ml-0.5">*</span>;
+  if (required !== false) return <span className="text-red-500 ml-0.5">*</span>;
+  // "(Optional)" tag — hidden by default, shown by newco-theme.css.
+  return /optional/i.test(f.label || f.q || "") ? null : <span className="flow-optional hidden ml-1 font-medium text-gray-400">(Optional)</span>;
 }
 function OptionButton({ selected, square, onClick, children }) {
   return (
@@ -625,7 +657,10 @@ function MobileInput({ value, onChange, className, placeholder, india = true }) 
 const withStaticStates = (rows) =>
   rows?.length ? rows : STATES.filter((s) => s !== "Other").map((s) => ({ state_name: s }));
 
-export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onSkip, homeLabel, nextLabel }) {
+// variant="newco": the New Company wizard's three-panel layout (step rail,
+// step card, FlowStepGuide) — the Existing Company flow keeps the default.
+export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onSkip, homeLabel, nextLabel, variant }) {
+  const nc = variant === "newco";
   // Namespaced per flowId — this same FlowRunner backs every entry in FLOWS
   // (New Company, GST, Trademark, MSME, IEC, Existing Company, ...). A single
   // shared key here would let starting/resuming one flow silently wipe
@@ -660,6 +695,9 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
   // A call-back already submitted for this application: clicking Request a
   // Call again only tells the customer so — it never raises a second one.
   const [callbackNoticeOpen, setCallbackNoticeOpen] = useState(false);
+  // Business Name with 2–3 proposed names: Continue first asks which one the
+  // applicant is going with.
+  const [confirmNameOpen, setConfirmNameOpen] = useState(false);
   const openCallback = () => (state.callbackDone ? setCallbackNoticeOpen(true) : setCallbackFormOpen(true));
   // Every "State" pick field (business address, GST location, existing-GST
   // state) falls back to the static STATES list, but that list is only ever
@@ -897,6 +935,13 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
     if (needsSignIn()) { withSignIn(goNext); return; }
     const errors = validateStep(step, A, state);
     if (step.type === "review" && !state.confirmed) errors.__confirm = "Please confirm before proceeding";
+    // More than one proposed name and none confirmed yet: ask which one first
+    // (once the name fields themselves are valid).
+    if (step.id === "name" && needsNameConfirm(A) && Object.keys(errors).every((k) => k === "__namecheck")) {
+      errorsRef.current = {};
+      setConfirmNameOpen(true);
+      return;
+    }
     if (Object.keys(errors).length) {
       errorsRef.current = errors;
       bump();
@@ -1126,7 +1171,7 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
   if (!flow) return null;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+    <div className={`${nc ? "max-w-[1400px]" : "max-w-6xl"} mx-auto px-4 sm:px-6 py-8`}>
       {state.leadGate && <LeadCaptureModal state={state} bump={bump} />}
       {state.signIn && !state.leadGate && (
         <SigninModal
@@ -1136,6 +1181,15 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
           onSignup={state.signIn.signup}
         />
       )}
+      {nc ? (
+        <nav className="flex items-center gap-2.5 text-xs text-gray-500 mb-5 flex-wrap">
+          <Link to="/" aria-label="Home" className="text-gray-400 hover:text-gray-700"><Home className="w-3.5 h-3.5" fill="currentColor" /></Link>
+          <span className="text-gray-400">&gt;</span>
+          <button onClick={onExit} className="hover:text-gray-800">{homeLabel || "Register your business"}</button>
+          <span className="text-gray-400">&gt;</span>
+          <span className="font-semibold text-[#0E9F8A]">{state.serviceType}</span>
+        </nav>
+      ) : (
       <nav className="flex items-center gap-1.5 text-xs text-gray-500 mb-4 flex-wrap">
         {/* Back to the requests menu — progress stays saved, so picking this
             service again resumes it. */}
@@ -1143,13 +1197,50 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
         <span>›</span>
         <span className="text-gray-800 font-medium">{state.serviceType}</span>
       </nav>
+      )}
 
       {step.type === "success" && state.submitted?.direct ? (
         <ChangeSavedScreen state={state} storageKey={storageKey} onExit={onExit} onDashboard={onSkip} />
       ) : step.type === "success" ? (
         <SuccessScreen state={state} onExit={onExit} onComplete={onComplete} nextLabel={nextLabel} onRetryPayment={retryPayment} />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[264px_1fr] gap-6 items-start">
+        <div className={`grid grid-cols-1 lg:grid-cols-[264px_1fr] gap-6 items-start${nc ? " xl:grid-cols-[264px_1fr_264px]" : ""}`}>
+          {nc ? (
+          <aside className="lg:sticky lg:top-6">
+            <div className={`${CARD_NC} p-5 lg:min-h-[74vh] flex flex-col`}>
+              <h3 className="text-lg font-bold text-gray-900 tracking-tight">{state.serviceType}</h3>
+              <div className="mt-3 rounded-lg bg-[#FFF7E0] px-3 py-1.5 text-xs font-medium text-[#B7791F]">{flow.kind || "New Company"}</div>
+              <div className="mt-5">
+                <div className="flex justify-between text-xs text-gray-700 mb-1.5">
+                  <span>Step {shown} of {total}</span><span className="text-gray-500">{pct}%</span>
+                </div>
+                <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-[#F5C518] rounded-full transition-all" style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+              <ul className="mt-5 space-y-1 hidden lg:block flex-1">
+                {steps.slice(0, -1).map((s, i) => { const current = i === stepIndex; const canJump = !current && i <= reachedIndex; const done = canJump && i < reachedIndex; return (
+                  <li key={s.id}>
+                    <button type="button" disabled={!canJump} onClick={() => jumpTo(i)}
+                      className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-left text-[13px] transition ${
+                        current ? "bg-[#FFF7E0] text-gray-900 font-semibold" : canJump ? "text-gray-800 hover:bg-gray-50" : "text-gray-400 cursor-default"
+                      }`}>
+                      <span className={`flex-none w-[22px] h-[22px] rounded-full flex items-center justify-center text-[11px] ${
+                        done ? "bg-[#22C55E] text-white" : current ? "bg-[#F5C518] text-gray-900 font-bold" : canJump ? "border border-gray-300 text-gray-600" : "border border-gray-200 text-gray-400"
+                      }`}>
+                        {done ? <Check className="w-3 h-3" strokeWidth={3.5} /> : i + 1}
+                      </span>
+                      <span>{s.title}</span>
+                    </button>
+                  </li>
+                ); })}
+              </ul>
+              {!state.dealId && (
+                <button onClick={cancelApplication} className="mt-4 w-full text-xs text-gray-400 hover:text-red-600 py-1.5">✕ Cancel application</button>
+              )}
+            </div>
+          </aside>
+          ) : (
           <aside className="lg:sticky lg:top-6">
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
               <div className="font-semibold text-gray-800">{state.serviceType}</div>
@@ -1183,12 +1274,20 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
               )}
             </div>
           </aside>
+          )}
 
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 sm:p-6">
+          <div className={nc ? `${CARD_NC} p-6 sm:p-7 lg:min-h-[74vh] flex flex-col` : "bg-white rounded-xl border border-gray-200 shadow-sm p-5 sm:p-6"}>
+            {nc ? (
+              <div className="mb-4">
+                <div className="text-[10px] font-semibold tracking-wider uppercase text-[#E8A317]">Step {shown} of {total}</div>
+                <h2 className="text-xl font-bold text-gray-900 mt-1">{step.title}</h2>
+              </div>
+            ) : (
             <div className="mb-5">
               <div className="text-xs font-bold tracking-wide uppercase text-blue-600">Step {shown} of {total}</div>
               <h2 className="text-xl font-semibold text-gray-900 mt-1">{step.title}</h2>
             </div>
+            )}
 
             {step.type === "leadDetails" && <LeadDetailsBody state={state} errors={errorsRef.current} bump={bump} />}
             {step.type === "changeCompany" && <ChangeCompanyBody A={A} state={state} errors={errorsRef.current} setAnswer={setAnswer} bump={bump} />}
@@ -1206,12 +1305,30 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
                 }}
               />
             )}
+            {confirmNameOpen && (
+              <ConfirmNameModal
+                A={A}
+                state={state}
+                onClose={() => setConfirmNameOpen(false)}
+                onConfirm={(name) => {
+                  setConfirmNameOpen(false);
+                  setAnswer("nc_target", name);
+                  setAnswer("nc_confirmed", name);
+                  if (nameCheckIsCurrent(A, state)) {
+                    goNext();
+                  } else {
+                    // Not checked yet: check it now; Continue again once the result is in.
+                    state.autoNameCheck = name;
+                    bump();
+                  }
+                }}
+              />
+            )}
             {callbackNoticeOpen && (
               <CallbackAlreadyRequestedModal callAt={state.callbackDone?.callAt} onClose={() => setCallbackNoticeOpen(false)} />
             )}
             {step.type === "owners" && <OwnersBody A={A} state={state} errors={errorsRef.current} bump={bump} />}
             {step.type === "docs" && <DocsBody step={step} A={A} state={state} errors={errorsRef.current} bump={bump} />}
-            {step.type === "namecheck" && <NameCheckBody A={A} state={state} errors={errorsRef.current} setAnswer={setAnswer} bump={bump} />}
             {step.type === "objective" && <ObjectiveBody A={A} errors={errorsRef.current} setAnswer={setAnswer} />}
             {step.type === "aiClassFinder" && <AiClassFinderBody A={A} setAnswer={setAnswer} state={state} bump={bump} />}
             {step.type === "tmClassConfirm" && <TmClassConfirmBody A={A} onChangeClass={() => { state.stepIndex = steps.findIndex((s) => s.id === "recommend"); bump(); }} />}
@@ -1220,8 +1337,33 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
             {step.type === "tmMarks" && <TmMarksBody flow={flow} A={A} state={state} errors={errorsRef.current} setAnswer={setAnswer} bump={bump} />}
             {!step.type && <FieldsBody step={step} A={A} errors={errorsRef.current} setAnswer={setAnswer} state={state} bump={bump} liveStateNames={liveStateNames} />}
             {!step.type && directMode && <ErrorText msg={errorsRef.current.__save} />}
+            {/* Business Name: name availability (MCA + trademark) is checked
+                right here, under the proposed names. */}
+            {step.id === "name" && A.hasName === "Yes" && (
+              <NameCheckBody A={A} state={state} errors={errorsRef.current} setAnswer={setAnswer} bump={bump} />
+            )}
 
-            {step.type !== "payment" && step.type !== "packages" && (
+            {step.type !== "payment" && step.type !== "packages" && nc && (
+              <div className="flex items-center justify-between gap-3 mt-auto pt-7">
+                <div className="pt-4 w-full flex items-center justify-between gap-3 border-t border-gray-100">
+                  <button onClick={goBack} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    <ArrowLeft className="w-4 h-4" /> Back
+                  </button>
+                  <div className="flex items-center gap-3">
+                    {canSkipToDashboard && (
+                      <button onClick={skipToDashboard} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50">
+                        Skip for now — go to dashboard
+                      </button>
+                    )}
+                    <button onClick={goNext} disabled={leadSaving} className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-semibold text-gray-900 bg-[#F5C518] hover:bg-[#EAB90C] disabled:bg-gray-100 disabled:text-gray-400">
+                      {leadSaving ? "Saving…" : directMode === "advisor" && step.id === "advice" ? "Send Request" : step.type === "review" ? (directMode ? (changeKind(A.change_what) === "other" ? "Send Request" : "Save Changes") : "Proceed to Payment") : "Continue"}
+                      {!leadSaving && <ArrowRight className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {step.type !== "payment" && step.type !== "packages" && !nc && (
               <div className="flex items-center justify-between gap-3 mt-7 pt-5 border-t border-gray-100">
                 <button onClick={goBack} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50">← Back</button>
                 <div className="flex items-center gap-3">
@@ -1237,11 +1379,13 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
               </div>
             )}
           </div>
+          {nc && <FlowStepGuide step={step} />}
         </div>
       )}
     </div>
   );
 }
+const CARD_NC = "bg-white rounded-2xl border border-gray-100 shadow-[0_1px_4px_rgba(16,24,40,0.06)]";
 
 // Service-details breakdown (professional fee, addons, govt fee, GST) shared
 // by both the Deal (fees not sent, just needed for context) and the Quote —
@@ -2125,7 +2269,7 @@ function Field({ f, A, errors, setAnswer, state, bump, liveStateNames }) {
       <div>
         <div className="font-semibold text-sm text-gray-800 mb-2">{f.q || f.label}<ReqMark f={f} A={A} /></div>
         {f.hint && <p className="text-xs text-gray-500 mb-2">{f.hint}</p>}
-        <div className={`grid gap-2 grid-cols-1 sm:grid-cols-${Math.min(cols, 3)}`}>
+        <div className={`grid gap-2 grid-cols-1 sm:grid-cols-${Math.min(cols, 3)}${f.opts.length === 2 ? " yn-grid" : ""}`}>
           {f.opts.map((o) => {
             const sel = multi ? cur.includes(o) : cur === o;
             return (
@@ -2851,49 +2995,233 @@ function SuggestNames({ A, setAnswer, state, bump }) {
 /* ---------------------------------------------------------------------------
    Name Availability Check step
 --------------------------------------------------------------------------- */
-function NameCheckBody({ A, state, errors, setAnswer, bump }) {
-  const names = [A.name1, A.name2, A.name3].map((n) => (n || "").trim()).filter((n, i, all) => n && all.findIndex((m) => m.toLowerCase() === n.toLowerCase()) === i);
-  const result = nameCheckIsCurrent(A, state);
-  function runCheck() {
-    const name = (A.nc_target || "").trim();
-    if (!name) return;
-    // Sign-in gate: the result itself (available / similar / taken) only shows
-    // once the applicant has verified their mobile — see requireLead().
-    requireLead(state, bump, () => {
-      const key = name.toLowerCase();
-      state.nameChecks[key] = runNameCheckSim(name);
-      bump();
-    });
-  }
-  if (!A.nc_target && names.length) A.nc_target = names[0];
+// Continue on Business Name with 2–3 proposed names: "Which name are you going
+// with?" — each name shows its availability if it's been checked.
+const NAME_STATUS_LABEL = {
+  available: ["Available", "text-emerald-700"],
+  similar: ["Similar names found", "text-amber-700"],
+  not_suitable: ["May not be available", "text-red-700"],
+  unverified: ["To be verified by our team", "text-blue-700"],
+};
+function ConfirmNameModal({ A, state, onClose, onConfirm }) {
+  const names = proposedNames(A);
+  const [picked, setPicked] = useState(ncTarget(A));
+  const statusOf = (n) => {
+    const r = state.nameChecks[n.toLowerCase()];
+    return r?.source === "live" ? NAME_STATUS_LABEL[r.status] : null;
+  };
   return (
-    <div>
-      <label className="block text-sm font-semibold text-gray-800 mb-1">Proposed Name</label>
-      <input className={inputCls()} value={A.nc_target || ""} onChange={(e) => setAnswer("nc_target", e.target.value)} placeholder="Enter the name to check" />
-      {names.length > 1 && (
-        <div className="flex gap-2 flex-wrap mt-2">
-          {names.map((n) => (
-            <button key={n} type="button" onClick={() => setAnswer("nc_target", n)} className={`px-3 py-1.5 rounded-lg border text-sm ${A.nc_target === n ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}>{n}</button>
-          ))}
+    <div role="dialog" aria-modal="true" aria-labelledby="confirm-name-title"
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <p id="confirm-name-title" className="text-lg font-semibold text-gray-900">Which name are you going with?</p>
+        <p className="text-sm text-gray-500 mt-1 mb-4">We'll register your company under the name you confirm. Our team keeps your other choices as back-ups.</p>
+        <div className="flex flex-col gap-2">
+          {names.map((n, i) => {
+            const status = statusOf(n);
+            return (
+              <label key={n} className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer ${picked === n ? "border-[#F5C518] bg-yellow-50" : "border-gray-200"}`}>
+                <input type="radio" name="confirm-name" className="mt-1 accent-[#E8A317]" checked={picked === n} onChange={() => setPicked(n)} />
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-gray-900 break-words">{n}</span>
+                  <span className="block text-xs text-gray-500">
+                    Preference {i + 1} ·{" "}
+                    {status ? <span className={status[1]}>{status[0]}</span> : "Not checked yet — we'll check it now"}
+                  </span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+        <div className="mt-6 flex gap-3">
+          <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+          <button type="button" onClick={() => picked && onConfirm(picked)} disabled={!picked}
+            className="flex-1 px-4 py-2.5 rounded-lg bg-[#F5C518] hover:bg-[#EAB90C] text-sm font-semibold text-gray-900 disabled:opacity-60">
+            Confirm name
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// The registry matches behind a name-check verdict: companies from the MCA
+// register and live trademarks, exact matches first.
+function NameCheckMatches({ companies = [], trademarks = [] }) {
+  if (!companies.length && !trademarks.length) return null;
+  const Tag = ({ match }) => (
+    <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${match === "exact" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}>
+      {match === "exact" ? "Same name" : "Similar"}
+    </span>
+  );
+  return (
+    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      {companies.length > 0 && (
+        <div className="rounded-lg border border-gray-200 p-3">
+          <p className="text-xs font-semibold text-gray-700 mb-2">Registered companies (MCA)</p>
+          <ul className="space-y-2">
+            {companies.map((c) => (
+              <li key={c.cin || c.name} className="text-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-medium text-gray-900">{c.name}</span>
+                  <Tag match={c.match} />
+                </div>
+                <div className="text-gray-500">
+                  {[c.status, c.cin, c.incorporatedAt && `since ${c.incorporatedAt.slice(0, 4)}`, c.state].filter(Boolean).join(" · ")}
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
-      <button type="button" onClick={runCheck} className="mt-3 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold">🔍 {result ? "Check Again" : "Check Availability"}</button>
+      {trademarks.length > 0 && (
+        <div className="rounded-lg border border-gray-200 p-3">
+          <p className="text-xs font-semibold text-gray-700 mb-2">Trademarks</p>
+          <ul className="space-y-2">
+            {trademarks.map((t, i) => (
+              <li key={`${t.applicationNumber}-${t.classNumber}-${i}`} className="text-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-medium text-gray-900">{t.wordMark || "(Device mark)"}</span>
+                  <Tag match={t.match} />
+                </div>
+                <div className="text-gray-500">
+                  {[t.status, t.classNumber != null && `Class ${t.classNumber}`, t.proprietorName].filter(Boolean).join(" · ")}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Shown on the Business Name step under the proposed names: checks the picked
+// name (Name 1 by default) against the MCA register and trademarks.
+function NameCheckBody({ A, state, errors, setAnswer, bump }) {
+  const names = proposedNames(A);
+  const target = ncTarget(A);
+  const result = nameCheckIsCurrent(A, state);
+  const [checking, setChecking] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [reportFor, setReportFor] = useState(null); // { name, result } rendered off-screen for the PDF
+  const reportRef = useRef(null);
+  // The PDF is only offered to a signed-up applicant (a saved result can
+  // outlive the session it was checked in).
+  const signedIn = !!localStorage.getItem("token") && state.otpVerified;
+
+  async function downloadReport() {
+    if (!result || downloading) return;
+    setDownloading(true);
+    setReportFor({ name: target, result });
+    try {
+      // Let the off-screen report render and its logo load before the snapshot.
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const imgs = Array.from(reportRef.current?.querySelectorAll("img") || []);
+      await Promise.all(imgs.map((img) => (img.complete ? null : new Promise((res) => { img.onload = img.onerror = res; setTimeout(res, 4000); }))));
+      const safe = target.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "name";
+      await saveElementAsPdf(reportRef.current, `Business-Name-Report-${safe}`);
+    } catch {
+      window.alert("Could not generate the report. Please try again.");
+    } finally {
+      setReportFor(null);
+      setDownloading(false);
+    }
+  }
+
+  // A name confirmed in the "Which name are you going with?" popup that hasn't
+  // been checked yet is checked straight away (FlowRunner sets autoNameCheck).
+  useEffect(() => {
+    if (!state.autoNameCheck || checking) return;
+    const n = state.autoNameCheck;
+    state.autoNameCheck = null;
+    runCheck(n);
+  });
+
+  function runCheck(nameArg) {
+    const name = (typeof nameArg === "string" ? nameArg : ncTarget(A)).trim();
+    if (!name || checking) return;
+    // Sign-in gate: the check only runs — and its result only shows — once the
+    // applicant has signed up / signed in with OTP (the server also refuses it
+    // without a customer session).
+    requireVerifiedCustomer(state, bump, async () => {
+      const key = name.toLowerCase();
+      setChecking(true);
+      try {
+        const res = await checkBusinessName(name);
+        if (res?.signInRequired) {
+          // Session gone (e.g. token expired): verify again, then re-run.
+          state.otpVerified = false;
+          state.leadGate = { run: () => runCheck(name) };
+          return;
+        }
+        state.nameChecks[key] = {
+          ...res,
+          alternatives: res.status === "available" ? undefined : suggestAlternatives(name),
+          source: "live",
+          checkedAt: today(),
+        };
+      } catch {
+        // Registry unreachable: don't block the application — the team checks
+        // the name with the Registrar before filing anyway.
+        state.nameChecks[key] = {
+          status: "unverified",
+          note: "We couldn't reach the company and trademark registers just now. You can continue — our team will check this name before filing.",
+          companies: [],
+          trademarks: [],
+          source: "live",
+          checkedAt: today(),
+        };
+      } finally {
+        setChecking(false);
+        bump();
+      }
+    });
+  }
+  return (
+    <div className="mt-5">
+      {names.length > 1 && (
+        <>
+          <p className="text-xs text-gray-500 mb-1.5">Name to check:</p>
+          <div className="flex gap-2 flex-wrap mb-1">
+            {names.map((n) => (
+              <button key={n} type="button" onClick={() => setAnswer("nc_target", n)} className={`px-3 py-1.5 rounded-lg border text-sm ${target === n ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}>{n}</button>
+            ))}
+          </div>
+        </>
+      )}
+      <button type="button" onClick={() => runCheck()} disabled={checking || !target} className="mt-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-60">{checking ? "Checking MCA & trademark registers…" : result ? "Check Again" : "Check Availability"}</button>
       <ErrorText msg={errors.__namecheck} />
       {result && (
         <div className="mt-4">
           {result.status === "available" && <Note variant="ok" title="Name appears available" body={result.note + " This is subject to final approval by the Registrar / competent authority."} />}
           {result.status === "similar" && <Note variant="warn" title="Similar name found" body={result.note} />}
           {result.status === "not_suitable" && <Note variant="err" title="Name may not be available / suitable" body={result.note} />}
+          {result.status === "unverified" && <Note variant="info" title="Couldn't check right now" body={result.note} />}
+          <NameCheckMatches companies={result.companies} trademarks={result.trademarks} />
+          {signedIn && result.status !== "unverified" && (
+            <button type="button" onClick={downloadReport} disabled={downloading}
+              className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm font-semibold text-gray-800 hover:border-gray-500 disabled:opacity-60">
+              {downloading ? "Preparing PDF…" : "Download report (PDF)"}
+            </button>
+          )}
           {result.alternatives && (
             <div className="mt-2">
-              <p className="text-xs text-gray-500 mb-1">Suggested alternatives — click one to check it:</p>
+              <p className="text-xs text-gray-500 mb-1">Suggested alternatives — click one to use it as Name 1 and check it:</p>
               <div className="flex gap-2 flex-wrap">
                 {result.alternatives.map((a) => (
-                  <button key={a} type="button" onClick={() => setAnswer("nc_target", a)} className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm">{a}</button>
+                  <button key={a} type="button" disabled={checking}
+                    onClick={() => { setAnswer("name1", a); setAnswer("nc_target", a); runCheck(a); }}
+                    className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm disabled:opacity-60">{a}</button>
                 ))}
               </div>
             </div>
           )}
+        </div>
+      )}
+      {reportFor && (
+        <div aria-hidden="true" style={{ position: "fixed", left: -10000, top: 0, width: 1100 }}>
+          <NameCheckReport ref={reportRef} name={reportFor.name} result={reportFor.result} />
         </div>
       )}
     </div>
@@ -2914,7 +3242,7 @@ function ObjectiveBody({ A, errors, setAnswer }) {
       <p className="text-xs text-gray-500 mb-2">Based on what you told us in the previous step. Edit freely, or regenerate from scratch.</p>
       <textarea rows={4} className={inputCls()} value={A.br_objective} onChange={(e) => setAnswer("br_objective", e.target.value)} />
       <div className="flex gap-2 flex-wrap mt-2">
-        <button type="button" onClick={() => setAnswer("br_objective", generateBusinessObjective(A))} className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-semibold">✨ Rephrase Again</button>
+        <button type="button" onClick={() => setAnswer("br_objective", generateBusinessObjective(A))} className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-semibold">Rephrase Again</button>
       </div>
       <ErrorText msg={errors.br_objective} />
       <div className="font-semibold text-sm text-gray-800 mt-5">Suggested NIC Code</div>
@@ -3291,11 +3619,6 @@ function reviewRows(flowId, A, state) {
         }
       });
       if (!rows.length) rows.push([s.title, "None added"]);
-    } else if (s.type === "namecheck") {
-      const r = nameCheckIsCurrent(A, state);
-      const statusLabel = r ? { available: "Available", similar: "Similar name found", not_suitable: "May not be suitable" }[r.status] : "Not checked yet";
-      rows.push(["Proposed name", A.nc_target || "—"]);
-      rows.push(["Availability status", statusLabel]);
     } else if (s.type === "objective") {
       rows.push(["Business objective", A.br_objective || "—"]);
       rows.push(["NIC Code", A.br_nicCode || "Not selected"]);
@@ -3327,6 +3650,13 @@ function reviewRows(flowId, A, state) {
         if (A[f.k] === "Other" && A[f.k + "__other"]) v = "Other — " + A[f.k + "__other"];
         rows.push([f.label || f.q, v]);
       });
+      // Business Name: the name-availability result checked on that step.
+      if (s.id === "name" && A.hasName === "Yes") {
+        const r = nameCheckIsCurrent(A, state);
+        const statusLabel = r ? { available: "Available", similar: "Similar name found", not_suitable: "May not be suitable", unverified: "To be verified by our team" }[r.status] : "Not checked yet";
+        rows.push(["Name checked", ncTarget(A) || "—"]);
+        rows.push(["Availability status", statusLabel]);
+      }
       if (!rows.length) rows.push(["—", "Nothing entered"]);
     }
     groups.push({ title: s.title, index: i, rows });
@@ -3418,11 +3748,11 @@ async function ensureGstInfo(state) {
   if (state.gstInfo || !franchiseeId) return;
   state.gstInfo = await fetchFranchiseeGstInfo(franchiseeId);
 }
+// Two ways to finish: pay online (the quote page offers UPI / card / net
+// banking / wallet) or ask an advisor to call back.
+const PAY_ONLINE_METHOD = "Proceed to Payment";
 const PAY_METHODS = [
-  ["UPI / QR", "Instant confirmation"],
-  ["Credit or Debit Card", "Visa, Mastercard, RuPay"],
-  ["Net Banking", "All major banks"],
-  ["Wallet", "Paytm, PhonePe, Amazon Pay"],
+  [PAY_ONLINE_METHOD, "Review your quote and pay online — UPI, card, net banking or wallet"],
   [CALLBACK_METHOD, "Our advisor will call you to go over the quote and payment"],
 ];
 
@@ -3651,6 +3981,8 @@ function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
     if (!state.gstInfo) ensureGstInfo(state).then(bump).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const f = feeLines(flow, A, state);
+  // Anything other than a call back (incl. drafts saved with the old UPI /
+  // card / wallet choices) is the online-payment path.
   const wantsCallback = A.payMethod === CALLBACK_METHOD;
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-5">
@@ -3685,7 +4017,7 @@ function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
         <h3 className="font-semibold mb-3">Payment method</h3>
         <div className="flex flex-col gap-2">
           {PAY_METHODS.map(([m, sub]) => (
-            <OptionButton key={m} selected={(A.payMethod || "UPI / QR") === m} onClick={() => { A.payMethod = m; bump(); }}>
+            <OptionButton key={m} selected={(wantsCallback ? CALLBACK_METHOD : PAY_ONLINE_METHOD) === m} onClick={() => { A.payMethod = m; bump(); }}>
               {m}<span className="block font-normal text-xs text-gray-500">{sub}</span>
             </OptionButton>
           ))}
@@ -3700,7 +4032,7 @@ function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
         ) : (
           <>
             <div className="mt-4"><Note variant="info" body="Opens your quote in a new tab to accept, verify, and choose how to pay. A GST invoice is emailed as soon as the payment succeeds." /></div>
-            <button onClick={onPay} className="w-full mt-4 py-2.5 rounded-lg bg-blue-600 text-white font-semibold text-sm">🔒 Review &amp; Approve Quote →</button>
+            <button onClick={onPay} className="w-full mt-4 py-2.5 rounded-lg bg-blue-600 text-white font-semibold text-sm">🔒 Proceed to Payment →</button>
           </>
         )}
         <button onClick={onBack} className="w-full mt-2 py-2.5 rounded-lg text-gray-500 text-sm font-semibold hover:bg-gray-50">Back</button>

@@ -32,6 +32,15 @@ export const getTrademarkSearchHistoryEntry = async (id) => {
   return data.data;
 };
 
+// Company-registration name availability: MCA company register + trademark
+// registry together (server: /api/trademark/name-check). Signed-in customers
+// only — without a session it resolves { signInRequired: true }.
+// Data: { status: available|similar|not_suitable, note, companies[], trademarks[] }.
+export const checkBusinessName = async (name) => {
+  const { data } = await api.get("/api/trademark/name-check", { params: { name } });
+  return data.signInRequired ? { signInRequired: true } : data.data;
+};
+
 // Marks in these states no longer block a new filing.
 const DEAD_STATUS = /(abandoned|refused|withdrawn|removed|expired|rejected)/i;
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");

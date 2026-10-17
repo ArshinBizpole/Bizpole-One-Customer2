@@ -41,7 +41,7 @@ const AffiliateLayout = () => {
       <header className="sticky top-0 z-20 border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
           <button type="button" onClick={() => navigate("/")} className="flex items-center gap-2">
-            <img src="/Images/logo.webp" alt="Bizpole" className="h-8" />
+            <img src="/Images/image.png" alt="Bizpole" className="h-8" />
             <span className="hidden rounded-full bg-yellow-100 px-2 py-0.5 text-[11px] font-bold text-yellow-800 sm:inline">
               Affiliate
             </span>
