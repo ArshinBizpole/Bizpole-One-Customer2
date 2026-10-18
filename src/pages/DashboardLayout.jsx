@@ -1,12 +1,13 @@
 import React, { useState, useEffect, createContext } from "react";
 import ProfileMenu from "../components/ProfileMenu";
+import NotificationBell from "../components/NotificationBell";
+import GlobalSearch from "../components/GlobalSearch";
 import { setSecureItem, getSecureItem } from "../utils/secureStorage";
 import axiosInstance from "../api/axiosInstance";
 import { Outlet, NavLink } from "react-router-dom";
 import {
   BookOpen,
   Layers,
-  Bell,
   ChevronDown,
   Menu,
   X,
@@ -314,33 +315,10 @@ const uniqueCompanies = Array.from(
             {/* Search + Icons Container */}
             <div className="flex items-center bg-white rounded-full shadow-md px-3 py-2 space-x-4">
               {/* Search Bar */}
-              <div className="flex items-center bg-[#FFC42A40] rounded-full px-3 py-1.5">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 text-gray-500 mr-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1010.5 18.5a7.5 7.5 0 006.15-3.85z"
-                  />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search"
-                  className="bg-transparent outline-none text-sm placeholder-gray-500 w-32 focus:w-44 transition-all"
-                />
-              </div>
+              <GlobalSearch />
 
               {/* Notifications */}
-              <button className="p-2 rounded-full hover:bg-gray-100 relative cursor-pointer">
-                <Bell size={22} className="text-gray-600" />
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
-              </button>
+              <NotificationBell />
 
               {/* Profile */}
               <ProfileMenu />
@@ -350,10 +328,7 @@ const uniqueCompanies = Array.from(
           {/* ✅ Mobile Right Section (Bell + User + Menu) */}
           <div className="flex items-center space-x-3 lg:hidden">
             {/* Notifications */}
-            <button className="p-2 rounded-full hover:bg-gray-100 relative cursor-pointer">
-              <Bell size={22} className="text-gray-600" />
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
-            </button>
+            <NotificationBell />
 
             {/* User Profile */}
             <ProfileMenu />
@@ -475,27 +450,7 @@ const uniqueCompanies = Array.from(
             </div>
 
             {/* Search Bar */}
-            <div className="flex items-center bg-[#FFC42A40] rounded-full px-3 py-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-gray-500 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1010.5 18.5a7.5 7.5 0 006.15-3.85z"
-                />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search"
-                className="bg-transparent outline-none text-sm placeholder-gray-500 w-full"
-              />
-            </div>
+            <GlobalSearch />
           </div>
         )}
 

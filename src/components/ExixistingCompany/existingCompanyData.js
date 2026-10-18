@@ -142,7 +142,7 @@ export function addressFields(prefix, label) {
     // A company being registered here must have its registered office in
     // India, so this is a single-option pick rather than free text — explicit
     // and visible, but not an invitation to enter an invalid country.
-    pickField(p + "country", "Country", ["India"], { def: "India" }),
+    pickField(p + "country", "Country", ["India"], { def: "India", fixed: true }),
     // District options follow the chosen State (see FlowRunner's "district"
     // field) — changing the State clears a District picked for the old one.
     pickField(p + "state", "State", STATES, { clears: p + "district" }),
@@ -154,15 +154,15 @@ export function addressFields(prefix, label) {
 export const panStep = (id, who) => ({
   id, title: "PAN Details", fields: [
     textField("pan_number", "PAN Number", { pattern: "pan", ph: "ABCDE1234F", hint: `PAN of the ${who}.`, kyc: { name: "pan_name" } }),
-    textField("pan_name", "Name as per PAN"),
+    textField("pan_name", "Name as per PAN", { pattern: "panName" }),
     pickField("pan_type", "PAN Holder Type", ["Individual", "Company", "LLP", "Partnership Firm", "Trust / Society", "Other"]),
   ],
 });
 export const bankStep = (id) => ({
   id, title: "Bank Details", fields: [
-    textField("bank_name", "Bank Name"),
+    textField("bank_name", "Bank Name", { pattern: "bankName" }),
     textField("bank_branch", "Branch"),
-    textField("bank_account", "Account Number", { pattern: "digits" }),
+    textField("bank_account", "Account Number", { pattern: "account", ph: "9–18 digits" }),
     textField("bank_ifsc", "IFSC Code", { pattern: "ifsc", ph: "HDFC0001234" }),
     pickField("bank_type", "Account Type", ["Current", "Savings"]),
   ],
@@ -179,7 +179,7 @@ export function personMinorFields(prefix, showIf) {
   return [
     textField(dobKey, "Date of Birth", { type: "date", dob: true, showIf }),
     noteField(() => ({ variant: "warn", title: "This person is under 18", body: "A nominee/guardian's details are required for them — see below." }), { full: true, showIf: nomineeShown }),
-    textField(prefix + "_nominee_name", "Nominee / Guardian Full Name", { full: true, showIf: nomineeShown }),
+    textField(prefix + "_nominee_name", "Nominee / Guardian Full Name", { full: true, pattern: "personName", showIf: nomineeShown }),
     textField(prefix + "_nominee_dob", "Nominee Date of Birth", { type: "date", dob: true, showIf: nomineeShown }),
     textField(prefix + "_nominee_pan", "Nominee PAN", { pattern: "pan", showIf: nomineeShown, kyc: { name: prefix + "_nominee_name", dob: prefix + "_nominee_dob" } }),
     textField(prefix + "_nominee_aadhaar", "Nominee Aadhaar", { pattern: "aadhaar", showIf: nomineeShown, kyc: { fill: { name: prefix + "_nominee_name", dob: prefix + "_nominee_dob", address: prefix + "_nominee_address" } } }),
@@ -190,7 +190,7 @@ export function personMinorFields(prefix, showIf) {
 }
 export const authStep = (id) => ({
   id, title: "Authorized Person", fields: [
-    textField("auth_name", "Full Name"),
+    textField("auth_name", "Full Name", { pattern: "personName" }),
     textField("auth_designation", "Designation"),
     textField("auth_email", "Email", { pattern: "email", type: "email", required: (A) => !isMinor(A.auth_dob) }),
     textField("auth_mobile", "Mobile", { pattern: "mobile", type: "tel", ph: "10 digits", required: (A) => !isMinor(A.auth_dob) }),
@@ -261,7 +261,7 @@ export function ownerConfig(A) {
 }
 export function ownerBaseFields() {
   return [
-    { k: "name", label: "Full Name", type: "text" },
+    { k: "name", label: "Full Name", type: "text", pattern: "personName" },
     { k: "dob", label: "Date of Birth", type: "date" },
     { k: "pan", label: "PAN", type: "text", pattern: "pan", ph: "ABCDE1234F" },
     { k: "aadhaar", label: "Aadhaar", type: "text", pattern: "aadhaar", ph: "12 digits" },
@@ -712,7 +712,7 @@ export const MSME_FLOW = {
       ...addressFields("msme", "Enterprise address"),
     ] },
     { id: "applicant", title: "Applicant Details", fields: [
-      textField("msme_applicant", "Applicant Name"),
+      textField("msme_applicant", "Applicant Name", { pattern: "personName" }),
       pickField("msme_role", "Designation", ["Proprietor", "Partner", "Director", "Authorized Signatory", "Other"]),
       textField("msme_email", "Email", { pattern: "email", type: "email", required: (A) => !isMinor(A.msme_dob) }),
       textField("msme_mobile", "Mobile", { pattern: "mobile", type: "tel", required: (A) => !isMinor(A.msme_dob) }),
@@ -723,7 +723,7 @@ export const MSME_FLOW = {
     panStep("pan", "enterprise"),
     { id: "aadhaar", title: "Aadhaar", fields: [
       textField("msme_aadhaar", "Aadhaar Number", { pattern: "aadhaar", ph: "12 digits", kyc: { fill: { name: "msme_aadhaarName", dob: "msme_dob", gender: "msme_gender" } } }),
-      textField("msme_aadhaarName", "Name as per Aadhaar"),
+      textField("msme_aadhaarName", "Name as per Aadhaar", { pattern: "personName" }),
       ynField("msme_otp", "Is this Aadhaar linked to the mobile number above?", { full: true, hint: "Udyam verification uses an OTP sent to the Aadhaar-linked mobile." }),
     ] },
     { id: "activity", title: "Business Activity", fields: [
@@ -1048,7 +1048,7 @@ export const FLOWS = {
         textField("br_name", "Branch Name", { full: true }),
         ...addressFields("br", "Branch address"),
         areaField("br_activity", "Branch Activity", { full: true }),
-        textField("br_contactName", "Branch Contact Person"),
+        textField("br_contactName", "Branch Contact Person", { pattern: "personName" }),
         textField("br_contactMobile", "Contact Mobile", { pattern: "mobile", type: "tel" }),
         textField("br_contactEmail", "Contact Email", { pattern: "email", type: "email", full: true }),
         textField("br_employees", "Employees at branch", { type: "number", required: false }),
@@ -1093,13 +1093,13 @@ export const FLOWS = {
       else if (what === "Owner / Director" || what === "Partner") {
         nw.push(cardsField("change_action", "What do you want to do?", ["Add", "Remove", "Replace", "Change role / designation"], { cols: 2, full: true }),
           { k: "chg_person", type: "personPick", label: "Which person?", required: true, full: true, showIf: personShown },
-          textField("new_person", "Name of incoming person", { full: true, showIf: incomingShown }),
+          textField("new_person", "Name of incoming person", { full: true, pattern: "personName", showIf: incomingShown }),
           textField("new_personPan", "PAN of incoming person", { pattern: "pan", showIf: incomingShown, kyc: { name: "new_person" } }),
           textField("new_personEmail", "Email of incoming person", { pattern: "email", type: "email", required: false, showIf: incomingShown }),
           pickField("new_role", "Role", ["Director", "Designated Partner", "Partner", "Shareholder", "Authorized Signatory", "Other"], { showIf: (A) => A.change_action && A.change_action !== "Remove" }));
       }
       else if (what === "Contact Details") nw.push(textField("new_email", "Company email", { pattern: "email", type: "email" }), textField("new_mobile", "Company mobile", { pattern: "mobile", type: "tel" }));
-      else if (what === "Bank Details") nw.push(textField("bank_holder", "Account Holder Name", { full: true }), textField("bank_name", "Bank Name"), textField("bank_branch", "Branch", { required: false }), textField("bank_account", "Account Number", { pattern: "digits" }), textField("bank_ifsc", "IFSC Code", { pattern: "ifsc" }), pickField("bank_type", "Account Type", ["Current", "Savings"]));
+      else if (what === "Bank Details") nw.push(textField("bank_holder", "Account Holder Name", { full: true, pattern: "personName" }), textField("bank_name", "Bank Name", { pattern: "bankName" }), textField("bank_branch", "Branch", { required: false }), textField("bank_account", "Account Number", { pattern: "account", ph: "9–18 digits" }), textField("bank_ifsc", "IFSC Code", { pattern: "ifsc" }), pickField("bank_type", "Account Type", ["Current", "Savings"]));
       else if (what === "Company Structure") nw.push(pickField("new_structure", "Business structure", BIZ_TYPES));
       else nw.push(areaField("new_other", "Describe the change you need", { full: true }), areaField("cur_other", "What is on record now (optional)", { full: true, required: false }));
 
@@ -1153,8 +1153,8 @@ export const FLOWS = {
           if (w === "Business Name") { f.push(textField("cur_name", "Name as per GST record", { full: true }), textField("new_name1", "Corrected / new name", { full: true })); }
           else if (w === "Business Address" || w === "Additional Place of Business") { f.push(...addressFields("new", w === "Business Address" ? "New principal place of business" : "Additional place of business"), cardsField("new_premises", "Nature of premises", ["Owned", "Rented", "Leased", "Consent / Shared", "Other"], { cols: 2, full: true })); }
           else if (w === "Business Activity") { f.push(areaField("cur_activity", "Activity as per GST record", { full: true }), areaField("new_activityDesc", "New activity / goods & services", { full: true }), textField("new_hsn", "HSN / SAC codes", { required: false, full: true })); }
-          else if (w === "Owner/Partner") { f.push(cardsField("change_action", "Action", ["Add", "Remove", "Replace"], { cols: 3, full: true }), textField("cur_person", "Existing person on record", { full: true }), textField("new_person", "Incoming person", { full: true, showIf: (A) => ["Add", "Replace"].includes(A.change_action) }), textField("new_personPan", "PAN of incoming person", { pattern: "pan", showIf: (A) => ["Add", "Replace"].includes(A.change_action), kyc: { name: "new_person" } })); }
-          else if (w === "Bank Details") { f.push(textField("cur_bank", "Bank account on record", { full: true }), textField("bank_name", "New Bank Name"), textField("bank_branch", "Branch"), textField("bank_account", "Account Number", { pattern: "digits" }), textField("bank_ifsc", "IFSC Code", { pattern: "ifsc" }), pickField("bank_type", "Account Type", ["Current", "Savings"])); }
+          else if (w === "Owner/Partner") { f.push(cardsField("change_action", "Action", ["Add", "Remove", "Replace"], { cols: 3, full: true }), textField("cur_person", "Existing person on record", { full: true, pattern: "personName" }), textField("new_person", "Incoming person", { full: true, pattern: "personName", showIf: (A) => ["Add", "Replace"].includes(A.change_action) }), textField("new_personPan", "PAN of incoming person", { pattern: "pan", showIf: (A) => ["Add", "Replace"].includes(A.change_action), kyc: { name: "new_person" } })); }
+          else if (w === "Bank Details") { f.push(textField("cur_bank", "Bank account on record", { full: true }), textField("bank_name", "New Bank Name", { pattern: "bankName" }), textField("bank_branch", "Branch"), textField("bank_account", "Account Number", { pattern: "account", ph: "9–18 digits" }), textField("bank_ifsc", "IFSC Code", { pattern: "ifsc" }), pickField("bank_type", "Account Type", ["Current", "Savings"])); }
           else { f.push(areaField("cur_other", "Current position", { full: true }), areaField("new_other", "Required amendment", { full: true })); }
           f.push(textField("gst_amend_date", "Date of the change", { type: "date" }));
           s.push({ id: "amenddetail", title: "Amendment Information", fields: f });
@@ -1465,6 +1465,10 @@ export const RULES = {
   pin: { re: /^[1-9][0-9]{5}$/, msg: "Pincode must be 6 digits" },
   ifsc: { re: /^[A-Z]{4}0[A-Z0-9]{6}$/, msg: "Enter a valid IFSC (e.g. HDFC0001234)" },
   digits: { re: /^[0-9]+$/, msg: "Numbers only" },
+  account: { re: /^[0-9]{9,18}$/, msg: "Enter a valid account number (9–18 digits)" },
+  personName: { re: /^[A-Za-z][A-Za-z .']*$/, msg: "Name can contain only letters, spaces, dots and apostrophes" },
+  panName: { re: /^[A-Z][A-Z .'&/,()-]*$/, msg: "Name as per PAN cannot contain numbers" },
+  bankName: { re: /^[A-Za-z][A-Za-z .&-]*$/, msg: "Bank name can contain only letters" },
   gstin: { re: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[A-Z0-9]{1}Z[A-Z0-9]{1}$/, msg: "Enter a valid 15-character GSTIN" },
 };
 // Puts a typed value into the form its pattern needs (capitals for IDs,
@@ -1477,6 +1481,12 @@ const INPUT_FORMAT = {
   email: sanitize.email,
   pin: (v) => sanitize.postal(v),
   digits: sanitize.digits,
+  account: (v) => sanitize.digits(v).slice(0, 18),
+  personName: sanitize.personName,
+  // Name exactly as printed on the PAN card — always capitals, no digits. A
+  // firm/company PAN name can carry "&", "/", brackets etc. ("M/S A & SONS").
+  panName: (v) => v.toUpperCase().replace(/[^A-Z .'&/,()-]/g, "").slice(0, 100),
+  bankName: (v) => v.replace(/[^A-Za-z .&-]/g, "").slice(0, 100),
 };
 // Answers worked out from other answers rather than typed — recomputed by
 // FlowRunner whenever any answer changes.
