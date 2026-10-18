@@ -150,7 +150,9 @@ function leadFromSignedInCustomer(state, bump, run, { immediate = false } = {}) 
 // opens LeadCaptureModal, which then only verifies (no second Lead).
 // Also used outside the wizard by the standalone Trademark Search page, with a
 // minimal state ({ serviceType, flowId }) to gate the search report.
-export function requireVerifiedCustomer(state, bump, run) {
+// opts.immediate: a signed-in customer gets `run` straight away and the Lead is
+// raised in the background, instead of waiting for it (see leadFromSignedInCustomer).
+export function requireVerifiedCustomer(state, bump, run, opts = {}) {
   // otpVerified is saved with the application, but the session it proved can
   // be gone since (logout keeps applications, or the token expired) — without
   // a token the applicant isn't signed in any more, so verify again.
@@ -166,7 +168,7 @@ export function requireVerifiedCustomer(state, bump, run) {
     } catch { /* not signed in */ }
   }
   if (state.otpVerified && state.leadCaptured) { run(); return; }
-  if (leadFromSignedInCustomer(state, bump, run)) return;
+  if (leadFromSignedInCustomer(state, bump, run, opts)) return;
   state.leadGate = { run };
   bump();
 }

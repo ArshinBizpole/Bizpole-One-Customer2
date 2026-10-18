@@ -5,6 +5,8 @@ import { CartContext } from "../context/CartContext";
 import { useNavigate } from "react-router-dom";
 import { upsertQuote } from "../api/Quote";
 import { getSecureItem } from "../utils/secureStorage";
+import { selectSignedInCompany } from "../utils/signedInCompany";
+import { goToNewCustomerFlow } from "../utils/newCustomerFlow";
 import ServicesApi from "../api/ServicesApi";
 import axios from "../api/axiosInstance";
 import { fetchFranchiseeGstInfo, calcGstAmount, splitGst } from "../utils/gstCalc";
@@ -370,10 +372,11 @@ const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price, onSele
 };
 
 // embedded: rendered inside another page (e.g. Pricing & Plans tab) — skip the page hero and full-screen height
-const Services = ({ embedded = false }) => {
+// initialServiceId (embedded): open straight on that service's details.
+const Services = ({ embedded = false, initialServiceId = null }) => {
   const [services, setServices] = useState([]);
   // embedded only: service whose "Know More" details are shown in place of the list
-  const [detailServiceId, setDetailServiceId] = useState(null);
+  const [detailServiceId, setDetailServiceId] = useState(embedded ? initialServiceId : null);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -383,16 +386,27 @@ const Services = ({ embedded = false }) => {
   const [totalCount, setTotalCount] = useState(0);
   const [filter, setFilter] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
-  const { cart, addToCart, removeFromCart } = useContext(CartContext);
+  const { cart, addToCart, removeFromCart, clearCart } = useContext(CartContext);
   // selectedServices is now derived from cart keys
   const selectedServices = Object.keys(cart).map(id => Number(id));
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  // lg+ : filters sit beside the grid (slide by width). Below: stacked on top,
+  // full width (collapse by height).
+  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia("(min-width: 1024px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = (e) => setIsDesktop(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
   const [stateId, setStateId] = useState(() => localStorage.getItem("StateID"));
   const [bulkPrices, setBulkPrices] = useState({});
   const [bulkLoading, setBulkLoading] = useState(false);
   const [showStateModal, setShowStateModal] = useState(false);
   const [allStates, setAllStates] = useState([]);
   const [showSigninModal, setShowSigninModal] = useState(false);
+  // The card whose own "Request Quote" opened sign-in (null = the selection's Proceed to Quote).
+  const [signinService, setSigninService] = useState(null);
   const [selectedStateForModal, setSelectedStateForModal] = useState("");
   const [statesLoading, setStatesLoading] = useState(false);
   const [proceedingToQuote, setProceedingToQuote] = useState(false);
@@ -572,7 +586,29 @@ const Services = ({ embedded = false }) => {
   return (
     <>
       {!embedded && <ToastContainer position="top-right" autoClose={3000} />}
-      <SigninModal isOpen={showSigninModal} onClose={() => setShowSigninModal(false)} />
+      <SigninModal
+        isOpen={showSigninModal}
+        onClose={() => setShowSigninModal(false)}
+        // Stay here with the selection intact instead of jumping to the dashboard.
+        onSuccess={(tokenData) => {
+          selectSignedInCompany(tokenData?.user || getSecureItem("user"));
+          setShowSigninModal(false);
+          toast.success(selectedServices.length
+            ? "Signed in. Your selected services are saved — click Proceed to Quote."
+            : "Signed in. You can request your quote now.");
+        }}
+        // New customer: the matching application collects their details and makes the quote
+        // — for the card that asked, else the first selected service that has one.
+        onSignup={() => {
+          setShowSigninModal(false);
+          const stateName = allStates.find((s) => String(s.id || s.StateID) === String(stateId))?.state_name || "";
+          let cache = [];
+          try { cache = JSON.parse(localStorage.getItem("AllServicesCache") || "[]"); } catch { cache = []; }
+          const selected = selectedServices.map((sid) =>
+            services.find((s) => s.ServiceID === sid) || cache.find((s) => s.ServiceID === sid) || { ServiceID: sid, ...cart[sid] });
+          goToNewCustomerFlow(navigate, signinService ? [signinService] : selected, stateName);
+        }}
+      />
       <div className={embedded ? "" : "min-h-screen bg-gray-50"}>
 
         {/* State selection modal */}
@@ -669,14 +705,17 @@ const Services = ({ embedded = false }) => {
           </div>
         </div>}
 
-        <div className={embedded ? "flex gap-6" : "max-w-7xl mx-auto px-6 py-8 flex gap-6"}>
+        <div className={`flex flex-col lg:flex-row gap-4 lg:gap-6 ${embedded ? "" : "max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8"}`}>
           {/* Sidebar */}
           <motion.aside
-            animate={{ width: sidebarOpen ? 240 : 0, opacity: sidebarOpen ? 1 : 0 }}
+            initial={false}
+            animate={isDesktop
+              ? { width: sidebarOpen ? 240 : 0, height: "auto", opacity: sidebarOpen ? 1 : 0 }
+              : { width: "100%", height: sidebarOpen ? "auto" : 0, opacity: sidebarOpen ? 1 : 0 }}
             transition={{ duration: 0.3 }}
             className="flex-shrink-0 overflow-hidden"
           >
-            <div className="w-60 bg-white rounded-3xl border border-gray-100 shadow-sm p-5 sticky">
+            <div className="w-full lg:w-60 bg-white rounded-3xl border border-gray-100 shadow-sm p-5 sticky">
               {/* Sidebar Header */}
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2.5">
@@ -875,12 +914,14 @@ const Services = ({ embedded = false }) => {
                           onClick={async () => {
                             const token = localStorage.getItem('token');
                             if (!token) {
+                              setSigninService(null);
                               setShowSigninModal(true);
                               return;
                             }
                             setProceedingToQuote(true);
                             try {
-                              await proceedToQuote({ cart, services });
+                              // Quoted — the selection is done with, so clear it.
+                              if (await proceedToQuote({ cart, services })) clearCart();
                             } finally {
                               setProceedingToQuote(false);
                             }
@@ -909,7 +950,7 @@ const Services = ({ embedded = false }) => {
           {/* Main Content */}
           <div className="flex-1 min-w-0">
             {/* Toolbar */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
               <div className="flex items-center gap-3">
                 {!sidebarOpen && (
                   <button
@@ -953,7 +994,7 @@ const Services = ({ embedded = false }) => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                  className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4"
                 >
                   {Array.from({ length: 4 }).map((_, i) => (
                     <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5 animate-pulse">
@@ -996,7 +1037,7 @@ const Services = ({ embedded = false }) => {
                 </motion.div>
               ) : (
                 <motion.div key="grid" layout>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
                     {services.map((service) => (
                       <ServiceCard
                         key={service.ServiceID}
@@ -1008,7 +1049,7 @@ const Services = ({ embedded = false }) => {
                         onSelectState={openStateModal}
                         stateId={stateId}
                         bulkLoading={bulkLoading}
-                        setShowSigninModal={setShowSigninModal}
+                        setShowSigninModal={(open) => { setSigninService(service); setShowSigninModal(open); }}
                         navigate={navigate}
                       />
                     ))}

@@ -306,7 +306,7 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
 
   return (
     <div>
-      <div className="mx-auto px-6 py-10">
+      <div className="mx-auto px-1 sm:px-4 md:px-6 py-4 md:py-10">
         {/* Heading */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-semibold text-gray-900">Invoice</h1>
@@ -321,7 +321,7 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-6 border-b border-gray-200 mb-8">
+        <div className="flex items-center gap-6 border-b border-gray-200 mb-6 md:mb-8">
           {[
             { id: 'overview', label: 'Overview' },
             { id: 'invoices', label: 'Invoices' },
@@ -354,7 +354,7 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
               className="grid grid-cols-1 lg:grid-cols-2 gap-6"
             >
               {/* Next invoice card */}
-              <div className="border border-gray-200 rounded-xl p-6">
+              <div className="border border-gray-200 rounded-xl p-4 sm:p-6">
                 {nextInvoice ? (
                   <>
                     <div className="flex items-center justify-between mb-3">
@@ -366,8 +366,8 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
                         Preview
                       </button>
                     </div>
-                    <div className="flex items-baseline gap-2 mb-4">
-                      <span className="text-3xl font-semibold text-gray-900">
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mb-4">
+                      <span className="text-2xl sm:text-3xl font-semibold text-gray-900">
                         {formatCurrency(nextInvoice.InvoiceValue || nextInvoice.OrderValue || nextInvoice.InvoiceTotal)}
                       </span>
                       <span className="text-sm text-gray-400">
@@ -393,8 +393,8 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
               </div>
 
               {/* Plan card */}
-              <div className="border border-gray-200 rounded-xl p-6">
-                <div className="flex items-center justify-between mb-4">
+              <div className="border border-gray-200 rounded-xl p-4 sm:p-6">
+                <div className="flex items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-2">
                     <span className="w-5 h-5 bg-yellow-400 rounded-sm inline-block" />
                     <h3 className="text-sm font-medium text-gray-900">You're on the Plus plan</h3>
@@ -470,6 +470,36 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
                     <p className="text-sm text-gray-500">No invoices found</p>
                   </div>
                 ) : (
+                  <>
+                  {/* Phones: one card per invoice instead of the 4-column table */}
+                  <ul className="sm:hidden divide-y divide-gray-100">
+                    {pagedInvoices.map((invoice, index) => {
+                      const isSelected = selectedInvoice === invoice;
+                      const status = invoice.InvoiceStatus || invoice.Status || 'Unknown';
+                      return (
+                        <li
+                          key={invoice.InvoiceID || invoice.id || index}
+                          onClick={() => handleViewInvoice(invoice)}
+                          className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${isSelected ? 'bg-yellow-50/60' : 'active:bg-gray-50'}`}
+                        >
+                          <FiFileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-800 truncate">
+                              {invoice.InvoiceCode || invoice.invoiceCode || 'Monthly invoice'}
+                            </p>
+                            <p className={`text-xs ${status.toLowerCase() === 'upcoming' || status.toLowerCase() === 'pending' ? 'text-yellow-600 font-medium' : 'text-gray-500'}`}>
+                              {formatDate(invoice.InvoiceDate || invoice.invoiceDate)}
+                            </p>
+                          </div>
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${getStatusBadge(status)}`}>
+                            {status}
+                          </span>
+                          <FiChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-gray-200">
@@ -521,13 +551,15 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
                       })}
                     </tbody>
                   </table>
+                  </div>
+                  </>
                 )}
                 {!loading && !error && invoices.length > INVOICES_PER_PAGE && (
-                  <div className="sticky bottom-0 z-10 bg-white flex items-center justify-between px-5 py-3 border-t border-gray-200">
+                  <div className="sticky bottom-0 z-10 bg-white flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 border-t border-gray-200">
                     <span className="text-xs text-gray-500">
                       Showing {pageStart + 1}–{Math.min(pageStart + INVOICES_PER_PAGE, invoices.length)} of {invoices.length}
                     </span>
-                    <div className="flex items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-1">
                       <button
                         onClick={() => setCurrentPage(safePage - 1)}
                         disabled={safePage === 1}
@@ -563,11 +595,25 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
               <AnimatePresence>
                 {selectedInvoice && (
                   <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
+                    key="invoice-backdrop"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setSelectedInvoice(null)}
+                    className="lg:hidden fixed inset-0 z-40 bg-black/40"
+                  />
+                )}
+                {selectedInvoice && (
+                  <motion.div
+                    key="invoice-panel"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
                     transition={{ duration: 0.2 }}
-                    className="hidden lg:flex flex-col w-[320px] flex-shrink-0 border border-gray-200 rounded-xl p-6 min-h-[600px]"
+                    // Below lg it's a bottom sheet over the list; lg+ the side panel.
+                    className="flex flex-col bg-white border border-gray-200 p-5 sm:p-6
+                      fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl
+                      lg:static lg:z-auto lg:max-h-none lg:overflow-visible lg:rounded-xl lg:w-[320px] lg:flex-shrink-0 lg:min-h-[600px]"
                   >
                     <div className="flex items-start justify-between mb-5 pb-5 border-b border-gray-200">
                       <div>

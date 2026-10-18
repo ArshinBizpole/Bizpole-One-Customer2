@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { getPackagesByServiceType, getAllServiceTypes } from "../api/ServiceType";
 import { upsertQuote } from "../api/Quote";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,7 +11,14 @@ import { setSecureItem, getSecureItem } from "../utils/secureStorage";
 import Services from "./Services";
 
 const PlansAndPricing = () => {
-  const [activeTab, setActiveTab] = useState("packages");
+  const location = useLocation();
+  // Opened for one service (e.g. the dashboard's global search): show its
+  // details on the individual-services tab, inside the dashboard.
+  const openServiceId = location.state?.serviceId || null;
+  const [activeTab, setActiveTab] = useState(openServiceId ? "services" : "packages");
+  useEffect(() => {
+    if (openServiceId) setActiveTab("services");
+  }, [location.key, openServiceId]);
   const navigate = useNavigate();
   // const [selectedServices, setSelectedServices] = useState([]);
 
@@ -368,12 +375,13 @@ const PlansAndPricing = () => {
   return (
     <div className="w-full min-h-[100%] bg-gradient-to-br from-gray-50 to-gray-100">
       <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        <div className="text-center mb-12">
+      {/* Full width of the dashboard content area — no max-width side gutters. */}
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        <div className="text-center mb-8 md:mb-12">
           <motion.h1
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-3xl md:text-4xl font-bold text-gray-900 mb-4"
+            className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-4"
           >
             Choose Your Perfect <span className="text-[#F3C625]">Plan</span>
           </motion.h1>
@@ -381,7 +389,7 @@ const PlansAndPricing = () => {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="text-gray-600 text-md max-w-2xl mx-auto"
+            className="text-gray-600 text-sm sm:text-base max-w-2xl mx-auto"
           >
             Select from our comprehensive packages or build your own custom
             solution with individual services
@@ -389,11 +397,11 @@ const PlansAndPricing = () => {
         </div>
 
         {/* Tabs */}
-        <div className="flex justify-center mb-12">
-          <div className="rounded-full p-1 inline-flex gap-2">
+        <div className="flex justify-center mb-8 md:mb-12">
+          <div className="rounded-full p-1 inline-flex flex-wrap justify-center gap-2">
             <button
               onClick={() => handleTabClick("packages")}
-              className={`px-8 py-3 rounded-full font-semibold transition-all ${activeTab === "packages"
+              className={`px-5 sm:px-8 py-2.5 sm:py-3 text-sm sm:text-base rounded-full font-semibold transition-all ${activeTab === "packages"
                 ? "bg-gray-900 text-white shadow-md"
                 : "text-gray-600 hover:text-gray-900 border border-gray-300"
                 }`}
@@ -403,7 +411,7 @@ const PlansAndPricing = () => {
 
             <button
               onClick={() => handleTabClick("services")}
-              className={`px-8 py-3 rounded-full font-semibold transition-all border ${activeTab === "services"
+              className={`px-5 sm:px-8 py-2.5 sm:py-3 text-sm sm:text-base rounded-full font-semibold transition-all border ${activeTab === "services"
                 ? "text-black shadow-md border-[#F3C625] bg-[#FFFBEA]"
                 : "text-gray-600 hover:text-gray-900 border-[#F3C625]"
                 }`}
@@ -414,7 +422,7 @@ const PlansAndPricing = () => {
         </div>
 
         {/* Individual services — Services loads its own data, so it doesn't wait on the packages fetch */}
-        {activeTab === "services" && <Services embedded />}
+        {activeTab === "services" && <Services key={location.key} embedded initialServiceId={openServiceId} />}
 
         {/* Loading / Error */}
         {activeTab === "packages" && loading && (
@@ -451,7 +459,7 @@ const PlansAndPricing = () => {
                     No packages available for your business type.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                     {packages.map((plan, index) => renderPackageCard(plan, index))}
                   </div>
                 )}
