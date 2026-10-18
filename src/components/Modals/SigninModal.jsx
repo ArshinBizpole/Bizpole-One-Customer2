@@ -90,8 +90,17 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
     setStep(1);
   };
 
-  const handleResend = () => {
-    setTimer(30);
+  // Resend via the login endpoint for both modes — after sign-up the customer row
+  // already exists, so re-calling sign-up would 409. Server enforces a 30s cooldown.
+  const handleResend = async () => {
+    if (timer > 0) return;
+    try {
+      await loginWithPhone(inputValue);
+      setOtpValues(["", "", "", ""]);
+      setTimer(30);
+    } catch (err) {
+      alert(err?.message || "Failed to resend OTP");
+    }
   };
 
   // OTP input handler and verification
@@ -309,7 +318,7 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
                   </>)
                   : (<>
                     Please enter your details to sign up. <br />
-                    We will send you an OTP to verify your phone number.
+                    We will send an OTP to your email and mobile number.
                   </>)}
               </motion.p>
 
@@ -369,10 +378,10 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.2 }}
               >
-                We Will send you a one time password on this{" "}
-                <span className="font-bold text-gray-800">Mobile Number</span> <br />
+                We have sent a one time password to your registered{" "}
+                <span className="font-bold text-gray-800">Email and Mobile Number</span> for <br />
                 <span className="font-semibold text-gray-800">
-                  {inputValue || "+91 - 12989200823"}
+                  {inputValue}
                 </span>
               </motion.p>
 
@@ -417,13 +426,17 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.8 }}
               >
-                Do not send OTP ?{" "}
-                <span
-                  className="text-yellow-500 font-semibold cursor-pointer hover:text-yellow-600 transition-colors"
-                  onClick={handleResend}
-                >
-                  Resend OTP
-                </span>
+                Didn't receive the OTP?{" "}
+                {timer > 0 ? (
+                  <span className="text-gray-400 font-semibold">Resend in {timer}s</span>
+                ) : (
+                  <span
+                    className="text-yellow-500 font-semibold cursor-pointer hover:text-yellow-600 transition-colors"
+                    onClick={handleResend}
+                  >
+                    Resend OTP
+                  </span>
+                )}
               </motion.p>
 
               {/* Back Button */}
