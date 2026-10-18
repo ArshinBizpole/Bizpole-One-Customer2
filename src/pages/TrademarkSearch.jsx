@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { FaSearch, FaRegCopyright, FaChevronLeft, FaChevronRight, FaArrowRight, FaFilePdf, FaLock, FaHistory, FaChevronDown } from "react-icons/fa";
-import { searchTrademarks, getTrademarkSearchHistory, getTrademarkSearchHistoryEntry } from "../api/TrademarkApi";
+import { FaSearch, FaRegCopyright, FaChevronLeft, FaChevronRight, FaArrowRight, FaFilePdf, FaLock, FaHistory, FaChevronDown, FaImage, FaTimes } from "react-icons/fa";
+import {
+  searchTrademarks,
+  searchTrademarksByImage,
+  getTrademarkSearchHistory,
+  getTrademarkSearchHistoryEntry,
+  getTrademarkAssessment,
+  fetchTrademarkImage,
+} from "../api/TrademarkApi";
 import { NICE_CLASSES } from "../components/ExixistingCompany/existingCompanyData";
 import { LeadCaptureModal, requireVerifiedCustomer } from "../components/ExixistingCompany/FlowRunner";
 import TrademarkReport from "../components/Trademark/TrademarkReport";
@@ -16,9 +23,17 @@ const SEARCH_TYPES = [
   { value: "WORD_MARK", label: "Brand name", placeholder: "e.g. Bizpole" },
   { value: "PROPRIETOR_NAME", label: "Owner", placeholder: "e.g. Bizpole India Pvt Ltd" },
   { value: "APPLICATION_NUMBER", label: "Application no.", placeholder: "e.g. 5123456" },
+  { value: "IMAGE", label: "Logo", placeholder: "Upload your logo (PNG or JPG, up to 2 MB)" },
 ];
 
-const typeLabel = (value) => SEARCH_TYPES.find((t) => t.value === value)?.label || value;
+const LOGO_TYPES = ["image/png", "image/jpeg"];
+const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+// Messages about the visitor's own input — the error popup titles these
+// "Check your search" rather than "Something went wrong".
+const INPUT_ERROR = /^(Enter at least|Choose your logo|Logo must)/;
+
+const typeLabel = (value) =>
+  value === "COMPOSITE" ? "Name + logo" : SEARCH_TYPES.find((t) => t.value === value)?.label || value;
 // Local calendar date as YYYY-MM-DD (the report's date format).
 const localDate = (d) => new Date(d).toLocaleDateString("en-CA");
 const fileSafe = (s) => String(s || "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "search";
@@ -41,6 +56,18 @@ async function waitForImages(el) {
   );
 }
 
+// PDF page furniture as in the report format: a running header band on pages
+// 2+, the confidentiality footer + page numbers on every page. Registry logos
+// come through our API so they aren't blank in the PDF.
+const pdfOptions = (reportRef) => ({
+  resolveImage: (src) => (src.includes("binbash.ai/media/trademarks/") ? fetchTrademarkImage(src) : null),
+  runningHeader: { logo: "/Images/image.png", left: "Bizpole One", right: `Trademark Search Report${reportRef ? `  ·  Ref: ${reportRef}` : ""}` },
+  footer: "Bizpole One  |  Trademark Search Report  ·  Confidential · Advisory opinion only, not a guarantee of registration",
+});
+
+// Searches with a brand name get the probability assessment.
+const hasBrandName = (type) => type === "WORD_MARK" || type === "COMPOSITE";
+
 const MASKED_ROW = {
   applicationNumber: "•••••••",
   wordMark: "••••••",
@@ -58,6 +85,9 @@ export default function TrademarkSearch({ embedded = false }) {
   const [downloading, setDownloading] = useState(false);
   const [type, setType] = useState("WORD_MARK");
   const [query, setQuery] = useState("");
+  // Logo search: the chosen file and a data-URL preview of it.
+  const [logo, setLogo] = useState(null); // { file, preview }
+  const logoInputRef = useRef(null);
   const [tmClass, setTmClass] = useState("");
   const [page, setPage] = useState(0);
   const [result, setResult] = useState(null);
@@ -98,19 +128,71 @@ export default function TrademarkSearch({ embedded = false }) {
     loadHistory();
   }, [loadHistory]);
 
+  // Probability of registration for the brand-name search on screen. Fetched
+  // once per search (not per page) after the report is unlocked; the server
+  // caches it and saves it with the history entry.
+  const [assessment, setAssessment] = useState(null);
+  const [assessmentLoading, setAssessmentLoading] = useState(false);
+  const hasResults = !!result?.results?.length;
+  useEffect(() => {
+    setAssessment(null);
+    // A name + logo search is assessed on its name.
+    if (!unlocked || !hasResults || !hasBrandName(submitted?.type)) return undefined;
+    let current = true;
+    setAssessmentLoading(true);
+    getTrademarkAssessment({ q: submitted.q, classes: submitted.tmClass ? [submitted.tmClass] : [] })
+      .then((data) => {
+        if (current && !data?.signInRequired) setAssessment(data);
+      })
+      .catch(() => {
+        /* the report still works without the meter */
+      })
+      .finally(() => {
+        if (current) setAssessmentLoading(false);
+      });
+    return () => {
+      current = false;
+    };
+  }, [unlocked, hasResults, submitted?.q, submitted?.type, submitted?.tmClass]);
+
   const markLimitReached = (err) => {
     const usage = err.response?.data?.usage;
     setHistory((h) => ({ ...h, signedIn: true, usage: usage || { used: h.usage.limit, limit: h.usage.limit } }));
   };
 
-  const searchParams = (params, nextPage) => ({
-    q: params.q,
-    type: params.type,
-    classes: params.tmClass ? [params.tmClass] : [],
-    limit: PAGE_SIZE,
-    offset: nextPage * PAGE_SIZE,
-    track: true,
-  });
+  // One page of a search; a logo search re-sends its file (the server caches
+  // by the image, so paging doesn't cost a new lookup).
+  const fetchSearch = (params, nextPage) => {
+    const common = {
+      classes: params.tmClass ? [params.tmClass] : [],
+      limit: PAGE_SIZE,
+      offset: nextPage * PAGE_SIZE,
+      track: true,
+    };
+    if (params.type === "IMAGE") return searchTrademarksByImage({ ...common, file: params.file });
+    if (params.type === "COMPOSITE") return searchTrademarksByImage({ ...common, file: params.file, q: params.q });
+    return searchTrademarks({ ...common, q: params.q, type: params.type });
+  };
+
+  const pickLogo = (file) => {
+    if (!file) return;
+    if (!LOGO_TYPES.includes(file.type)) {
+      setError("Choose your logo as a PNG or JPG image.");
+      return;
+    }
+    if (file.size > LOGO_MAX_BYTES) {
+      setError("Logo must be 2 MB or smaller.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setLogo({ file, preview: reader.result });
+    reader.readAsDataURL(file);
+  };
+
+  const clearLogo = () => {
+    setLogo(null);
+    if (logoInputRef.current) logoInputRef.current.value = "";
+  };
 
   // After sign-in: a search run while signed out wasn't saved, so run it again
   // now that we know who it is (served from the server cache, no new lookup)
@@ -123,7 +205,7 @@ export default function TrademarkSearch({ embedded = false }) {
       return;
     }
     try {
-      await searchTrademarks(searchParams(last.params, last.page));
+      await fetchSearch(last.params, last.page);
       last.saved = true;
       setUnlocked(true);
     } catch (err) {
@@ -144,7 +226,7 @@ export default function TrademarkSearch({ embedded = false }) {
     setLoading(true);
     setError("");
     try {
-      const data = await searchTrademarks(searchParams(params, nextPage));
+      const data = await fetchSearch(params, nextPage);
       setResult(data);
       setSubmitted(params);
       setPage(nextPage);
@@ -174,7 +256,8 @@ export default function TrademarkSearch({ embedded = false }) {
       await waitForImages(historyReportRef.current);
       await saveElementAsPdf(
         historyReportRef.current,
-        `Trademark-Search-Report-${fileSafe(entry.query)}-${localDate(entry.createdAt)}`
+        `Trademark-Search-Report-${fileSafe(entry.query)}-${localDate(entry.createdAt)}`,
+        pdfOptions(entry.reportRef)
       );
     } catch {
       setError("Could not download that report. Please try again.");
@@ -186,9 +269,22 @@ export default function TrademarkSearch({ embedded = false }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (type === "IMAGE") {
+      if (!logo) {
+        setError("Choose your logo image (PNG or JPG) to search.");
+        return;
+      }
+      runSearch({ q: `Logo: ${logo.file.name}`, type, tmClass, file: logo.file, preview: logo.preview }, 0);
+      return;
+    }
     const q = query.trim();
     if (q.length < 2) {
       setError("Enter at least 2 characters to search.");
+      return;
+    }
+    // Brand name with a logo attached: both in one search.
+    if (type === "WORD_MARK" && logo) {
+      runSearch({ q, type: "COMPOSITE", tmClass, file: logo.file, preview: logo.preview }, 0);
       return;
     }
     runSearch({ q, type, tmClass }, 0);
@@ -198,7 +294,11 @@ export default function TrademarkSearch({ embedded = false }) {
     if (!reportRef.current) return;
     setDownloading(true);
     try {
-      await saveElementAsPdf(reportRef.current, `Trademark-Search-Report-${fileSafe(submitted.q)}`);
+      await saveElementAsPdf(
+        reportRef.current,
+        `Trademark-Search-Report-${fileSafe(submitted.q)}`,
+        pdfOptions(assessment?.reportRef)
+      );
     } catch {
       setError("Could not generate the PDF. Please try again.");
     } finally {
@@ -208,6 +308,11 @@ export default function TrademarkSearch({ embedded = false }) {
 
   const total = result?.count;
   const results = result?.results || [];
+  // Name + logo: the logo matches all sit on page 1, after its name matches,
+  // so later pages start that many rows further on and pages follow the names.
+  const logoExtra = result?.logoCount || 0;
+  const startIndex = page * PAGE_SIZE + (page > 0 ? logoExtra : 0);
+  const pagedTotal = result?.nameCount ?? total;
   const hasNext = result?.hasMore;
   const hasPrev = page > 0;
 
@@ -233,8 +338,8 @@ export default function TrademarkSearch({ embedded = false }) {
               Free <span className="text-yellow-500">Trademark Search</span>
             </h1>
             <p className="text-gray-600 max-w-2xl mb-8">
-              Check whether your brand name is already registered or applied for before you file. Search by brand
-              name, owner or application number and narrow it down by class.
+              Check whether your brand name or logo is already registered or applied for before you file. Search by
+              brand name, owner, application number or logo and narrow it down by class.
             </p>
           </motion.div>
 
@@ -277,6 +382,48 @@ export default function TrademarkSearch({ embedded = false }) {
             </div>
 
             <div className="flex flex-col md:flex-row gap-3">
+              {/* Shared by the Logo tab and Brand name's "Add logo". */}
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept={LOGO_TYPES.join(",")}
+                className="hidden"
+                onChange={(e) => pickLogo(e.target.files?.[0])}
+              />
+              {type === "IMAGE" ? (
+                <div
+                  className="relative flex-1 flex items-center gap-3 min-w-0 px-4 py-2 rounded-xl border border-dashed border-gray-300 hover:border-yellow-400 cursor-pointer"
+                  onClick={() => logoInputRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    pickLogo(e.dataTransfer.files?.[0]);
+                  }}
+                >
+                  {logo ? (
+                    <>
+                      <img src={logo.preview} alt="Your logo" className="h-8 w-8 object-contain rounded" />
+                      <span className="flex-1 truncate text-sm text-black">{logo.file.name}</span>
+                      <button
+                        type="button"
+                        aria-label="Remove logo"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          clearLogo();
+                        }}
+                        className="p-1 text-gray-400 hover:text-black"
+                      >
+                        <FaTimes />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <FaImage className="text-gray-400 shrink-0" />
+                      <span className="truncate text-sm text-gray-400 py-1">{activeType.placeholder}</span>
+                    </>
+                  )}
+                </div>
+              ) : (
               <div className="relative flex-1">
                 <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
@@ -285,9 +432,38 @@ export default function TrademarkSearch({ embedded = false }) {
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={activeType.placeholder}
                   maxLength={100}
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400"
+                  className={`w-full pl-11 ${type === "WORD_MARK" ? "pr-32" : "pr-4"} py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400`}
                 />
+                {/* Optional logo: brand name + logo are then checked together. */}
+                {type === "WORD_MARK" && (
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                    {logo ? (
+                      <span className="flex items-center gap-1.5 pl-1.5 pr-1 py-1 rounded-lg bg-yellow-50 border border-yellow-300 max-w-[7.5rem]">
+                        <img src={logo.preview} alt="Your logo" className="h-6 w-6 object-contain rounded shrink-0" />
+                        <span className="text-xs text-black truncate">+ logo</span>
+                        <button
+                          type="button"
+                          aria-label="Remove logo"
+                          onClick={clearLogo}
+                          className="p-1 text-gray-400 hover:text-black"
+                        >
+                          <FaTimes />
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => logoInputRef.current?.click()}
+                        title="Also check your logo"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-medium text-gray-600 hover:border-black hover:text-black"
+                      >
+                        <FaImage /> Add logo
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
+              )}
               <select
                 value={tmClass}
                 onChange={(e) => setTmClass(e.target.value)}
@@ -380,7 +556,7 @@ export default function TrademarkSearch({ embedded = false }) {
             <p id="tm-error-title" className="text-lg font-semibold text-black mb-2">
               {error.includes("free trademark searches")
                 ? "Free searches used up"
-                : error.startsWith("Enter at least")
+                : INPUT_ERROR.test(error)
                   ? "Check your search"
                   : "Something went wrong"}
             </p>
@@ -405,9 +581,11 @@ export default function TrademarkSearch({ embedded = false }) {
             ref={historyReportRef}
             results={historyReport.results}
             query={historyReport.query}
+            queryType={historyReport.queryType}
             classes={historyReport.classNumbers || "All"}
             total={historyReport.totalCount ?? historyReport.results.length}
             reportDate={localDate(historyReport.createdAt)}
+            assessment={historyReport.assessment && { ...historyReport.assessment, reportRef: historyReport.reportRef }}
           />
         </div>
       )}
@@ -426,6 +604,9 @@ export default function TrademarkSearch({ embedded = false }) {
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
               <p className="text-gray-700">
+                {submitted.preview && (
+                  <img src={submitted.preview} alt="" className="inline-block align-middle h-8 w-8 object-contain rounded border border-gray-200 bg-white mr-2" />
+                )}
                 {total != null ? (
                   <>
                     <span className="font-semibold text-black">{total.toLocaleString("en-IN")}</span> result
@@ -435,11 +616,17 @@ export default function TrademarkSearch({ embedded = false }) {
                   "Results for "
                 )}
                 <span className="font-semibold text-black">“{submitted.q}”</span>
+                {submitted.type === "COMPOSITE" && <> + your logo</>}
                 {submitted.tmClass && <> in Class {submitted.tmClass}</>}
+                {submitted.type === "COMPOSITE" && result.nameCount != null && (
+                  <span className="text-sm text-gray-500">
+                    {" "}({result.nameCount.toLocaleString("en-IN")} by name · {logoExtra} by logo)
+                  </span>
+                )}
               </p>
               {results.length > 0 && (
                 <p className="text-sm text-gray-500">
-                  Showing {page * PAGE_SIZE + 1}–{page * PAGE_SIZE + results.length}
+                  Showing {startIndex + 1}–{startIndex + results.length}
                 </p>
               )}
             </div>
@@ -459,7 +646,7 @@ export default function TrademarkSearch({ embedded = false }) {
               <div className="flex justify-end mb-4">
                 <button
                   onClick={handleDownload}
-                  disabled={downloading || loading}
+                  disabled={downloading || loading || assessmentLoading}
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-black text-white text-sm font-medium disabled:opacity-60"
                 >
                   <FaFilePdf /> {downloading ? "Preparing PDF…" : "Download report (PDF)"}
@@ -487,8 +674,10 @@ export default function TrademarkSearch({ embedded = false }) {
               <div className="relative">
                 <div aria-hidden="true" className="blur-[3px] select-none pointer-events-none">
                   <TrademarkReport
-                    results={results.map((r) => ({ ...MASKED_ROW, status: r.status, classNumber: r.classNumber }))}
+                    results={results.map((r) => ({ ...MASKED_ROW, status: r.status, classNumber: r.classNumber, matchedBy: r.matchedBy }))}
                     query={submitted.q}
+                    queryType={submitted.type}
+                    logoSrc={submitted.preview}
                     classes={submitted.tmClass || "All"}
                     total={total ?? results.length}
                   />
@@ -505,11 +694,15 @@ export default function TrademarkSearch({ embedded = false }) {
                   ref={reportRef}
                   results={results}
                   query={submitted.q}
+                  queryType={submitted.type}
+                  logoSrc={submitted.preview}
                   classes={submitted.tmClass || "All"}
                   total={total ?? results.length}
-                  startIndex={page * PAGE_SIZE}
+                  startIndex={startIndex}
                   page={page + 1}
-                  pageCount={total != null ? Math.max(1, Math.ceil(total / PAGE_SIZE)) : page + 1}
+                  pageCount={pagedTotal != null ? Math.max(1, Math.ceil(pagedTotal / PAGE_SIZE)) : page + 1}
+                  assessment={assessment}
+                  assessmentLoading={assessmentLoading}
                 />
               </motion.div>
             )}
