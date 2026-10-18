@@ -19,6 +19,33 @@ export const createLeadFollowUp = async ({ leadId, followUpDate, followUpTime, r
 };
 
 /**
+ * Save corrected "Your details" to the signed-in customer's own Lead + Customer
+ * (the Customer's sign-in mobile is left as it is).
+ * @param {Object} payload - { leadId?, name?, email?, mobile?, state?, language? } — only what changed
+ */
+export const updateApplicationContact = async (payload) => {
+  const res = await axiosInstance.post("/website/application/contact", payload);
+  return res.data;
+};
+
+/**
+ * Edits made after the Deal / Quote were created, and the application's full
+ * answers — all on the signed-in customer's own records.
+ */
+export const updateApplicationDeal = async (payload) => {
+  const res = await axiosInstance.post("/website/application/deal", payload);
+  return res.data;
+};
+export const updateApplicationQuote = async (payload) => {
+  const res = await axiosInstance.post("/website/application/quote", payload);
+  return res.data;
+};
+export const saveApplicationAnswers = async (payload) => {
+  const res = await axiosInstance.post("/website/application/answers", payload);
+  return res.data;
+};
+
+/**
  * Create/link a Customer + Company (no deal) for an in-progress application —
  * called once the applicant has entered real director/company details.
  * @param {Object} payload - { leadId, customer, company, franchiseeId }

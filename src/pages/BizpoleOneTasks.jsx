@@ -458,10 +458,7 @@ export default function ServiceSelection() {
           const visible = formId == null ? [] : all.filter((item) => Number(item.FormId ?? item.FormID) === Number(formId));
           setFormConfig(visible);
           if (all.length > 0 && visible.length === 0) {
-            const hasConstitution = !!(c?.formId || (typeof c?.raw === "string" && c.raw.trim()));
-            setConstitutionNotice(hasConstitution
-              ? "No documents"
-              : "Your company's business type isn't set yet, so we can't show which documents you need. Please update it in Profile → Company Details, or contact support.");
+            setConstitutionNotice("No documents");
           }
           setService(selectedService);
         })
@@ -951,7 +948,16 @@ const displayedUpcomingTasks =
                         <input
                           type="file"
                           className="hidden"
-                          onChange={(e) => handleChange(field.name, e.target.files[0])}
+                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                          onChange={(e) => {
+                            const f = e.target.files[0];
+                            if (f && (f.type.startsWith("video/") || !/\.(pdf|jpe?g|png|docx?|xlsx?)$/i.test(f.name))) {
+                              alert("Videos are not allowed. Upload PDF, JPG, PNG, DOC, DOCX, XLS or XLSX.");
+                              e.target.value = "";
+                              return;
+                            }
+                            handleChange(field.name, f);
+                          }}
                         />
                       </label>
 
