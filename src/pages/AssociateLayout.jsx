@@ -16,7 +16,8 @@ import {
     ChevronLeft,
     HelpCircle,
     Building2,
-    ArrowLeft
+    ArrowLeft,
+    Gift
 } from 'lucide-react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { getSecureItem } from '../utils/secureStorage';
