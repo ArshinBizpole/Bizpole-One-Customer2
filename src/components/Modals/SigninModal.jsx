@@ -32,6 +32,14 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
   const [timer, setTimer] = useState(30);
   const [otpValues, setOtpValues] = useState(["", "", "", ""]);
   const modalContentRef = useRef(null);
+  // In-modal message dialog (replaces browser alert()). afterClose runs on OK.
+  const [notice, setNotice] = useState(null); // { title, message, afterClose? }
+  const showNotice = (title, message, afterClose) => setNotice({ title, message, afterClose });
+  const closeNotice = () => {
+    const after = notice?.afterClose;
+    setNotice(null);
+    if (after) after();
+  };
 
   // For sign-up extra fields
   const [signupName, setSignupName] = useState("");
@@ -64,12 +72,12 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
   const handleNextStep = async () => {
     if (mode === "signup") {
       if (!signupName || !signupEmail || !inputValue || !signupState) {
-        alert("Please fill all sign up fields");
+        showNotice("Missing details", "Please fill in your name, email, state and phone number to sign up.");
         return;
       }
     } else {
       if (!inputValue) {
-        alert("Please enter your phone or email");
+        showNotice("Missing details", "Please enter your email address or phone number.");
         return;
       }
     }
@@ -83,7 +91,7 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
       }
       setStep(2);
     } catch (err) {
-      alert(err?.message || "Failed to send OTP");
+      showNotice("Couldn't send OTP", err?.message || "Failed to send OTP. Please try again.");
     }
   };
 
@@ -111,7 +119,7 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
       setOtpValues(["", "", "", ""]);
       setTimer(30);
     } catch (err) {
-      alert(err?.message || "Failed to resend OTP");
+      showNotice("Couldn't resend OTP", err?.message || "Failed to resend OTP. Please try again.");
     }
   };
 
@@ -157,7 +165,17 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
             navigate("/dashboard/bizpoleone");
           }, 1200); // short delay for user feedback
         } catch (err) {
-          alert(err?.message || "OTP verification failed");
+          // Clear the boxes and put the cursor back in the first one once OK is pressed.
+          showNotice(
+            "Verification failed",
+            err?.message === "Invalid OTP or phone number"
+              ? "The OTP you entered is incorrect or has expired. Please check it and try again."
+              : err?.message || "OTP verification failed. Please try again.",
+            () => {
+              setOtpValues(["", "", "", ""]);
+              setTimeout(() => document.getElementById("otp-0")?.focus(), 0);
+            },
+          );
         } finally {
           setIsVerifying(false);
         }
@@ -535,6 +553,49 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
               >
                 Close
               </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Message dialog — sits over the modal content instead of a browser alert() */}
+        <AnimatePresence>
+          {notice && (
+            <motion.div
+              key="notice"
+              className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 backdrop-blur-[2px] p-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <motion.div
+                role="alertdialog"
+                aria-modal="true"
+                aria-labelledby="signin-notice-title"
+                aria-describedby="signin-notice-message"
+                className="w-full max-w-xs bg-white rounded-2xl shadow-xl border border-gray-100 p-6 flex flex-col items-center text-center"
+                initial={{ scale: 0.9, y: 10 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 10 }}
+                transition={{ type: "spring", damping: 20, stiffness: 300 }}
+              >
+                <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-3">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-red-500">
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+                    <path d="M12 7.5v5.5M12 16.5h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </div>
+                <h3 id="signin-notice-title" className="text-lg font-bold text-gray-800">{notice.title}</h3>
+                <p id="signin-notice-message" className="mt-1 text-sm text-gray-600 leading-relaxed">{notice.message}</p>
+                <button
+                  autoFocus
+                  onClick={closeNotice}
+                  onKeyDown={(e) => { if (e.key === "Escape") closeNotice(); }}
+                  className="mt-5 w-full py-2.5 rounded-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 text-sm font-semibold transition-colors"
+                >
+                  OK
+                </button>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>

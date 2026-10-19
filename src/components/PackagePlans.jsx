@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "react-toastify";
-import { Check, Loader2, Layers, CalendarDays } from "lucide-react";
+import { Check, Loader2, Layers, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { getServicePackages } from "../api/ServicesApi";
 import { upsertQuote } from "../api/Quote";
 import { getSecureItem, setSecureItem } from "../utils/secureStorage";
@@ -11,6 +11,24 @@ import { goToNewCustomerFlow } from "../utils/newCustomerFlow";
 import SigninModal from "./Modals/SigninModal";
 
 const MAX_LISTED_SERVICES = 4;
+
+// Cards shown at once: 3 on desktop, 2 on tablet, 1 on phone (Tailwind lg / md).
+const cardsPerView = () => {
+  if (typeof window === "undefined") return 3;
+  if (window.matchMedia("(min-width: 1024px)").matches) return 3;
+  if (window.matchMedia("(min-width: 768px)").matches) return 2;
+  return 1;
+};
+
+function useCardsPerView() {
+  const [perView, setPerView] = useState(cardsPerView);
+  useEffect(() => {
+    const onResize = () => setPerView(cardsPerView());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return perView;
+}
 
 const num = (v) => Number(v) || 0;
 const formatINR = (v) => `₹${num(v).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -36,6 +54,8 @@ export default function PackagePlans({ preferredTypeId = null }) {
   const [typeFilter, setTypeFilter] = useState("all");
   const [quotingId, setQuotingId] = useState(null);
   const [pendingPlan, setPendingPlan] = useState(null);
+  const perView = useCardsPerView();
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,6 +86,12 @@ export default function PackagePlans({ preferredTypeId = null }) {
     () => (typeFilter === "all" ? packages : packages.filter((p) => p.ServiceTypeName === typeFilter)),
     [packages, typeFilter],
   );
+
+  // Show at most `perView` packages at a time; arrows page through the rest.
+  const pageCount = Math.max(1, Math.ceil(visible.length / perView));
+  const currentPage = Math.min(page, pageCount - 1);
+  const pageItems = visible.slice(currentPage * perView, currentPage * perView + perView);
+  useEffect(() => { setPage(0); }, [typeFilter]);
 
   // Highlight the single best-value package (largest discount), as in the design.
   const featuredId = useMemo(() => {
@@ -166,20 +192,58 @@ export default function PackagePlans({ preferredTypeId = null }) {
         </div>
       )}
 
-      <div className="grid gap-5 justify-center grid-cols-[repeat(auto-fit,minmax(250px,290px))]">
-        {visible.map((plan, i) => (
-          <PackageCard
-            key={plan.PackageID}
-            plan={plan}
-            index={i}
-            featured={plan.PackageID === featuredId}
-            quoting={quotingId === plan.PackageID}
-            disabled={quotingId !== null}
-            onGetQuote={() => handleGetQuote(plan)}
-          />
-        ))}
+      <div className="flex items-center gap-3 max-w-6xl mx-auto">
+        {pageCount > 1 && (
+          <PagerArrow label="Previous packages" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>
+            <ChevronLeft size={20} />
+          </PagerArrow>
+        )}
+        <div className="flex-1 min-w-0 grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          {pageItems.map((plan, i) => (
+            <PackageCard
+              key={plan.PackageID}
+              plan={plan}
+              index={i}
+              featured={plan.PackageID === featuredId}
+              quoting={quotingId === plan.PackageID}
+              disabled={quotingId !== null}
+              onGetQuote={() => handleGetQuote(plan)}
+            />
+          ))}
+        </div>
+        {pageCount > 1 && (
+          <PagerArrow label="Next packages" disabled={currentPage >= pageCount - 1} onClick={() => setPage(currentPage + 1)}>
+            <ChevronRight size={20} />
+          </PagerArrow>
+        )}
       </div>
+
+      {pageCount > 1 && (
+        <div className="flex justify-center items-center gap-2 mt-6">
+          {Array.from({ length: pageCount }, (_, p) => (
+            <button
+              key={p}
+              aria-label={`Show page ${p + 1} of packages`}
+              onClick={() => setPage(p)}
+              className={`h-2 rounded-full transition-all ${p === currentPage ? "w-6 bg-[#F3C625]" : "w-2 bg-gray-300 hover:bg-gray-400"}`}
+            />
+          ))}
+        </div>
+      )}
     </>
+  );
+}
+
+function PagerArrow({ label, disabled, onClick, children }) {
+  return (
+    <button
+      aria-label={label}
+      onClick={onClick}
+      disabled={disabled}
+      className="flex-shrink-0 w-10 h-10 rounded-full border border-gray-200 bg-white flex items-center justify-center text-gray-700 shadow-sm transition-colors hover:border-[#F3C625] hover:bg-[#FFFBEA] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-white"
+    >
+      {children}
+    </button>
   );
 }
 
@@ -199,7 +263,7 @@ function PackageCard({ plan, index, featured, quoting, disabled, onGetQuote }) {
       whileHover={{ y: -4 }}
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
-      className={`flex flex-col rounded-2xl border p-6 transition-colors duration-200 hover:shadow-lg ${
+      className={`flex flex-col min-h-[440px] rounded-2xl border p-7 transition-colors duration-200 hover:shadow-lg ${
         dark ? "bg-black border-black text-white" : "bg-white border-[#F3C625] text-gray-900"
       }`}
     >
