@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2, ChevronLeft, ChevronRight, Search, Filter, X, RotateCcw, Calendar } from 'lucide-react';
+import { Loader2, Search, Filter, X, RotateCcw, Calendar } from 'lucide-react';
 import { getSecureItem } from '../../utils/secureStorage';
 import { format, differenceInDays } from 'date-fns';
 import { listOrders } from '../../api/Orders/Order';
 import { useNavigate } from 'react-router-dom';
+import Pagination from '../../components/Pagination';
 
 const DEFAULT_FILTERS = {
     serviceType: [],
@@ -444,36 +445,7 @@ const AssociateServices = () => {
                             </select>
                         </div>
                     </div>
-                    <div className="flex gap-1">
-                        <button
-                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                            disabled={currentPage === 1}
-                            className="w-8 h-8 flex items-center justify-center border border-slate-200 rounded-lg text-slate-400 disabled:opacity-30 hover:bg-slate-50 hover:text-slate-600 transition-all"
-                        >
-                            <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        {totalPages > 0 && [...Array(Math.min(5, totalPages))].map((_, i) => {
-                            const pageNum = i + 1;
-                            // Basic logic to show pages around current page if there are many pages
-                            // For now, keeping it simple as it was
-                            return (
-                                <button
-                                    key={pageNum}
-                                    onClick={() => setCurrentPage(pageNum)}
-                                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${currentPage === pageNum ? 'bg-amber-400 text-slate-900 shadow-md shadow-amber-200' : 'text-slate-500 border border-slate-200 hover:bg-slate-50 hover:border-amber-200'}`}
-                                >
-                                    {pageNum}
-                                </button>
-                            );
-                        })}
-                        <button
-                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                            disabled={currentPage === totalPages || totalPages === 0}
-                            className="w-8 h-8 flex items-center justify-center border border-slate-200 rounded-lg text-slate-400 disabled:opacity-30 hover:bg-slate-50 hover:text-slate-600 transition-all"
-                        >
-                            <ChevronRight className="w-4 h-4" />
-                        </button>
-                    </div>
+                    <Pagination page={currentPage} totalPages={totalPages} onPage={setCurrentPage} />
                 </div>
             </div>
         </div>

@@ -5,6 +5,7 @@ import { format, differenceInDays } from 'date-fns';
 import { initPayment, listOrders } from '../../api/Orders/Order';
 import { useNavigate } from 'react-router-dom';
 import { toCustomerOrderStatus } from '../../utils/orderStatus';
+import Pagination from '../../components/Pagination';
 
 const ORDER_STATUSES = [
     { value: 1, label: "Not Started" },
@@ -612,32 +613,7 @@ const AssociateOrders = () => {
                 {/* Pagination */}
                 {!loading && totalOrders > 0 && (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '18px 0', borderTop: '1px solid #F3F4F6' }}>
-                        <span style={{ fontSize: 13, color: '#6B7280' }}>Page</span>
-                        <button
-                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                            disabled={currentPage === 1}
-                            style={{
-                                width: 28, height: 28, borderRadius: 6, border: '1px solid #E5E7EB',
-                                background: '#fff', cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                                color: '#6B7280', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                opacity: currentPage === 1 ? 0.4 : 1
-                            }}
-                        >‹</button>
-                        <span style={{
-                            width: 32, height: 32, borderRadius: 6, background: '#F5A623',
-                            color: '#fff', fontWeight: 700, fontSize: 13,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}>{currentPage}</span>
-                        <button
-                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                            disabled={currentPage === totalPages || totalPages === 0}
-                            style={{
-                                width: 28, height: 28, borderRadius: 6, border: '1px solid #E5E7EB',
-                                background: '#fff', cursor: (currentPage === totalPages || totalPages === 0) ? 'not-allowed' : 'pointer',
-                                color: '#6B7280', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                opacity: (currentPage === totalPages || totalPages === 0) ? 0.4 : 1
-                            }}
-                        >›</button>
+                        <Pagination page={currentPage} totalPages={totalPages} onPage={setCurrentPage} />
                         <select
                             value={pageSize}
                             onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}

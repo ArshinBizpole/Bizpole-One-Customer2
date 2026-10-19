@@ -6,6 +6,7 @@ import { signedInContact } from "../utils/applicationPrefill";
 import { ProfileCompanyContext } from "./ProfileLayout";
 import CryptoJS from "crypto-js";
 import { generateInvoicePdf } from "../utils/invoicePdf";
+import { buildInvoiceView } from "../utils/invoiceView";
 import { motion } from "framer-motion";
 import { 
   FiDownload, 
@@ -268,42 +269,9 @@ const InvoicePreview = () => {
     );
   }
 
-  // Total is GST-inclusive (that's what the API/InvoiceValue gives us). GST is the real
-  // GstAmount summed off QuoteServiceDetails (via invoice.amounts.gst, passed via navigation
-  // state from Invoiceprofile.jsx) when available. Subtotal is the difference: Total - GST —
-  // never computed independently — so Subtotal + GST always reconciles exactly back to Total.
-  const total = invoice.amounts?.total
-    || parseFloat(invoice.OrderValue || invoice.InvoiceValue || invoice.InvoiceTotal || 0);
-  const gst = invoice.amounts?.gst || 0;
-  const subtotal = total - gst;
-
-  // Same figures the jsPDF download draws (handleDownloadPDF above), so the on-screen
-  // preview matches the actual downloaded PDF instead of showing a different mock layout.
-  const services = Array.isArray(invoice.serviceDetails) ? invoice.serviceDetails : [];
-  const dueAmount = invoice.amounts?.pending ?? 0;
-  const rounding = services.reduce((sum, s) => sum + (parseFloat(s.Rounding) || 0), 0);
-  const gstPercent = services.find((s) => parseFloat(s.GSTPercent) > 0)?.GSTPercent;
-  const billToName = selectedCompanyName || invoice.CompanyName || invoice.companyName || invoice.PrimaryCustomer || 'Customer';
-  const contactName = invoice.customerName || invoice.PrimaryCustomer;
-
-  // Same franchisee lookup used by handleDownloadPDF, so the on-screen FROM block matches
-  // the downloaded PDF instead of a fixed "Bizpole" address.
-  const clean = (v) => (v && v !== "null" && v !== "undefined") ? String(v).trim() : "";
-  const fromName = franchiseeDetails?.DisplayName || franchiseeDetails?.FranchiseeName
-    || invoice.FranchiseeName || "Bizpole";
-  const fromLines = franchiseeDetails
-    ? [
-        [franchiseeDetails.AddressLine1].filter(clean).map(clean).join(""),
-        [franchiseeDetails.AddressLine2].filter(clean).map(clean).join(""),
-        [franchiseeDetails.City, franchiseeDetails.State, franchiseeDetails.Pincode].filter(clean).map(clean).join(", "),
-      ].filter(Boolean)
-    : [
-        "2ND FLOOR, FALCON COMPLEX, OPP HPCL PETROL BUNK, NURANI",
-        "Palakkad City, Palakkad - 678014, Kerala, India",
-      ];
-  const cin = franchiseeDetails?.CIN || "U70200KL2023PTC083967";
-  const pan = franchiseeDetails?.PAN || "AAMCB0068L";
-  const gstNumber = franchiseeDetails?.GSTNumber || "32AAMCB0068L1ZN";
+  // Same builder the jsPDF download uses (utils/invoiceView.js), so the on-screen
+  // preview and the downloaded PDF always show identical figures.
+  const v = buildInvoiceView(invoice, franchiseeDetails, { billToName: selectedCompanyName });
 
   const formatMoney = (amount) => {
     const num = parseFloat(amount) || 0;
@@ -400,27 +368,31 @@ const InvoicePreview = () => {
           {/* FROM / BILL TO */}
           <div className="flex justify-between items-start gap-8 mb-6">
             <div>
-              <p className="font-bold text-gray-900">{fromName}</p>
-              {fromLines.map((line, i) => (
+              <p className="font-bold text-gray-900">{v.fromName}</p>
+              {v.fromLines.map((line, i) => (
                 <p key={i} className="text-sm text-gray-500 mt-1 first:mt-1">{line}</p>
               ))}
             </div>
-            <div className="text-right flex-shrink-0">
+            <div className="text-right flex-shrink-0 max-w-xs">
               <p className="text-xs text-gray-400">BILL TO:</p>
-              <p className="font-bold text-gray-900 mt-1">{billToName}</p>
-              {contactName && contactName !== billToName && (
-                <p className="text-sm font-medium text-gray-700">{contactName}</p>
+              <p className="font-bold text-gray-900 mt-1">{v.billToName}</p>
+              {v.contactName && v.contactName !== v.billToName && (
+                <p className="text-sm font-medium text-gray-700">{v.contactName}</p>
               )}
-              {invoice.state && <p className="text-sm text-gray-500">{invoice.state}</p>}
-              <p className="text-xs text-gray-400">Place of Supply: {invoice.state || "-"}</p>
+              {[...v.billToLines, v.billToPhone, v.billToEmail].filter(Boolean).map((line, i) => (
+                <p key={i} className="text-sm text-gray-500">{line}</p>
+              ))}
+              {v.recipientGstin && <p className="text-sm text-gray-700 mt-1"><span className="font-bold">GSTIN:</span> {v.recipientGstin}</p>}
+              {v.recipientPan && <p className="text-sm text-gray-700"><span className="font-bold">PAN:</span> {v.recipientPan}</p>}
+              <p className="text-xs text-gray-400 mt-1">Place of Supply: {v.placeOfSupply || "-"}</p>
             </div>
           </div>
 
           {/* CIN / PAN / GST box */}
           <div className="inline-block bg-[#FFF7E0] border border-[#E6A82B] rounded px-4 py-3 mb-6 text-sm">
-            <p><span className="font-bold text-gray-900">CIN:</span> <span className="text-gray-700">{cin}</span></p>
-            <p><span className="font-bold text-gray-900">PAN:</span> <span className="text-gray-700">{pan}</span></p>
-            <p><span className="font-bold text-gray-900">GST:</span> <span className="text-gray-700">{gstNumber}</span></p>
+            <p><span className="font-bold text-gray-900">CIN:</span> <span className="text-gray-700">{v.sellerCin}</span></p>
+            <p><span className="font-bold text-gray-900">PAN:</span> <span className="text-gray-700">{v.sellerPan}</span></p>
+            <p><span className="font-bold text-gray-900">GST:</span> <span className="text-gray-700">{v.sellerGstin}</span></p>
           </div>
 
           <div className="border-t border-gray-200" />
@@ -428,12 +400,12 @@ const InvoicePreview = () => {
           {/* Info band */}
           <div className="grid grid-cols-2 md:grid-cols-6 gap-4 bg-[#FFF7E0] p-5 mb-6">
             {[
-              { label: "INVOICE NUMBER", value: invoice.InvoiceCode || invoice.invoiceCode || "-" },
-              { label: "INVOICE DATE", value: formatDate(invoice.InvoiceDate || invoice.invoiceDate) },
-              { label: "P.O. / S.O. NO.", value: invoice.quoteCodeId || invoice.InvoiceCode || "-" },
-              { label: "P.O. / S.O. DATE", value: formatDate(invoice.InvoiceDate || invoice.invoiceDate) },
-              { label: "INVOICE TOTAL", value: formatMoney(total) },
-              { label: "DUE AMOUNT", value: formatMoney(dueAmount) },
+              { label: "INVOICE NUMBER", value: v.invoiceCode },
+              { label: "INVOICE DATE", value: formatDate(v.invoiceDate) },
+              { label: "P.O. / S.O. NO.", value: v.poNumber },
+              { label: "P.O. / S.O. DATE", value: formatDate(v.invoiceDate) },
+              { label: "INVOICE TOTAL", value: formatMoney(v.total) },
+              { label: "DUE AMOUNT", value: formatMoney(v.due) },
             ].map((col) => (
               <div key={col.label}>
                 <p className="text-[10px] font-bold text-[#E6A82B] tracking-wide">{col.label}</p>
@@ -456,25 +428,19 @@ const InvoicePreview = () => {
                 </tr>
               </thead>
               <tbody>
-                {(services.length
-                  ? services
-                  : [{ ItemName: "Service", ProfessionalFee: subtotal, Discount: 0, GstAmount: gst, GovtFee: 0, Total: total }]
-                ).map((s, i) => {
-                  const rate = (parseFloat(s.ProfessionalFee) || 0) + (parseFloat(s.VendorFee) || 0) + (parseFloat(s.ContractorFee) || 0);
-                  return (
-                    <tr key={i} className="border-b border-gray-100 last:border-0">
-                      <td className="py-3 px-4 text-gray-700">
-                        {s.ItemName || s.ServiceName || "Service"}
-                        {s.ServiceCode && <span className="block text-xs text-gray-400">HSN/SAC: {s.ServiceCode}</span>}
-                      </td>
-                      <td className="py-3 px-4 text-right text-gray-700">{formatMoney(rate)}</td>
-                      <td className="py-3 px-4 text-right text-gray-700">{formatMoney(s.Discount)}</td>
-                      <td className="py-3 px-4 text-right text-gray-700">{formatMoney(s.GstAmount)}</td>
-                      <td className="py-3 px-4 text-right text-gray-700">{formatMoney(s.GovtFee)}</td>
-                      <td className="py-3 px-4 text-right font-bold text-gray-900">{formatMoney(s.Total)}</td>
-                    </tr>
-                  );
-                })}
+                {v.lines.map((l, i) => (
+                  <tr key={i} className="border-b border-gray-100 last:border-0">
+                    <td className="py-3 px-4 text-gray-700">
+                      {l.name}
+                      {l.code && <span className="block text-xs text-gray-400">HSN/SAC: {l.code}</span>}
+                    </td>
+                    <td className="py-3 px-4 text-right text-gray-700">{formatMoney(l.rate)}</td>
+                    <td className="py-3 px-4 text-right text-gray-700">{formatMoney(l.discount)}</td>
+                    <td className="py-3 px-4 text-right text-gray-700">{formatMoney(l.tax)}</td>
+                    <td className="py-3 px-4 text-right text-gray-700">{formatMoney(l.govtFee)}</td>
+                    <td className="py-3 px-4 text-right font-bold text-gray-900">{formatMoney(l.total)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -484,25 +450,21 @@ const InvoicePreview = () => {
             <div className="w-full md:w-80 space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-500">Sub Total</span>
-                <span className="text-gray-900">{formatMoney(subtotal)}</span>
+                <span className="text-gray-900">{formatMoney(v.subtotal)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">GST Amount</span>
-                <span className="text-gray-900">{formatMoney(gst)}</span>
-              </div>
-              {gstPercent && (
-                <div className="flex justify-between">
-                  <span className="text-gray-500">IGST ({parseFloat(gstPercent).toFixed(2)}%)</span>
-                  <span className="text-gray-900">{formatMoney(gst)}</span>
+              {v.taxLines.map((t) => (
+                <div key={t.label} className="flex justify-between">
+                  <span className="text-gray-500">{t.label}</span>
+                  <span className="text-gray-900">{formatMoney(t.amount)}</span>
                 </div>
-              )}
+              ))}
               <div className="flex justify-between border-b border-gray-300 pb-2">
                 <span className="text-gray-500">Rounding</span>
-                <span className="text-gray-900">{formatMoney(rounding)}</span>
+                <span className="text-gray-900">{formatMoney(v.rounding)}</span>
               </div>
               <div className="flex justify-between pt-1">
                 <span className="font-bold text-gray-900">Total Amount</span>
-                <span className="font-bold text-gray-900">{formatMoney(total)}</span>
+                <span className="font-bold text-gray-900">{formatMoney(v.total)}</span>
               </div>
             </div>
           </div>
