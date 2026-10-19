@@ -5,6 +5,8 @@ import { CartContext } from "../context/CartContext";
 import { useNavigate } from "react-router-dom";
 import { upsertQuote } from "../api/Quote";
 import { getSecureItem } from "../utils/secureStorage";
+import { selectSignedInCompany } from "../utils/signedInCompany";
+import { goToNewCustomerFlow } from "../utils/newCustomerFlow";
 import ServicesApi from "../api/ServicesApi";
 import axios from "../api/axiosInstance";
 import { fetchFranchiseeGstInfo, calcGstAmount, splitGst } from "../utils/gstCalc";
@@ -12,7 +14,8 @@ import { proceedToQuote } from "../utils/proceedToQuote";
 import { motion, AnimatePresence } from "framer-motion";
 import SigninModal from "../components/Modals/SigninModal";
 import ServiceDetails from "./ServiceDetails";
-import { Building2, FileText, Scale, CheckCircle2, Wallet, Globe2, Tag, Sparkles, Briefcase, Receipt, FileCheck2, DollarSign, ShoppingCart, MapPin, ArrowRight, X, Loader2 } from "lucide-react";
+import PackagePlans from "../components/PackagePlans";
+import { Building2, FileText, Scale, CheckCircle2, Wallet, Globe2, Tag, Sparkles, Briefcase, Receipt, FileCheck2, DollarSign, ShoppingCart, MapPin, ArrowRight, X, Loader2, SearchX } from "lucide-react";
 // Icons
 const IconSearch = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -22,11 +25,6 @@ const IconSearch = () => (
 const IconFilter = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
-  </svg>
-);
-const IconChevronDown = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
   </svg>
 );
 const IconChevronUp = () => (
@@ -90,8 +88,12 @@ const getCategoryIcon = (categoryName) => {
 };
 
 import { getAllStates } from "../api/States";
+import Pagination from "../components/Pagination";
+import StateSelect from "../components/StateSelect";
 
-const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price, onSelectState, stateId, setShowSigninModal, navigate }) => {
+const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price: fetchedPrice, priceLoading, onSelectState, stateId, setShowSigninModal, navigate }) => {
+  // While loading, treat as no price so Request Quote / Select stay disabled
+  const price = priceLoading ? null : fetchedPrice;
   const features = service.Features || [];
   const categoryName = service.Category?.CategoryName || service.CategoryName;
   // API descriptions sometimes come wrapped in literal quote characters — strip them for display
@@ -197,7 +199,15 @@ const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price, onSele
           ) : (
             <div className="flex-1 flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                {price ? (
+                {priceLoading ? (
+                  <div className="flex flex-col gap-1.5" aria-live="polite">
+                    <span className="flex items-center gap-1.5 text-xs text-gray-400 font-medium">
+                      <Loader2 size={14} strokeWidth={2.5} className="animate-spin text-[#F3C625]" />
+                      Fetching price…
+                    </span>
+                    <div className="h-2.5 w-24 bg-gray-100 rounded animate-pulse" />
+                  </div>
+                ) : price ? (
                   <div className="flex flex-col justify-left text-xs">
                     <div className="flex justify-left text-lg font-bold text-green-700 mb-1">
                       <span className="mr-1">₹</span>
@@ -207,15 +217,23 @@ const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price, onSele
                   </div>
                 ) : (
                   <span className="text-xs text-red-400 font-medium">
-                    Not available in this state
+                    Not available in {stateName || "this state"}
                   </span>
                 )}
-                <button
-                  className="text-xs text-black underline flex-shrink-0"
-                  onClick={onSelectState}
-                >
-                  Change State
-                </button>
+                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                  {stateName && (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full px-2 py-0.5">
+                      <MapPin className="w-3 h-3 text-[#E6A82B]" />
+                      {stateName}
+                    </span>
+                  )}
+                  <button
+                    className="text-xs text-black underline"
+                    onClick={onSelectState}
+                  >
+                    Change State
+                  </button>
+                </div>
               </div>
 
               {/* Request Quote + Select together */}
@@ -370,10 +388,13 @@ const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price, onSele
 };
 
 // embedded: rendered inside another page (e.g. Pricing & Plans tab) — skip the page hero and full-screen height
-const Services = ({ embedded = false }) => {
+// initialServiceId (embedded): open straight on that service's details.
+const Services = ({ embedded = false, initialServiceId = null }) => {
   const [services, setServices] = useState([]);
   // embedded only: service whose "Know More" details are shown in place of the list
-  const [detailServiceId, setDetailServiceId] = useState(null);
+  const [detailServiceId, setDetailServiceId] = useState(embedded ? initialServiceId : null);
+  // Public page only: packages tab (default) or the individual-services list
+  const [view, setView] = useState("packages");
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -382,17 +403,32 @@ const Services = ({ embedded = false }) => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [filter, setFilter] = useState("");
+  // Debounced copy of `filter` that actually drives the fetch
+  const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
-  const { cart, addToCart, removeFromCart } = useContext(CartContext);
+  const { cart, addToCart, removeFromCart, clearCart } = useContext(CartContext);
   // selectedServices is now derived from cart keys
   const selectedServices = Object.keys(cart).map(id => Number(id));
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  // lg+ : filters sit beside the grid (slide by width). Below: stacked on top,
+  // full width (collapse by height).
+  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia("(min-width: 1024px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = (e) => setIsDesktop(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
   const [stateId, setStateId] = useState(() => localStorage.getItem("StateID"));
   const [bulkPrices, setBulkPrices] = useState({});
   const [bulkLoading, setBulkLoading] = useState(false);
+  // The state + services the current bulkPrices were fetched for
+  const [pricedFor, setPricedFor] = useState({ stateId: null, ids: new Set() });
   const [showStateModal, setShowStateModal] = useState(false);
   const [allStates, setAllStates] = useState([]);
   const [showSigninModal, setShowSigninModal] = useState(false);
+  // The card whose own "Request Quote" opened sign-in (null = the selection's Proceed to Quote).
+  const [signinService, setSigninService] = useState(null);
   const [selectedStateForModal, setSelectedStateForModal] = useState("");
   const [statesLoading, setStatesLoading] = useState(false);
   const [proceedingToQuote, setProceedingToQuote] = useState(false);
@@ -408,8 +444,16 @@ const Services = ({ embedded = false }) => {
       .finally(() => setCategoriesLoading(false));
   }, []);
 
+  // Search hits the server — wait until typing pauses instead of one request per keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(filter.trim()), 350);
+    return () => clearTimeout(t);
+  }, [filter]);
+
   // Fetch services
   useEffect(() => {
+    // A slower, older response (previous search/page) must not overwrite the latest one
+    let stale = false;
     setLoading(true);
     const updateAllServicesCache = (data) => {
       try {
@@ -423,28 +467,31 @@ const Services = ({ embedded = false }) => {
       } catch (err) { console.log(err); }
     };
     if (selectedCategory) {
-      ServicesApi.getServicesByCategory(selectedCategory, { page, limit })
+      ServicesApi.getServicesByCategory(selectedCategory, { page, limit, filter: search })
         .then((res) => {
+          if (stale) return;
           setServices(res.data || []);
           updateAllServicesCache(res.data || []);
           const total = res.total || 0;
           setTotalCount(total);
           setTotalPages(Math.max(1, Math.ceil(total / limit)));
         })
-        .catch(() => { setServices([]); setTotalPages(1); })
-        .finally(() => setLoading(false));
+        .catch(() => { if (!stale) { setServices([]); setTotalCount(0); setTotalPages(1); } })
+        .finally(() => { if (!stale) setLoading(false); });
     } else {
-      ServicesApi.getServices({ page, limit, filter })
+      ServicesApi.getServices({ page, limit, filter: search })
         .then((res) => {
+          if (stale) return;
           setServices(res.data || []);
           updateAllServicesCache(res.data || []);
           setTotalPages(res.pagination?.totalPages || 1);
-          setTotalCount(res.pagination?.total || res.data?.length || 0);
+          setTotalCount(res.pagination?.total ?? res.data?.length ?? 0);
         })
-        .catch(() => setServices([]))
-        .finally(() => setLoading(false));
+        .catch(() => { if (!stale) { setServices([]); setTotalCount(0); setTotalPages(1); } })
+        .finally(() => { if (!stale) setLoading(false); });
     }
-  }, [page, limit, filter, selectedCategory]);
+    return () => { stale = true; };
+  }, [page, limit, search, selectedCategory]);
 
 
 
@@ -459,6 +506,19 @@ const Services = ({ embedded = false }) => {
       setShowStateModal(false);
     }
   };
+
+  // Load the state list up front when a state is already chosen, so the cards
+  // can show its name (the modal would otherwise only load it on open).
+  useEffect(() => {
+    if (stateId && allStates.length === 0) {
+      getAllStates()
+        .then((states) => setAllStates(states || []))
+        .catch(() => setAllStates([]));
+    }
+  }, [stateId, allStates.length]);
+
+  const selectedStateName =
+    allStates.find((s) => String(s.id || s.StateID) === String(stateId))?.state_name || "";
 
   // Open modal and fetch states if needed
   const openStateModal = () => {
@@ -476,6 +536,7 @@ const Services = ({ embedded = false }) => {
   // Fetch bulk prices when services or stateId changes
   useEffect(() => {
     if (stateId && services.length > 0) {
+      let stale = false;
       const serviceIds = services.map(s => s.ServiceID);
       setBulkLoading(true);
       axios.post("service-price-currency/bulk", {
@@ -484,6 +545,7 @@ const Services = ({ embedded = false }) => {
         isIndividual: 1
       })
         .then(res => {
+          if (stale) return;
           const priceMap = {};
           if (res.data && res.data.data) {
             res.data.data.forEach(item => {
@@ -492,10 +554,20 @@ const Services = ({ embedded = false }) => {
           }
           setBulkPrices(priceMap);
         })
-        .catch(() => setBulkPrices({}))
-        .finally(() => setBulkLoading(false));
+        .catch(() => { if (!stale) setBulkPrices({}); })
+        .finally(() => {
+          if (stale) return;
+          setPricedFor({ stateId, ids: new Set(serviceIds) });
+          setBulkLoading(false);
+        });
+      return () => { stale = true; };
     }
   }, [stateId, services]);
+
+  // Until this service's price has been fetched for the current state, show a loader —
+  // not "Not available in this state".
+  const isPriceLoading = (serviceId) =>
+    bulkLoading || String(pricedFor.stateId) !== String(stateId) || !pricedFor.ids.has(serviceId);
 
   const handleLearnMore = (serviceId) => {
     if (embedded) {
@@ -572,8 +644,30 @@ const Services = ({ embedded = false }) => {
   return (
     <>
       {!embedded && <ToastContainer position="top-right" autoClose={3000} />}
-      <SigninModal isOpen={showSigninModal} onClose={() => setShowSigninModal(false)} />
-      <div className={embedded ? "" : "min-h-screen bg-gray-50"}>
+      <SigninModal
+        isOpen={showSigninModal}
+        onClose={() => setShowSigninModal(false)}
+        // Stay here with the selection intact instead of jumping to the dashboard.
+        onSuccess={(tokenData) => {
+          selectSignedInCompany(tokenData?.user || getSecureItem("user"));
+          setShowSigninModal(false);
+          toast.success(selectedServices.length
+            ? "Signed in. Your selected services are saved — click Proceed to Quote."
+            : "Signed in. You can request your quote now.");
+        }}
+        // New customer: the matching application collects their details and makes the quote
+        // — for the card that asked, else the first selected service that has one.
+        onSignup={() => {
+          setShowSigninModal(false);
+          const stateName = allStates.find((s) => String(s.id || s.StateID) === String(stateId))?.state_name || "";
+          let cache = [];
+          try { cache = JSON.parse(localStorage.getItem("AllServicesCache") || "[]"); } catch { cache = []; }
+          const selected = selectedServices.map((sid) =>
+            services.find((s) => s.ServiceID === sid) || cache.find((s) => s.ServiceID === sid) || { ServiceID: sid, ...cart[sid] });
+          goToNewCustomerFlow(navigate, signinService ? [signinService] : selected, stateName);
+        }}
+      />
+      <div className={embedded ? "" : "min-h-screen bg-gray-50 -mt-20 lg:-mt-24 pt-20 lg:pt-24"}>
 
         {/* State selection modal */}
         {showStateModal && (
@@ -609,25 +703,12 @@ const Services = ({ embedded = false }) => {
                   <label className="block text-sm font-bold text-gray-900 mb-2">
                     Select your state <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative">
-                    <select
-                      value={selectedStateForModal}
-                      onChange={e => setSelectedStateForModal(e.target.value)}
-                      required
-                      className="w-full appearance-none pl-4 pr-14 py-3.5 rounded-2xl border border-gray-200 text-sm text-gray-700 focus:ring-1 focus:ring-[#f7d761] focus:border-[#f7d761] outline-none disabled:opacity-60"
-                      disabled={statesLoading}
-                    >
-                      <option value="">Choose your state</option>
-                      {allStates.map((state) => (
-                        <option key={state.id || state.StateID} value={state.id || state.StateID}>
-                          {state.state_name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute right-1.5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-[#F3C625] flex items-center justify-center pointer-events-none">
-                      <IconChevronDown />
-                    </div>
-                  </div>
+                  <StateSelect
+                    states={allStates}
+                    value={selectedStateForModal}
+                    onChange={setSelectedStateForModal}
+                    loading={statesLoading}
+                  />
                 </div>
 
                 <div className="flex gap-3">
@@ -656,27 +737,55 @@ const Services = ({ embedded = false }) => {
         )}
         {/* Page Header */}
         {!embedded && <div className=" border-b border-gray-100">
-          <div className="max-w-7xl mt-26 mb-18 mx-auto px-6 py-10 text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 text-[#c9a700] text-xs font-semibold rounded-full mb-4 border border-amber-100">
-              <IconStar /> Explore Our Services
-            </div>
-            <h1 className="text-4xl md:text-5xl font-bold  text-gray-900 mb-3">
-              Choose Your Perfect Service
+          <div className="max-w-7xl mx-auto px-6 pt-10 pb-10 text-center">
+            <h1 className="text-3xl md:text-4xl font-bold text-[#F3C625] mb-3">
+              The Right Plan for Your Business
             </h1>
             <p className="text-gray-500 max-w-lg mx-auto text-sm">
-              Professional business services tailored to help your company thrive in today's competitive market
+              Pick a ready-made package that bundles the services your business needs, or choose individual services and pay only for what you use.
             </p>
+
+            {/* Package / individual service tabs */}
+            <div className="mt-7 inline-flex flex-wrap justify-center gap-3">
+              <button
+                onClick={() => setView("packages")}
+                className={`px-5 py-2 rounded-full text-sm font-semibold border transition-all ${view === "packages"
+                  ? "bg-gray-900 border-gray-900 text-white shadow-md"
+                  : "bg-white border-gray-300 text-gray-600 hover:text-gray-900"
+                  }`}
+              >
+                Package
+              </button>
+              <button
+                onClick={() => setView("services")}
+                className={`px-5 py-2 rounded-full text-sm font-semibold border transition-all ${view === "services"
+                  ? "bg-[#FFFBEA] border-[#F3C625] text-black shadow-md"
+                  : "bg-white border-[#F3C625] text-gray-700 hover:text-gray-900"
+                  }`}
+              >
+                Choose individual service
+              </button>
+            </div>
           </div>
         </div>}
 
-        <div className={embedded ? "flex gap-6" : "max-w-7xl mx-auto px-6 py-8 flex gap-6"}>
+        {!embedded && view === "packages" && (
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 py-8 sm:py-10">
+            <PackagePlans />
+          </div>
+        )}
+
+        {(embedded || view === "services") && <div className={`flex flex-col lg:flex-row gap-4 lg:gap-6 ${embedded ? "" : "max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8"}`}>
           {/* Sidebar */}
           <motion.aside
-            animate={{ width: sidebarOpen ? 240 : 0, opacity: sidebarOpen ? 1 : 0 }}
+            initial={false}
+            animate={isDesktop
+              ? { width: sidebarOpen ? 240 : 0, height: "auto", opacity: sidebarOpen ? 1 : 0 }
+              : { width: "100%", height: sidebarOpen ? "auto" : 0, opacity: sidebarOpen ? 1 : 0 }}
             transition={{ duration: 0.3 }}
             className="flex-shrink-0 overflow-hidden"
           >
-            <div className="w-60 bg-white rounded-3xl border border-gray-100 shadow-sm p-5 sticky">
+            <div className="w-full lg:w-60 bg-white rounded-3xl border border-gray-100 shadow-sm p-5 sticky">
               {/* Sidebar Header */}
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2.5">
@@ -875,12 +984,14 @@ const Services = ({ embedded = false }) => {
                           onClick={async () => {
                             const token = localStorage.getItem('token');
                             if (!token) {
+                              setSigninService(null);
                               setShowSigninModal(true);
                               return;
                             }
                             setProceedingToQuote(true);
                             try {
-                              await proceedToQuote({ cart, services });
+                              // Quoted — the selection is done with, so clear it.
+                              if (await proceedToQuote({ cart, services })) clearCart();
                             } finally {
                               setProceedingToQuote(false);
                             }
@@ -909,7 +1020,7 @@ const Services = ({ embedded = false }) => {
           {/* Main Content */}
           <div className="flex-1 min-w-0">
             {/* Toolbar */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
               <div className="flex items-center gap-3">
                 {!sidebarOpen && (
                   <button
@@ -953,7 +1064,7 @@ const Services = ({ embedded = false }) => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                  className={`grid grid-cols-1 md:grid-cols-2 ${embedded ? "2xl:grid-cols-3" : "xl:grid-cols-3"} gap-4`}
                 >
                   {Array.from({ length: 4 }).map((_, i) => (
                     <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5 animate-pulse">
@@ -980,7 +1091,9 @@ const Services = ({ embedded = false }) => {
                   animate={{ opacity: 1, scale: 1 }}
                   className="text-center py-24 bg-white rounded-2xl border border-gray-100"
                 >
-                  <div className="text-5xl mb-4">🔍</div>
+                  <div className="w-16 h-16 rounded-2xl bg-[#FDF4D6] flex items-center justify-center mx-auto mb-4">
+                    <SearchX size={28} strokeWidth={2} className="text-[#d4a80f]" />
+                  </div>
                   <h3 className="text-xl font-bold text-gray-700 mb-2">No services found</h3>
                   <p className="text-gray-400 text-sm mb-4">
                     {filter || selectedCategory ? "Try adjusting your filters" : "No services available"}
@@ -996,7 +1109,7 @@ const Services = ({ embedded = false }) => {
                 </motion.div>
               ) : (
                 <motion.div key="grid" layout>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className={`grid grid-cols-1 md:grid-cols-2 ${embedded ? "2xl:grid-cols-3" : "xl:grid-cols-3"} gap-4`}>
                     {services.map((service) => (
                       <ServiceCard
                         key={service.ServiceID}
@@ -1007,8 +1120,8 @@ const Services = ({ embedded = false }) => {
                         price={getBulkPrice(service.ServiceID)}
                         onSelectState={openStateModal}
                         stateId={stateId}
-                        bulkLoading={bulkLoading}
-                        setShowSigninModal={setShowSigninModal}
+                        priceLoading={isPriceLoading(service.ServiceID)}
+                        setShowSigninModal={(open) => { setSigninService(service); setShowSigninModal(open); }}
                         navigate={navigate}
                       />
                     ))}
@@ -1016,45 +1129,13 @@ const Services = ({ embedded = false }) => {
 
                   {/* Pagination */}
                   {totalPages > 1 && (
-                    <div className="flex items-center justify-center gap-2 mt-8">
-                      <button
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                        disabled={page === 1}
-                        className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-600 disabled:opacity-40 hover:border-[#F3C625] hover:text-[#F3C625] transition-all"
-                      >
-                        ← Previous
-                      </button>
-                      <div className="flex gap-1">
-                        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                          let pageNum = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= totalPages - 2 ? totalPages - 4 + i : page - 2 + i;
-                          return (
-                            <button
-                              key={pageNum}
-                              onClick={() => setPage(pageNum)}
-                              className={`w-9 h-9 rounded-xl text-sm font-semibold transition-all ${page === pageNum
-                                ? "bg-[#F3C625] text-white shadow-sm"
-                                : "bg-white text-gray-600 border border-gray-200 hover:border-[#F3C625]"
-                                }`}
-                            >
-                              {pageNum}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <button
-                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                        disabled={page === totalPages}
-                        className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-600 disabled:opacity-40 hover:border-[#F3C625] hover:text-[#F3C625] transition-all"
-                      >
-                        Next →
-                      </button>
-                    </div>
+                    <Pagination page={page} totalPages={totalPages} onPage={setPage} className="justify-center mt-8" />
                   )}
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
-        </div>
+        </div>}
       </div>
     </>
   );

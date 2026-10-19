@@ -8,8 +8,6 @@ import { removeSecureItem } from "../utils/secureStorage";
 
 
 
-import { Suspense, lazy } from "react";
-const PaymentLogs = lazy(() => import("./PaymentLogs"));
 
 const HeroSection = () => {
   const navigate = useNavigate();
@@ -17,7 +15,7 @@ const HeroSection = () => {
   const words = [
     { text: "Run", color: "text-red-400" },
     { text: "Grow", color: "text-gray-600" },
-    { text: "Start", color: "text-yellow-600" },
+    { text: "Start", color: "text-[#F5C518]" }, // brand yellow (same as the buttons / logo)
   ];
 
   const [currentWord, setCurrentWord] = useState(0);
@@ -35,18 +33,18 @@ const HeroSection = () => {
 
   return (
     <section
-      className="relative bg-cover bg-center min-h-screen flex  flex-col items-center justify-center px-4 sm:px-6 py-12 md:py-16 text-center overflow-hidden bg-gradient-to-t from-white to-yellow-50"
+      className="relative bg-cover bg-center min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 -mt-20 lg:-mt-24 pt-28 lg:pt-36 pb-16 md:pb-24 text-center overflow-hidden bg-[#f7f5f0]"
     
     >
       {/* Content */}
-      <div className="relative z-10 w-full max-w-6xl mx-auto hero-content">
+      <div className="relative z-10 w-full max-w-7xl mx-auto hero-content">
 
         {/* Animated Heading */}
         <motion.h1
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7 }}
-          className="text-black mb-4 flex flex-col  md:flex-row items-center justify-center gap-2 md:gap-3"
+          className="text-black mb-6 md:mb-8 flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4"
         >
           <motion.span
             key={words[currentWord].text}
@@ -54,12 +52,12 @@ const HeroSection = () => {
             animate={{ opacity: 1, y: -10 }}
             exit={{ opacity: 0, y: 20 }}
             transition={{ duration: 0.6 }}
-            className={`${words[currentWord].color} drop-shadow-lg text-4xl sm:text-5xl md:text-7xl lg:text-8xl w-60 inline-block text-center`}
+            className={`${words[currentWord].color} drop-shadow-lg text-5xl sm:text-6xl md:text-8xl lg:text-9xl w-60 md:w-72 lg:w-80 inline-block text-center md:text-right`}
           >
             {words[currentWord].text}
           </motion.span>
-          <span className="text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-semibold text-gray-900 mt-2 md:mt-0">
-            a Business, Now Simplified !!
+          <span className="max-w-full px-2 text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold text-gray-900 mt-2 md:mt-0 lg:whitespace-nowrap">
+            A Business, Now Simplified !!
           </span>
         </motion.h1>
 
@@ -70,35 +68,49 @@ const HeroSection = () => {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.7 }}
           data-aos="fade-up"
-          className="text-base sm:text-lg md:text-2xl text-gray-700 mb-8 md:mb-10 max-w-3xl mx-auto px-4"
+          className="text-lg sm:text-xl md:text-3xl font-medium text-gray-700 mb-6 md:mb-8 max-w-4xl mx-auto px-4"
         >
           India's First AI Powered Business Super Application For{" "}
           <span className="font-semibold text-black">SME</span>
         </motion.p>
+
+        {/* What it covers */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.45, duration: 0.7 }}
+          className="max-w-3xl mx-auto px-4 mb-10 md:mb-14 text-gray-600"
+        >
+          <p className="text-base sm:text-lg md:text-xl">
+            Incorporation, Taxes, Compliance, Trade, Accounting
+          </p>
+          <p className="text-base sm:text-lg md:text-xl text-gray-800 mt-1.5 sm:pl-24 md:pl-48">
+            — Everything Your Business Needs, Done In One Click.
+          </p>
+        </motion.div>
 
         {/* Buttons */}
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.6, duration: 0.6 }}
-          className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-6 mb-10 md:mb-14 px-4"
+          className="flex flex-col sm:flex-row justify-center items-center gap-5 sm:gap-8 px-4"
         >
           {/* Primary CTA */}
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="bg-yellow-400 text-black text-xl  px-6 py-3 rounded-full flex items-center gap-2 shadow-md hover:bg-yellow-500 transition w-full sm:w-auto justify-center"
+            className="bg-yellow-400 text-black text-base md:text-lg font-semibold px-8 md:px-10 py-3 md:py-4 rounded-full flex items-center gap-2 shadow-md hover:bg-yellow-500 transition w-full sm:w-auto justify-center"
             onClick={() => navigate("/startbusiness/services")}
           >
-            Start  <span className="font-bold">New Company</span>
-            <FaArrowRight />
+            Get Start Your Business
           </motion.button>
 
           {/* Secondary CTA */}
           <motion.button
             initial="initial"
             whileHover="hovered"
-            className="flex items-center gap-3 text-black font-medium border-b-2 border-yellow-400 hover:border-b-0 transition cursor-pointer py-2 sm:py-0 justify-center sm:justify-start text-xl"
+            className="flex items-center gap-3 text-black font-medium border-b-2 border-yellow-400 hover:border-b-0 transition cursor-pointer py-2 sm:py-0 justify-center sm:justify-start text-lg md:text-xl"
             onClick={() => {
               removeSecureItem("onboardingStep");
               navigate("/existing-companies");
@@ -138,30 +150,11 @@ const HeroSection = () => {
                 <FaArrowRight size={19} />
               </motion.span>
             </motion.span>
-            Existing Company
+            Existing company
           </motion.button>
         </motion.div>
 
-        {/* Clients Text */}
-        <motion.h2
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8, duration: 0.6 }}
-          data-aos="fade-up"
-          className="text-lg sm:text-xl md:text-2xl font-semibold mb-4 md:mb-6 text-black px-4"
-        >
-          More than 25,000 clients
-        </motion.h2>
       </div>
-
-
-           <div className="py-4 md:py-6 ">
-             <Suspense fallback={null}>
-               <PaymentLogs />
-             </Suspense>
-           </div>
-
-
     </section>
   );
 };

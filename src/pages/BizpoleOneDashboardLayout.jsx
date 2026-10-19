@@ -9,22 +9,41 @@ import {
   ChevronDown,
   Box,
   Wrench,
-  Receipt,
   LifeBuoy,
   Gift,
   SearchCheck,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SHOW_CUSTOMER_REFER_AND_EARN } from "../utils/featureFlags";
+
+// Phone-width menu: one scrollable row of tabs (Orders' two pages listed
+// directly) so the page itself starts right under the header, instead of the
+// full sidebar + illustration stacked on top of it.
+const MOBILE_TABS = [
+  { to: "/dashboard/bizpoleone", end: true, label: "Dashboard", icon: LayoutDashboard },
+  { to: "/dashboard/bizpoleone/package", label: "Package Service", icon: Box },
+  { to: "/dashboard/bizpoleone/individual", label: "Individual services", icon: Wrench },
+  { to: "/dashboard/bizpoleone/tasks", label: "My task", icon: ListChecks },
+  { to: "/dashboard/bizpoleone/trademark-search", label: "Trademark Search", icon: SearchCheck },
+  { to: "/dashboard/bizpoleone/pricing", label: "Pricing & Plans", icon: CreditCard },
+  { to: "/dashboard/bizpoleone/support", label: "Customer supports", icon: LifeBuoy },
+  ...(SHOW_CUSTOMER_REFER_AND_EARN ? [{ to: "/dashboard/bizpoleone/referrals", label: "Refer & Earn", icon: Gift }] : []),
+];
 
 const BizpoleOneDashboardLayout = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(false);
   const location = useLocation();
 
-  // Helper: is mobile
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  // Helper: is mobile (kept in step with the window, not read once)
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const onChange = (e) => setIsMobile(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   // Helper: is Orders submenu active
   const isOrdersActive =
@@ -33,11 +52,34 @@ const BizpoleOneDashboardLayout = () => {
 
   return (
     <div className="flex flex-col md:flex-row bg-gray-50 h-full min-h-0">
-      {/* Sidebar */}
+      {/* Phone: scrollable tab row */}
+      <nav className="md:hidden bg-white shadow-sm shrink-0">
+        <ul className="flex gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {MOBILE_TABS.map(({ to, end, label, icon: Icon }) => (
+            <li key={to} className="shrink-0">
+              <NavLink
+                to={to}
+                end={end}
+                className={({ isActive }) =>
+                  `flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${isActive
+                    ? "bg-[#FFC42A] text-white shadow-inner"
+                    : "text-gray-600 bg-gray-50 hover:bg-gray-100"
+                  }`
+                }
+              >
+                <Icon size={16} />
+                {label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      {/* Sidebar (tablet / desktop) */}
       <motion.aside
         animate={{ width: isCollapsed ? "80px" : "260px" }}
         transition={{ type: "spring", stiffness: 200, damping: 20 }}
-        className="bg-white flex flex-col justify-between shadow-sm relative min-h-[60px] md:h-full w-full md:w-auto"
+        className="bg-white hidden md:flex flex-col justify-between shadow-sm relative md:h-full"
       >
         {/* Collapse Button (hide on mobile) */}
         <button
@@ -197,22 +239,6 @@ const BizpoleOneDashboardLayout = () => {
                 </NavLink>
               </li>
 
-              {/* Billing and Invoice */}
-              <li>
-                <NavLink
-                  to="/dashboard/bizpoleone/billing"
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-3 rounded-lg font-medium transition-all ${isActive
-                      ? "bg-[#FFC42A] text-white shadow-inner"
-                      : "text-gray-600 hover:bg-gray-50"
-                    }`
-                  }
-                >
-                  <Receipt size={20} />
-                  {!isCollapsed && <span>Billing and Invoice</span>}
-                </NavLink>
-              </li>
-
               {/* Customer supports */}
               <li>
                 <NavLink
@@ -288,7 +314,7 @@ const BizpoleOneDashboardLayout = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5 }}
-        className="flex-1 min-h-0 p-6 overflow-y-auto"
+        className="flex-1 min-h-0 p-3 sm:p-4 md:p-6 overflow-y-auto"
       >
         <Outlet />
       </motion.main>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Settings, Pin, Calendar, Search, Download, Bell, FileText, ArrowRight } from "lucide-react";
+import { Shield, Settings, Pin, Calendar, Download, FileText, ArrowRight } from "lucide-react";
+import NotificationBell from "./NotificationBell";
+import GlobalSearch from "./GlobalSearch";
 import useSelectedCompany from "../hooks/useSelectedCompany";
 import { getDashboardStats } from "../api/DashboardApi";
 import { flowRoute, inProgressApplications } from "../utils/applicationPrefill";
@@ -107,20 +109,12 @@ const HeaderStats = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm">
-            <Search className="h-4 w-4 text-yellow-500" />
-            <input
-              placeholder="Search services, docs…"
-              className="w-40 bg-transparent text-sm text-gray-600 placeholder:text-gray-400 focus:outline-none sm:w-56"
-            />
-          </div>
+          <GlobalSearch variant="dashboard" placeholder="Search services, docs…" />
           <button className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50">
             <Download className="h-4 w-4" />
             Export
           </button>
-          <button className="flex items-center justify-center rounded-xl border border-gray-200 bg-white p-2.5 text-gray-700 shadow-sm transition hover:bg-gray-50">
-            <Bell className="h-4 w-4" />
-          </button>
+          <NotificationBell variant="compact" />
         </div>
       </div>
 

@@ -18,11 +18,10 @@ import BusinessPanel from "./components/BusinessPanel";
 import Tellabout from "./components/Tellabout";
 import NewCompanyFlow from "./components/NewCompanyFlow";
 import Subscription from "./components/Subscription";
-import Payment from "./components/Payment";
+import NotFound from "./pages/NotFound";
 
 // Main Dashboard pages
 import DashboardLayout from "./pages/DashboardLayout";
-import DashboardMain from "./pages/DashboardMain";
 import BizpoleBooks from "./pages/BizpoleBooks";
 
 // BizpoleOne dashboard pages
@@ -30,7 +29,6 @@ import BizpoleOneDashboardLayout from "./pages/BizpoleOneDashboardLayout";
 import BizpoleOne from "./pages/BizpoleOne";
 import BizpoleOneServices from "./pages/BizpoleOneServices";
 import BizpoleOneTasks from "./pages/BizpoleOneTasks";
-import Refunds from "./pages/Refunds";
 import SupportTickets from "./pages/SupportTickets";
 import Referrals from "./pages/Referrals";
 
@@ -43,6 +41,7 @@ import ProfileEvents from "./pages/ProfileEvents";
 import CustomerFiles from "./pages/CustomerFiles";
 import CompanyDetails from "./pages/CompanyDetails";
 import Invoiceprofile from "./pages/Invoiceprofile";
+import Refunds from "./pages/Refunds";
 
 import Services from "./pages/Services";
 import ServiceDetails from "./pages/ServiceDetails";
@@ -71,6 +70,7 @@ import { getSecureItem, setSecureItem } from "./utils/secureStorage";
 import { CartProvider } from "./context/CartContext";
 import GlobalCart from "./components/Cart/GlobalCart";
 import InvoicePreview from "./pages/InvoicePreview";
+import WhatsAppLogin from "./pages/WhatsAppLogin";
 
 
 // Associate Dashboard
@@ -113,6 +113,7 @@ function App() {
   // Hide Navbar & Footer for these paths
   const hideLayoutPaths = [
     "/payments",
+    "/wa-login",
     "/quiz",
     "/profile",
     // "/existing-companies",
@@ -171,9 +172,10 @@ function App() {
           <Route path="/startbusiness/apply" element={<NewCompanyFlow />} />
           <Route path="/startbusiness/about" element={<Tellabout />} />
           <Route path="/startbusiness/subscriptions" element={<Subscription />} />
-          <Route path="/payments" element={<Payment />} />
           <Route path="/quiz" element={<Quiz />} />
           <Route path="/questions" element={<BusinessQuizWizard />} />
+          {/* Sign-in link sent by the WhatsApp assistant (document upload) */}
+          <Route path="/wa-login" element={<WhatsAppLogin />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
           <Route path="/cancellation-refund-policy" element={<CancellationRefundPolicy />} />
@@ -199,6 +201,7 @@ function App() {
             <Route path="files" element={<CustomerFiles />} />
             <Route path="companydetails" element={<CompanyDetails />} />
             <Route path="invoice" element={<Invoiceprofile />} />
+            <Route path="refunds" element={<Refunds />} />
             <Route path="invoice-preview/:encrypted" element={<InvoicePreview />} />
 
 
@@ -211,7 +214,8 @@ function App() {
 
               {/* Main Dashboard */}
               <Route path="/dashboard" element={<DashboardLayout />}>
-                <Route index element={<DashboardMain />} />
+                {/* /dashboard had only a "Welcome to Dashboard" placeholder — open the real one */}
+                <Route index element={<Navigate to="/dashboard/bizpoleone" replace />} />
                 <Route path="books" element={<BizpoleBooks />} />
 
                 <Route path="bizpoleone" element={<BizpoleOneDashboardLayout />}>
@@ -224,8 +228,9 @@ function App() {
                   <Route path="pricing" element={<Plansandpricing />} />
                   <Route path="individual" element={<MyIndividualservices />} />
                   <Route path="chat" element={<ChatPage />} />
-                  <Route path="billing" element={<Invoiceprofile showRefundLink />} />
-                  <Route path="refunds" element={<Refunds />} />
+                  {/* Billing and Refunds now live under Profile → Invoice */}
+                  <Route path="billing" element={<Navigate to="/profile/invoice?tab=overview" replace />} />
+                  <Route path="refunds" element={<Navigate to="/profile/refunds" replace />} />
                   <Route path="support" element={<SupportTickets />} />
                   <Route
                     path="referrals"
@@ -258,12 +263,15 @@ function App() {
               </Route>
 
             </Route>
+
+            {/* Anything unmatched — instead of a blank page */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
 
         {!hideLayout && <Footer />}
-        {/* Global floating cart — only on public marketing/service pages, not inside dashboard/profile/associate */}
-        {!hideLayout && location.pathname !== "/" && !location.pathname.startsWith("/startbusiness/apply") && <GlobalCart />}
+        {/* Global floating cart — only on the pages where services are picked (Services list + service detail) */}
+        {(location.pathname === "/services" || location.pathname.startsWith("/services/")) && <GlobalCart />}
       </div>
     </CartProvider>
   );

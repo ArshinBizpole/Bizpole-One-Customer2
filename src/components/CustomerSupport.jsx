@@ -113,11 +113,8 @@ export default function CustomerSupport() {
       `}</style>
 
       <section ref={sectionRef} className="cs2-section py-16 md:py-24">
-        <div className="cs2-grain" />
-        <div className="cs2-blob w-80 h-80 bg-[#F5C518] opacity-[0.07] top-0 right-10" />
-        <div className="cs2-blob w-64 h-64 bg-[#3B82F6] opacity-[0.04] bottom-20 left-0" />
 
-        <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-12">
+        <div className="relative z-10 max-w-[1600px] mx-auto px-6 md:px-12">
 
           {/* ── Top text block ── */}
           <motion.div
@@ -137,9 +134,9 @@ export default function CustomerSupport() {
 
             {/* Headline */}
             <motion.h2 variants={fadeUp} className="cs2-display text-[#1a1a1a] text-3xl md:text-5xl max-w-3xl">
-              Free Customer Support to ensure{" "}
+              Entrepreneurship is a journey.{" "}
               <span className="relative inline-block">
-                <span className="relative z-10">what you like</span>
+                <span className="relative z-10">We make it easier</span>
                 <motion.span
                   className="absolute inset-[-5px_-3px] bg-[#F5C518] rounded-xl z-0"
                   initial={{ scaleX: 0 }}
@@ -147,14 +144,18 @@ export default function CustomerSupport() {
                   transition={{ delay: 0.65, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                   style={{ originX: 0 }}
                 />
-              </span>{" "}
-              to expect
+              </span>
             </motion.h2>
 
             {/* Body + features grid */}
             <motion.div variants={fadeUp} className="flex flex-col md:flex-row gap-8 md:gap-16 items-start">
               <p className="text-[#1a1a1a]/52 text-base leading-relaxed font-light ">
-                We offer a risk-free trial period of up to two weeks. You will only have to pay if you are happy with the developer and wish to continue. If you are unsatisfied, we'll refund payment or fix issues on our dime — period.
+                From incorporation and tax filing to compliance, our team guides you through every step, and you can
+                follow each service from your dashboard. Questions? Call{" "}
+                <a href="tel:+919539995533" className="underline underline-offset-2">+91 95399 95533</a> or write to{" "}
+                <a href="mailto:info@bizpole.in" className="underline underline-offset-2">info@bizpole.in</a>.
+                Cancellations and refunds follow our{" "}
+                <a href="/cancellation-refund-policy" className="underline underline-offset-2">Cancellation and Refund Policy</a>.
               </p>
 
             

@@ -5,7 +5,7 @@ import CryptoJS from "crypto-js";
 import { getSecureItem, setSecureItem, removeSecureItem } from "../../utils/secureStorage";
 import { lookupGstin, lookupGstinsByPan } from "../../api/GstinLookup";
 import { assignCustomer } from "../../api/CustomerApi";
-import { createLead, createLeadFollowUp, createCustomerCompany, convertLeadToDeal, createQuoteForApplication, uploadApplicationDocument, removeApplicationDocument } from "../../api/LeadApi";
+import { createLead, createLeadFollowUp, updateApplicationContact, updateApplicationDeal, updateApplicationQuote, saveApplicationAnswers, createCustomerCompany, convertLeadToDeal, createQuoteForApplication, uploadApplicationDocument, removeApplicationDocument } from "../../api/LeadApi";
 import { sendApplicationReceivedEmail } from "../../api/CustomerEmailApi";
 import { getAllStates } from "../../api/States";
 import { runTrademarkSearch, checkBusinessName } from "../../api/TrademarkApi";
@@ -13,6 +13,7 @@ import { getAllServiceTypes, getPackagesByServiceType } from "../../api/ServiceT
 import { getCompanyIdFromStorage } from "../../api/SupportTickets/SupportTicket";
 import { insertDeal, getCompanyDetails, createDealFollowUp } from "../../api/DealsApi";
 import { fetchFranchiseeGstInfo, calcGstAmount, splitGst } from "../../utils/gstCalc";
+import { getServiceById, getServicePrice } from "../../api/ServicesApi";
 import { loginWithPhone, signupWithPhone, verifyOtp } from "../../api/AuthApi";
 import { notifyTokenSet } from "../../utils/authSession";
 import { clearReferralToken, getReferralToken } from "../../utils/referralAttribution";
@@ -27,6 +28,9 @@ import { saveElementAsPdf } from "../../utils/elementToPdf";
 import { kycBlockingError } from "./kycRules";
 import { languagesForState, languageForState } from "../../utils/stateLanguages";
 import { DOB_MAX, DOB_ERROR, dobError } from "../../utils/dob";
+import { sanitize, PATTERNS } from "../../utils/formValidation";
+import { getQuotePaymentStatus } from "../../api/QuotePaymentStatusApi";
+import { updateMyCompanyDetails, listCompanyDirectors, addCompanyDirector, updateCompanyDirector, removeCompanyDirector, saveCompanyBank } from "../../api/CompanyChangeApi";
 import {
   FLOWS, ownerConfig, ownerBaseFields, newOwner, visibleFields, docItems, docGroups, isMinor,
   fieldError, formatInput, exceedsRange, rangeError, DERIVED_ANSWERS, today, rupee, newApplicationId, ADDON_PRICE, ADDON_SERVICE_ID, STATES, bizTypeFromConstitution,
@@ -42,6 +46,9 @@ import {
 } from "./companyChangeSave";
 
 const STORAGE_KEY = "existingCompanyFlowState";
+// Document uploads: images, PDF and office files only — no videos.
+const DOC_ACCEPT = ".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx";
+const DOC_ACCEPT_RE = /\.(pdf|jpe?g|png|docx?|xlsx?)$/i;
 // Payment-step option that skips the Quote approval tab for an advisor call instead.
 const CALLBACK_METHOD = "Request a Call Back";
 // Fields a minor owner/director isn't expected to have in their own name yet —
@@ -143,7 +150,9 @@ function leadFromSignedInCustomer(state, bump, run, { immediate = false } = {}) 
 // opens LeadCaptureModal, which then only verifies (no second Lead).
 // Also used outside the wizard by the standalone Trademark Search page, with a
 // minimal state ({ serviceType, flowId }) to gate the search report.
-export function requireVerifiedCustomer(state, bump, run) {
+// opts.immediate: a signed-in customer gets `run` straight away and the Lead is
+// raised in the background, instead of waiting for it (see leadFromSignedInCustomer).
+export function requireVerifiedCustomer(state, bump, run, opts = {}) {
   // otpVerified is saved with the application, but the session it proved can
   // be gone since (logout keeps applications, or the token expired) — without
   // a token the applicant isn't signed in any more, so verify again.
@@ -159,7 +168,7 @@ export function requireVerifiedCustomer(state, bump, run) {
     } catch { /* not signed in */ }
   }
   if (state.otpVerified && state.leadCaptured) { run(); return; }
-  if (leadFromSignedInCustomer(state, bump, run)) return;
+  if (leadFromSignedInCustomer(state, bump, run, opts)) return;
   state.leadGate = { run };
   bump();
 }
@@ -177,8 +186,14 @@ function syncCachedUserCompany(companyId, companyName) {
     const user = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!user) return;
     const companies = Array.isArray(user.Companies) ? user.Companies : [];
-    if (companies.some((c) => String(c.CompanyID) === String(companyId))) return;
-    user.Companies = [...companies, { CompanyID: companyId, BusinessName: companyName }];
+    const known = companies.find((c) => String(c.CompanyID) === String(companyId));
+    if (known) {
+      // Renamed after it was created (see resaveCompanyEdits) — keep the cached name current.
+      if (!companyName || known.BusinessName === companyName) return;
+      known.BusinessName = companyName;
+    } else {
+      user.Companies = [...companies, { CompanyID: companyId, BusinessName: companyName }];
+    }
     setSecureItem("user", JSON.stringify(user));
   } catch (err) {
     console.error("Couldn't update cached user companies (non-fatal):", err);
@@ -253,6 +268,8 @@ function syncCustomerCompany(state, A, bump, flow) {
   return sync;
 }
 function runCustomerCompanySync(state, A, bump, flow) {
+  // Already created by this application — write any later edits to it instead.
+  if (state.companyId && state.companySaved) return resaveCompanyEdits(state, A, flow).then(() => bump());
   if (state.companyId || !state.leadContact) return Promise.resolve(); // already synced, or no contact captured yet
   const companyName = resolveCompanyName(flow, A);
   if (!companyName) return Promise.resolve();
@@ -274,6 +291,8 @@ function runCustomerCompanySync(state, A, bump, flow) {
     isMinor: isMinor(o.dob),
     nominee: isMinor(o.dob) ? o.nominee : null,
   }));
+  // PAN / GSTIN aren't part of the create call — saved by resaveCompanyEdits.
+  const sentCompany = { ...companyColumnsFor(flow, A, state.leadContact), CompanyPAN: "", GSTNumber: "" };
   return createCustomerCompany({
     leadId: state.leadContact.leadId,
     customer: {
@@ -302,7 +321,7 @@ function runCustomerCompanySync(state, A, bump, flow) {
     },
     franchiseeId: state.leadContact.franchiseeId,
   })
-    .then((res) => {
+    .then(async (res) => {
       state.customerId = res?.data?.customerId || null;
       state.companyId = res?.data?.companyId || null;
       // Auto sign-in — the backend only returns a token when it just created
@@ -313,11 +332,298 @@ function runCustomerCompanySync(state, A, bump, flow) {
         notifyTokenSet();
       }
       syncCachedUserCompany(state.companyId, companyName);
+      // Created here — remember what was saved, so going back and editing
+      // updates this Company and its director rows (resaveCompanyEdits).
+      if (state.companyId) {
+        state.companySaved = sentCompany;
+        await mapSavedDirectors(state);
+      }
       bump();
     })
     .catch((err) => {
       console.error("Customer/Company sync failed (non-fatal):", err);
     });
+}
+
+// The Company columns the apply flow fills when it creates the Company, in the
+// shape /company/customer-details/update takes. Compared with what was last
+// saved (state.companySaved) so an edit made afterwards — Back, or Review →
+// Edit — is written to that same Company row instead of being skipped.
+function companyColumnsFor(flow, A, leadContact) {
+  const addr = resolveAddress(flow, A, leadContact);
+  const cols = {
+    BusinessName: resolveCompanyName(flow, A),
+    ConstitutionCategory: A.businessType,
+    Sector: A.activity,
+    BusinessNature: A.activityDesc,
+    NICCode: A.br_nicCode,
+    BusinessObjective: A.br_objective,
+    Country: addr.country,
+    State: addr.state,
+    District: addr.district,
+    City: addr.city,
+    PinCode: addr.pincode,
+    AddressLine1: addr.addressLine1,
+    AddressLine2: addr.addressLine2,
+    // PAN Details step; a GSTIN typed in the MSME / IEC lookup box (it also
+    // takes a PAN, which isn't a GSTIN).
+    CompanyPAN: /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(A.pan_number || "") ? A.pan_number : "",
+    GSTNumber: [A.msme_lookup, A.iec_lookup].find((g) => /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/.test(g || "")) || "",
+  };
+  Object.keys(cols).forEach((k) => { cols[k] = String(cols[k] ?? "").trim(); });
+  return cols;
+}
+const flowHasStep = (flow, A, id) => (flow?.steps?.(A) || []).some((s) => s && s.id === id && (!s.showIf || s.showIf(A)));
+// Authorized Person step as a company_directors row (Role = designation).
+function authDirectorColumns(A) {
+  const minor = isMinor(A.auth_dob);
+  const n = (k) => (minor ? A["auth_nominee_" + k] : "");
+  return normalizeDirector({
+    Name: A.auth_name, DOB: A.auth_dob, PAN: A.auth_pan, Email: A.auth_email, Mobile: A.auth_mobile,
+    Role: A.auth_designation || "Authorized Signatory", DIN: A.auth_din, IsMinor: minor ? 1 : 0,
+    NomineeName: n("name"), NomineeDOB: n("dob"), NomineePAN: n("pan"), NomineeAadhaar: n("aadhaar"),
+    NomineeEmail: n("email"), NomineeMobile: n("mobile"), NomineeAddress: n("address"),
+  });
+}
+// Bank Details step in /company/bank/save's shape.
+function bankColumnsFor(A, companyName) {
+  const cols = {
+    AccountHolderName: A.bank_holder || A.pan_name || companyName,
+    BankName: A.bank_name,
+    Branch: A.bank_branch,
+    AccountNumber: A.bank_account,
+    IFSC: A.bank_ifsc,
+    AccountType: A.bank_type,
+  };
+  Object.keys(cols).forEach((k) => { cols[k] = String(cols[k] ?? "").trim(); });
+  return cols;
+}
+// One owner (Directors / Shareholders step) as a company_directors row, same
+// values runCustomerCompanySync sends when it creates them.
+const DIRECTOR_KEYS = ["Name", "DOB", "PAN", "Aadhaar", "Email", "Mobile", "Address", "Role", "DIN", "Shareholding", "Capital", "IsMinor",
+  "NomineeName", "NomineeDOB", "NomineePAN", "NomineeAadhaar", "NomineeEmail", "NomineeMobile", "NomineeAddress"];
+function directorColumnsFor(o) {
+  const minor = isMinor(o.dob);
+  const n = (minor && o.nominee) || {};
+  return normalizeDirector({
+    Name: o.name, DOB: o.dob, PAN: o.pan, Aadhaar: o.aadhaar, Email: o.email, Mobile: o.mobile, Address: o.address,
+    Role: o.role, DIN: o.dinKnown === "Yes" ? o.din : "", Shareholding: o.shareholding, Capital: o.capital, IsMinor: minor ? 1 : 0,
+    NomineeName: n.name, NomineeDOB: n.dob, NomineePAN: n.pan, NomineeAadhaar: n.aadhaar,
+    NomineeEmail: n.email, NomineeMobile: n.mobile, NomineeAddress: n.address,
+  });
+}
+function normalizeDirector(row) {
+  const out = {};
+  DIRECTOR_KEYS.forEach((k) => {
+    const v = row?.[k];
+    if (k === "IsMinor") out[k] = Number(v) ? 1 : 0;
+    else if ((k === "Shareholding" || k === "Capital") && v !== "" && v != null && !Number.isNaN(Number(v))) out[k] = String(Number(v));
+    else out[k] = String(v ?? "").trim();
+  });
+  return out;
+}
+const changedColumns = (now, saved) =>
+  Object.fromEntries(Object.entries(now).filter(([k, v]) => v !== (saved?.[k] ?? "")));
+
+// Links each owner to the company_directors row created for them (same name +
+// PAN, else the next one in creation order) and records the saved values.
+async function mapSavedDirectors(state) {
+  try {
+    const res = await listCompanyDirectors(state.companyId);
+    const rows = Array.isArray(res?.data) ? res.data : [];
+    const key = (v) => String(v ?? "").trim().toLowerCase();
+    const free = [...rows];
+    const take = (match) => { const i = free.findIndex(match); return i < 0 ? null : free.splice(i, 1)[0]; };
+    const saved = {};
+    const unmatched = [];
+    state.owners.forEach((o) => {
+      const row = take((r) => key(r.Name) === key(o.name) && key(r.PAN) === key(o.pan));
+      if (row) { o.__dirId = row.ID; saved[row.ID] = normalizeDirector(row); } else unmatched.push(o);
+    });
+    unmatched.forEach((o) => {
+      const row = take(() => true);
+      if (row) { o.__dirId = row.ID; saved[row.ID] = normalizeDirector(row); }
+    });
+    state.directorsSaved = saved;
+  } catch (err) {
+    console.error("Couldn't load saved directors (non-fatal):", err);
+  }
+}
+
+// Writes edits made after this application created the Company: changed
+// Company columns, and each owner updated / added / removed on
+// company_directors. Only what differs from the last save is sent; a failed
+// call keeps the old snapshot, so the next Continue tries it again.
+async function resaveCompanyEdits(state, A, flow) {
+  const companyId = state.companyId;
+  if (!companyId || !localStorage.getItem("token")) return;
+  const now = companyColumnsFor(flow, A, state.leadContact);
+  const diff = changedColumns(now, state.companySaved);
+  if (now.BusinessName && Object.keys(diff).length) {
+    try {
+      await updateMyCompanyDetails(companyId, diff);
+      state.companySaved = { ...state.companySaved, ...diff };
+      if (diff.BusinessName) syncCachedUserCompany(companyId, diff.BusinessName);
+    } catch (err) {
+      console.error("Company update failed (non-fatal):", err);
+    }
+  }
+  if (flowHasStep(flow, A, "bank") && A.bank_account) {
+    const bank = bankColumnsFor(A, now.BusinessName);
+    const d = changedColumns(bank, state.bankSaved);
+    if (Object.keys(d).length) {
+      try {
+        await saveCompanyBank(companyId, d);
+        state.bankSaved = { ...(state.bankSaved || {}), ...d };
+      } catch (err) {
+        console.error("Bank details save failed (non-fatal):", err);
+      }
+    }
+  }
+  if (!state.directorsSaved) await mapSavedDirectors(state);
+  const saved = state.directorsSaved;
+  if (!saved) return;
+  const keep = new Set();
+  // Owners from the Directors / Shareholders step, plus the Authorized Person
+  // (its row id kept on state.authDirector).
+  const people = state.owners.map((o) => ({ ref: o, cols: directorColumnsFor(o) }));
+  if (flowHasStep(flow, A, "auth")) {
+    state.authDirector = state.authDirector || {};
+    people.push({ ref: state.authDirector, cols: authDirectorColumns(A) });
+  }
+  for (const { ref: o, cols } of people) {
+    if (!cols.Name) continue;
+    try {
+      if (o.__dirId && saved[o.__dirId]) {
+        keep.add(String(o.__dirId));
+        const d = changedColumns(cols, saved[o.__dirId]);
+        if (Object.keys(d).length) {
+          await updateCompanyDirector(companyId, o.__dirId, d);
+          saved[o.__dirId] = { ...saved[o.__dirId], ...d };
+        }
+      } else {
+        const res = await addCompanyDirector(companyId, cols);
+        const id = res?.data?.ID;
+        if (id) { o.__dirId = id; saved[id] = cols; keep.add(String(id)); }
+      }
+    } catch (err) {
+      console.error("Director save failed (non-fatal):", err);
+    }
+  }
+  for (const id of Object.keys(saved)) {
+    if (keep.has(id)) continue;
+    try {
+      await removeCompanyDirector(companyId, id);
+      delete saved[id];
+    } catch (err) {
+      console.error("Director remove failed (non-fatal):", err);
+    }
+  }
+}
+
+// Deal-level contact the create call sent: from the Lead for a converted
+// deal, from the business address for a direct (existing client) one.
+function dealContactFor(flow, A, state) {
+  const lc = state.leadContact || {};
+  return {
+    name: String(lc.name || "").trim(),
+    email: String(lc.email || "").trim(),
+    mobile: String(lc.mobile || "").replace(/\D/g, "").slice(-10),
+    state: String((lc.direct ? resolveAddress(flow, A, lc).state || lc.companyState : lc.state) || "").trim(),
+  };
+}
+const signedInToken = () => !!localStorage.getItem("token");
+// 409 = paid / approved on the server: stop trying to change it from here.
+const isLocked = (err) => err?.response?.status === 409;
+
+// Deal edits after creation: changed contact, and the service / fee lines
+// when the package, add-ons or fees changed.
+async function resaveDeal(flow, state, A) {
+  const saved = state.dealSaved;
+  if (!state.dealId || !saved || saved.locked || !signedInToken()) return;
+  await ensureGstInfo(state).catch(() => {});
+  await ensureMasterPrices(flow, A, state).catch(() => {});
+  const contact = changedColumns(dealContactFor(flow, A, state), saved.contact);
+  const ServiceDetails = serviceDetailsFor(flow, A, state);
+  const lines = JSON.stringify(ServiceDetails);
+  const linesChanged = ServiceDetails.length > 0 && lines !== saved.lines;
+  if (!Object.keys(contact).length && !linesChanged) return;
+  try {
+    await updateApplicationDeal({ dealId: state.dealId, ...contact, ...(linesChanged ? { ServiceDetails } : {}) });
+    state.dealSaved = { contact: { ...saved.contact, ...contact }, lines: linesChanged ? lines : saved.lines };
+  } catch (err) {
+    if (isLocked(err)) state.dealSaved = { ...saved, locked: true };
+    else console.error("Deal update failed (non-fatal):", err);
+  }
+}
+// Quote lines replaced while the quote is still unapproved and unpaid.
+async function resaveQuote(flow, state, A) {
+  if (!state.quoteId || !state.quoteSaved || state.quoteLocked || !signedInToken()) return;
+  await ensureGstInfo(state).catch(() => {});
+  await ensureMasterPrices(flow, A, state).catch(() => {});
+  const ServiceDetails = serviceDetailsFor(flow, A, state);
+  const lines = JSON.stringify(ServiceDetails);
+  if (!ServiceDetails.length || lines === state.quoteSaved) return;
+  try {
+    await updateApplicationQuote({ quoteId: state.quoteId, ServiceDetails });
+    state.quoteSaved = lines;
+  } catch (err) {
+    if (isLocked(err)) state.quoteLocked = true;
+    else console.error("Quote update failed (non-fatal):", err);
+  }
+}
+// Every answer of the application (application_answers), overwritten as the
+// customer edits — most of them (Authorized Person, PAN / bank, trademark,
+// MSME, IEC, FSSAI …) have no other place in the database.
+async function saveAnswers(flow, state, A) {
+  if (!state.leadContact || !signedInToken()) return;
+  state.applicationId = state.applicationId || newApplicationId(flow.code);
+  const answers = Object.fromEntries(Object.entries(A).filter(([k, v]) => !k.includes("__") && typeof v !== "function"));
+  let review = null;
+  try {
+    review = reviewRows(state.flowId, A, state).map((g) => ({
+      title: g.title,
+      rows: g.rows.map(([label, value]) => [String(label ?? ""), Array.isArray(value) ? value.join(", ") : String(value ?? "")]),
+    }));
+  } catch { /* review rows are a convenience — answers are the record */ }
+  const payload = {
+    applicationId: state.applicationId,
+    leadId: state.leadContact.leadId || undefined,
+    dealId: state.dealId || undefined,
+    companyId: state.companyId || undefined,
+    quoteId: state.quoteId || undefined,
+    flowId: state.flowId,
+    serviceType: state.serviceType,
+    answers,
+    owners: state.owners.map(({ __dirId, ...o }) => o),
+    reviewRows: review,
+  };
+  const json = JSON.stringify(payload);
+  if (json === state.answersSaved) return;
+  try {
+    await saveApplicationAnswers(payload);
+    state.answersSaved = json;
+  } catch (err) {
+    console.error("Application answers save failed (non-fatal):", err);
+  }
+}
+// Everything already saved for this application, brought up to date with the
+// current answers — Company / Directors / Authorized Person / bank, Lead +
+// Customer, Deal, Quote, then the full answers. Shared per application so
+// overlapping Continues don't send the same change twice.
+const resavesInFlight = new WeakMap();
+function resaveApplication(flow, state, A) {
+  if (resavesInFlight.has(state)) return resavesInFlight.get(state);
+  const run = (async () => {
+    if (state.companySaved) await syncCustomerCompany(state, A, () => {}, flow);
+    await resaveContact(state);
+    await resaveDeal(flow, state, A);
+    await resaveQuote(flow, state, A);
+    await saveAnswers(flow, state, A);
+  })().catch((err) => console.error("Application re-save failed (non-fatal):", err))
+    .finally(() => resavesInFlight.delete(state));
+  resavesInFlight.set(state, run);
+  return run;
 }
 
 function contentSteps(flowId, A) {
@@ -349,6 +655,19 @@ function allSteps(flowId, A) {
     { id: "__payment", title: "Payment", type: "payment" },
     { id: "__success", title: "Submitted", type: "success" },
   ]);
+}
+
+// Saved progress as the flow's own header shows it ("Step x of y", % complete)
+// — for listing unfinished applications outside the flow (dashboard).
+export function flowProgress(flowId, stepIndex, answers) {
+  if (!FLOWS[flowId]) return null;
+  const total = allSteps(flowId, answers || {}).length - 1; // success not counted
+  const index = Math.min(stepIndex || 0, total - 1);
+  return {
+    step: Math.min(index + 1, total),
+    total,
+    pct: total > 1 ? Math.round((index / (total - 1)) * 100) : 0,
+  };
 }
 
 function validateStep(step, A, state) {
@@ -459,6 +778,7 @@ function validateStep(step, A, state) {
   } else if (step.type === "leadDetails") {
     const lf = state.leadForm || {};
     if (!(lf.name || "").trim()) errors.lead_name = "Please enter your name.";
+    else if (!PATTERNS.personName.test(lf.name.trim())) errors.lead_name = "Name can contain only letters, spaces, dots and apostrophes.";
     if (!/^[6-9]\d{9}$/.test((lf.mobile || "").trim())) errors.lead_mobile = "Please enter a valid 10-digit mobile number.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((lf.email || "").trim())) errors.lead_email = "Please enter a valid email.";
     if (!(lf.country || "").trim()) errors.lead_country = "Please enter your country.";
@@ -692,13 +1012,14 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
   // "Request a Call" (Packages) / "Request a Call Back" (Payment) open this
   // form for the preferred call-back date & time before anything is submitted.
   const [callbackFormOpen, setCallbackFormOpen] = useState(false);
-  // A call-back already submitted for this application: clicking Request a
-  // Call again only tells the customer so — it never raises a second one.
+  // A call-back already submitted at this stage (Packages / Payment): clicking
+  // Request a Call again there only tells the customer so — it never raises a
+  // second one. Another stage can still raise its own.
   const [callbackNoticeOpen, setCallbackNoticeOpen] = useState(false);
   // Business Name with 2–3 proposed names: Continue first asks which one the
   // applicant is going with.
   const [confirmNameOpen, setConfirmNameOpen] = useState(false);
-  const openCallback = () => (state.callbackDone ? setCallbackNoticeOpen(true) : setCallbackFormOpen(true));
+  const openCallback = () => (state.callbacksDone?.[step.type] ? setCallbackNoticeOpen(true) : setCallbackFormOpen(true));
   // Every "State" pick field (business address, GST location, existing-GST
   // state) falls back to the static STATES list, but that list is only ever
   // as complete/correctly-spelled as we remember to keep it — a name that
@@ -948,6 +1269,12 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
       return;
     }
     errorsRef.current = {};
+    // Company already created by this application — save any edits made
+    // since (in the background; the step's own sync below shares the request).
+    // Anything already saved for this application (Company, Directors, Lead,
+    // Customer, Deal, Quote, answers) takes the edits made since — in the
+    // background; the step's own create calls below are unaffected.
+    resaveApplication(flow, state, A).then(() => bump());
     if (directMode === "advisor" && step.id === "advice") { sendAdvisorRequest(); return; }
     if (directMode) {
       if (step.type === "review") { saveDirectChange(); return; }
@@ -1042,7 +1369,8 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
   // sign-up modal (closing it just leaves them on this step). Failures are
   // non-fatal — the Payment step retries the Deal.
   // Entering "Authorized Person": assume the applicant from the Details tab is
-  // that person and copy their name/email/mobile into any empty fields. PAN
+  // that person and copy their name/email/mobile in (see syncAuthFromContact —
+  // a value the user typed themselves is kept). PAN
   // comes from the signed-in customer's profile; failing that, a proprietor's
   // GSTIN carries their own PAN, so for a Sole Proprietorship the PAN (and
   // designation) are filled from it.
@@ -1052,10 +1380,8 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
     const proprietor =
       /proprietor/i.test(A.gst_biztype || A.businessType || "") || A.pan_type === "Individual";
     const profilePan = signedInContact()?.pan || "";
+    syncAuthFromContact(state, contact);
     const fill = {
-      auth_name: contact.name,
-      auth_email: contact.email,
-      auth_mobile: String(contact.mobile || "").replace(/\D/g, "").slice(-10),
       auth_pan: /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(profilePan) ? profilePan : proprietor ? A.pan_number : "",
       ...(proprietor && { auth_designation: "Proprietor" }),
     };
@@ -1160,6 +1486,62 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
   // fail non-blockingly, by design). If it didn't, send the applicant back to
   // Payment to retry — their answers/owners/documents are untouched, only
   // stepIndex and the stale `submitted` flag reset, so nothing needs re-entering.
+  // "Application Submitted" only after the quote is really paid. While the
+  // customer is on Payment with a quote (they opened it to pay in another tab),
+  // check now, whenever they come back to this tab, and every 15s. Also corrects
+  // applications saved by the old flow, which jumped to the success screen as
+  // soon as the quote tab opened: if that quote isn't paid, back to Payment.
+  const checkingPaymentRef = useRef(false);
+  const unconfirmedSuccess =
+    step?.type === "success" && !!state.submitted &&
+    !state.submitted.callback && !state.submitted.direct && !state.submitted.paid;
+  const shouldCheckPayment =
+    !!state.quoteId && !!state.companyId && (step?.type === "payment" || unconfirmedSuccess);
+  async function checkQuotePayment() {
+    const s = appRef.current;
+    if (checkingPaymentRef.current) return;
+    checkingPaymentRef.current = true;
+    try {
+      const { paid, received } = await getQuotePaymentStatus({ companyId: s.companyId, quoteId: s.quoteId });
+      const all = allSteps(s.flowId, s.answers);
+      if (paid) {
+        if (s.submitted?.paid) return;
+        s.submitted = {
+          id: s.applicationId, service: s.serviceType, date: today(),
+          amount: rupee(received || 0), paid: true,
+        };
+        s.awaitingPayment = null;
+        s.stepIndex = all.length - 1;
+        bump();
+      } else if (s.submitted && !s.submitted.callback && !s.submitted.direct && !s.submitted.paid) {
+        const idx = all.findIndex((t) => t.type === "payment");
+        if (idx === -1) return;
+        s.submitted = null;
+        s.awaitingPayment = s.awaitingPayment || { quoteId: s.quoteId };
+        s.stepIndex = idx;
+        bump();
+      }
+    } catch {
+      // Couldn't reach the server — leave the screen as it is, retry later.
+    } finally {
+      checkingPaymentRef.current = false;
+    }
+  }
+  useEffect(() => {
+    if (!shouldCheckPayment) return;
+    checkQuotePayment();
+    const onVisible = () => document.visibilityState === "visible" && checkQuotePayment();
+    const timer = setInterval(() => document.visibilityState === "visible" && checkQuotePayment(), 15000);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldCheckPayment, state.quoteId]);
+
   function retryPayment() {
     const idx = steps.findIndex((s) => s.type === "payment");
     if (idx === -1) return;
@@ -1301,7 +1683,7 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
                 onClose={() => setCallbackFormOpen(false)}
                 onSubmit={(request) => {
                   setCallbackFormOpen(false);
-                  doCallback(flow, state, bump, request);
+                  doCallback(flow, state, bump, request, step.type);
                 }}
               />
             )}
@@ -1325,7 +1707,7 @@ export default function FlowRunner({ flowId, initialSet, onExit, onComplete, onS
               />
             )}
             {callbackNoticeOpen && (
-              <CallbackAlreadyRequestedModal callAt={state.callbackDone?.callAt} onClose={() => setCallbackNoticeOpen(false)} />
+              <CallbackAlreadyRequestedModal callAt={state.callbacksDone?.[step.type]?.callAt} onClose={() => setCallbackNoticeOpen(false)} />
             )}
             {step.type === "owners" && <OwnersBody A={A} state={state} errors={errorsRef.current} bump={bump} />}
             {step.type === "docs" && <DocsBody step={step} A={A} state={state} errors={errorsRef.current} bump={bump} />}
@@ -1441,6 +1823,7 @@ async function runCreateDeal(flow, state, A, bump) {
   // once one exists.
   if (!companyName) return;
   await ensureGstInfo(state).catch(() => {});
+  await ensureMasterPrices(flow, A, state).catch(() => {});
   const ServiceDetails = serviceDetailsFor(flow, A, state);
   if (state.leadContact.direct) return createDirectDeal(flow, state, A, bump, companyName, ServiceDetails);
   try {
@@ -1472,6 +1855,7 @@ async function runCreateDeal(flow, state, A, bump) {
     state.dealId = dealRes?.data?.dealId || null;
     state.customerId = dealRes?.data?.customerId || state.customerId;
     state.companyId = dealRes?.data?.companyId || state.companyId;
+    if (state.dealId) state.dealSaved = { contact: dealContactFor(flow, A, state), lines: JSON.stringify(ServiceDetails) };
     syncCachedUserCompany(state.companyId, companyName);
     bump();
   } catch (err) {
@@ -1511,6 +1895,7 @@ async function createDirectDeal(flow, state, A, bump, companyName, ServiceDetail
       followUpRemark: flow.dealNoteFor?.(A) || undefined,
     });
     state.dealId = dealRes?.dealId || dealRes?.insertId || null;
+    if (state.dealId) state.dealSaved = { contact: dealContactFor(flow, A, state), lines: JSON.stringify(ServiceDetails) };
     syncCachedUserCompany(state.companyId, companyName);
     bump();
   } catch (err) {
@@ -1525,11 +1910,15 @@ async function createDirectDeal(flow, state, A, bump, companyName, ServiceDetail
 // somehow hasn't happened yet (e.g. Documents step was skipped). Guarded to
 // run only once, same as createDealForApplication.
 async function createQuoteForApplicationStep(flow, state, A) {
-  if (state.quoteId || !state.leadContact) return; // already quoted, or no lead captured
+  // Already quoted — bring the Deal / Quote up to date with any edits instead.
+  if (state.quoteId) { await resaveApplication(flow, state, A); return; }
+  if (!state.leadContact) return; // no lead captured
   if (!state.dealId) await createDealForApplication(flow, state, A, () => {});
+  else await resaveDeal(flow, state, A);
   if (!state.dealId) return;
   const companyName = resolveCompanyName(flow, A);
   await ensureGstInfo(state).catch(() => {});
+  await ensureMasterPrices(flow, A, state).catch(() => {});
   const ServiceDetails = serviceDetailsFor(flow, A, state);
   try {
     const quoteRes = await createQuoteForApplication({
@@ -1545,6 +1934,8 @@ async function createQuoteForApplicationStep(flow, state, A) {
       ServiceDetails,
     });
     state.quoteId = quoteRes?.data?.QuoteID || null;
+    if (state.quoteId) state.quoteSaved = JSON.stringify(ServiceDetails);
+    saveAnswers(flow, state, A);
     // "Application received" email (separate customer email service) — same
     // Application ID the success screen shows (see doPay / doCallback). Not
     // awaited: the email must never hold up the application.
@@ -1591,20 +1982,107 @@ async function createQuoteForApplicationStep(flow, state, A) {
 // browsers (it's no longer seen as a direct result of the click). Opening a
 // blank tab synchronously in the click handler, then navigating it here once
 // the Quote exists, avoids that.
+function quoteApprovalUrl(quoteId) {
+  const secret = import.meta.env.VITE_QUOTE_LINK_SECRET || "q3!9fKs7@pLzXr84$nmYtB!cVZdQ3";
+  const encrypted = CryptoJS.AES.encrypt(String(quoteId), secret).toString();
+  return `${import.meta.env.VITE_CLIENT_BASE_URL}/quotes/saved-preview/${encodeURIComponent(encrypted)}`;
+}
 function openQuoteForApproval(state, tab) {
   if (!state.quoteId) {
     if (tab && !tab.closed) tab.close();
     return;
   }
-  const secret = import.meta.env.VITE_QUOTE_LINK_SECRET || "q3!9fKs7@pLzXr84$nmYtB!cVZdQ3";
-  const encrypted = CryptoJS.AES.encrypt(String(state.quoteId), secret).toString();
-  const url = `${import.meta.env.VITE_CLIENT_BASE_URL}/quotes/saved-preview/${encodeURIComponent(encrypted)}`;
+  const url = quoteApprovalUrl(state.quoteId);
   if (tab && !tab.closed) {
     tab.location.href = url;
   } else {
     // Fallback (e.g. the synchronous open above was itself blocked) — best
     // effort, may still get blocked since we're past the click by now.
     window.open(url, "_blank", "noopener,noreferrer");
+  }
+}
+
+// A package picked at Packages gets its own Package Deal + Package Quote for
+// the same Company / Customer, next to the registration's Individual ones — a
+// Quote is either Individual or one Package, and a Deal holds one live quote
+// (same as the CRM). Created once per package (state.packageDeal /
+// state.packageQuote, saved with the application). Non-fatal: if it fails the
+// registration still goes ahead, and a follow-up on its Deal tells the team
+// to add the package by hand.
+async function createPackageForApplication(flow, state, A) {
+  const pkg = A.selectedPackage;
+  if (!pkg?.id || !Array.isArray(pkg.lines) || pkg.lines.length === 0) return;
+  if (state.packageQuote?.packageId === pkg.id) return; // already quoted
+  if (!state.dealId || !state.companyId || !state.leadContact) return;
+  const lc = state.leadContact;
+  try {
+    let dealId = state.packageDeal?.packageId === pkg.id ? state.packageDeal.dealId : null;
+    if (!dealId) {
+      const dealRes = await insertDeal({
+        name: lc.name,
+        state: resolveAddress(flow, A, lc).state || lc.companyState,
+        mobile: lc.mobile,
+        email: lc.email,
+        franchiseId: lc.franchiseeId,
+        employeeId: lc.employeeId,
+        sourceOfSale: "Website",
+        dealType: "Package",
+        packageId: pkg.id,
+        packageName: pkg.name,
+        billingPeriod: "Yearly",
+        services: pkg.lines.map((l) => ({
+          serviceId: l.serviceId,
+          serviceName: l.serviceName,
+          professionalFee: l.professionalFee,
+          vendorFee: l.vendorFee,
+          contractorFee: 0,
+          govtFee: l.govtFee,
+          gstPct: 18,
+          total: l.total,
+          packageId: pkg.id,
+          packageName: pkg.name,
+          billingPeriod: "Yearly",
+          dealType: "Package",
+        })),
+        CompanyID: state.companyId,
+        CustomerID: state.customerId,
+      });
+      dealId = dealRes?.dealId || dealRes?.insertId || null;
+      if (!dealId) throw new Error("Package deal was not created");
+      state.packageDeal = { packageId: pkg.id, dealId };
+    }
+    const quoteRes = await createQuoteForApplication({
+      dealId,
+      customerId: state.customerId,
+      companyId: state.companyId,
+      customerName: lc.name,
+      companyName: resolveCompanyName(flow, A),
+      franchiseeId: lc.franchiseeId,
+      employeeId: lc.employeeId,
+      packageId: pkg.id,
+      packageName: pkg.name,
+      ServiceDetails: pkg.lines.map((l) => ({
+        serviceId: l.serviceId,
+        serviceName: l.serviceName,
+        professionalFee: l.professionalFee,
+        vendorFee: l.vendorFee,
+        governmentFee: l.govtFee,
+        gstAmount: 0,
+        total: l.total,
+      })),
+    });
+    const quoteId = quoteRes?.data?.QuoteID || null;
+    if (!quoteId) throw new Error("Package quote was not created");
+    state.packageQuote = { packageId: pkg.id, quoteId, dealId, name: pkg.name, amount: pkg.price };
+  } catch (err) {
+    console.error("Package deal/quote failed (non-fatal):", err);
+    if (state.packageFailNoted === pkg.id) return;
+    state.packageFailNoted = pkg.id;
+    createDealFollowUp({
+      dealId: state.dealId,
+      followUpDate: toLocalInput(new Date()).slice(0, 10),
+      remark: `Customer selected the package ${pkg.name} (${rupee(pkg.price)} / year) on the website, but its package deal/quote could not be created automatically — please create it.`,
+    }).catch((e) => console.error("Package follow-up failed:", e));
   }
 }
 
@@ -1627,14 +2105,15 @@ async function doPay(flow, state, bump) {
     return;
   }
   openQuoteForApproval(state, approvalTab);
+  await createPackageForApplication(flow, state, state.answers);
+  await ensureGovtFeeFlag(flow, state.answers, state).catch(() => {});
   const f = feeLines(flow, state.answers, state); // after the quote, so GST info is loaded
-  setTimeout(() => {
-    const id = state.applicationId;
-    state.submitted = { id, service: state.serviceType, date: today(), amount: rupee(f.total) };
-    state.__paying = false;
-    state.stepIndex = allSteps(state.flowId, state.answers).length - 1;
-    bump();
-  }, 1100);
+  // Stay on Payment: opening the quote is not paying it. FlowRunner's payment
+  // check (checkQuotePayment) moves to "Application Submitted" only once the
+  // payment has actually succeeded.
+  state.awaitingPayment = { quoteId: state.quoteId, amount: rupee(f.total) };
+  state.__paying = false;
+  bump();
 }
 
 // "Request a Call" (Packages) / "Request a Call Back" (Payment), submitted from
@@ -1642,7 +2121,7 @@ async function doPay(flow, state, bump) {
 // breakdown in front of them), but instead of opening it for approval, put a
 // follow-up on the Deal / Lead at the customer's preferred time. No support
 // ticket — those are only raised from the Customer support page.
-async function doCallback(flow, state, bump, request = {}) {
+async function doCallback(flow, state, bump, request = {}, stage = "") {
   if (state.__paying) return;
   state.__paying = true;
   bump();
@@ -1658,6 +2137,8 @@ async function doCallback(flow, state, bump, request = {}) {
     bump();
     return;
   }
+  await createPackageForApplication(flow, state, state.answers);
+  await ensureGovtFeeFlag(flow, state.answers, state).catch(() => {});
   const f = feeLines(flow, state.answers, state); // after the quote, so GST info is loaded
   // Put the call on the advisor's follow-up list (CRM → Follow-ups, and the
   // Deal / Lead Follow-up tab) at the time the customer picked — on the
@@ -1668,7 +2149,7 @@ async function doCallback(flow, state, bump, request = {}) {
     const [followUpDate, followUpTime] = String(request.preferredAt).split("T");
     const pkg = state.answers.selectedPackage;
     const callAt = new Date(request.preferredAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
-    const remark = `Call back request — ${state.serviceType}. Call at ${callAt} (quote total ${rupee(f.total)})${pkg ? `. Interested package: ${pkg.name} (${rupee(pkg.price)})` : ""}${request.note ? `. Note: ${request.note}` : ""}`;
+    const remark = `Call back request — ${state.serviceType}. Call at ${callAt} (quote total ${rupee(f.total)})${pkg ? `. Interested package: ${pkg.name} (${rupee(pkg.price)} / year${state.packageQuote?.packageId === pkg.id ? ", separate package quote created" : ""})` : ""}${request.note ? `. Note: ${request.note}` : ""}`;
     try {
       if (state.dealId) await createDealFollowUp({ dealId: state.dealId, followUpDate, followUpTime, remark });
       else if (state.leadContact?.leadId) await createLeadFollowUp({ leadId: state.leadContact.leadId, followUpDate, followUpTime, remark });
@@ -1680,9 +2161,9 @@ async function doCallback(flow, state, bump, request = {}) {
     id: state.applicationId, service: state.serviceType, date: today(), amount: rupee(f.total), callback: true,
     callAt: request.preferredAt ? new Date(request.preferredAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "",
   };
-  // Saved with the application, so a second click (even after a reload) only
-  // says it's already been requested.
-  state.callbackDone = { callAt: state.submitted.callAt };
+  // Saved with the application per stage, so a second click at the same stage
+  // (even after a reload) only says it's already been requested.
+  state.callbacksDone = { ...state.callbacksDone, [stage]: { callAt: state.submitted.callAt } };
   state.__paying = false;
   state.stepIndex = allSteps(state.flowId, state.answers).length - 1;
   bump();
@@ -1702,7 +2183,7 @@ async function doCallback(flow, state, bump, request = {}) {
 async function raiseLead(state, form) {
   // An existing client needs no Lead — their Deal is created directly (see
   // createDealForApplication), same as the portal's call-back flow does.
-  if (await captureExistingCustomer(state, form)) return;
+  if (await captureExistingCustomer(state, form)) { state.contactSaved = contactFieldsOf(form); return; }
   let franchiseeId = null;
   try {
     const assignment = await assignCustomer({ language: form.language, state: form.state, district: form.state });
@@ -1735,6 +2216,33 @@ async function raiseLead(state, form) {
     state.leadContact = { ...form, leadId: dup?.existingLeadId || null, franchiseeId, employeeId: null };
   }
   state.leadCaptured = true;
+  state.contactSaved = contactFieldsOf(form);
+}
+
+// "Your details" as saved on the Lead / Customer — compared with the current
+// contact so a later correction is written to them (resaveContact).
+function contactFieldsOf(c) {
+  return {
+    name: String(c?.name || "").trim(),
+    email: String(c?.email || "").trim(),
+    mobile: String(c?.mobile || "").replace(/\D/g, "").slice(-10),
+    state: String(c?.state || "").trim(),
+    language: String(c?.language || "").trim(),
+  };
+}
+// Sends only the changed details; needs the customer's sign-in (the Lead is
+// updated once they have one). A failure keeps the old snapshot, so the next
+// Continue tries again.
+async function resaveContact(state) {
+  if (!state.contactSaved || !state.leadContact || !localStorage.getItem("token")) return;
+  const diff = changedColumns(contactFieldsOf(state.leadContact), state.contactSaved);
+  if (!Object.keys(diff).length) return;
+  try {
+    await updateApplicationContact({ leadId: state.leadContact.leadId || undefined, ...diff });
+    state.contactSaved = { ...state.contactSaved, ...diff };
+  } catch (err) {
+    console.error("Contact details update failed (non-fatal):", err);
+  }
 }
 
 // "Talk to an Advisor" Lead — same franchisee assignment + createLead as
@@ -1838,12 +2346,36 @@ function matchExistingCompany(state, companyName) {
   return !!match;
 }
 
+// Authorized Person name / email / mobile follow the applicant's contact
+// details until the user types their own: a box that is empty, or still holds
+// the value last copied in (state.authAutofill), takes the current contact
+// value — so correcting "Your details" later corrects the Authorized Person too.
+function syncAuthFromContact(state, contact) {
+  const A = state.answers;
+  const auto = { ...(state.authAutofill || {}) };
+  const fill = {
+    auth_name: contact?.name,
+    auth_email: contact?.email,
+    auth_mobile: String(contact?.mobile || "").replace(/\D/g, "").slice(-10),
+  };
+  Object.entries(fill).forEach(([k, v]) => {
+    const val = String(v || "").trim();
+    const cur = String(A[k] || "").trim();
+    if (!val || (cur && cur !== auto[k])) return;
+    A[k] = val;
+    auto[k] = val;
+  });
+  state.authAutofill = auto;
+}
+
 async function captureLeadDetails(state) {
   const form = state.leadForm;
   // Already raised on an earlier pass — just keep the contact details current.
   // A pass whose createLead failed (leadId null) retries instead.
   if (state.leadCaptured && (state.leadContact?.leadId || state.leadContact?.direct)) {
     state.leadContact = { ...state.leadContact, ...form };
+    syncAuthFromContact(state, state.leadContact);
+    resaveContact(state);
     return;
   }
   try {
@@ -1861,7 +2393,7 @@ function LeadDetailsBody({ state, errors, bump }) {
     // State falls back to the one picked on the service page (answers.leadState,
     // passed in by ServiceDetails' "Proceed to Quote").
     const src = state.leadContact || signedInContact() || {};
-    state.leadForm = { name: src.name || "", mobile: src.mobile || "", email: src.email || "", country: src.country || "India", state: src.state || state.answers?.leadState || "", language: src.language || "" };
+    state.leadForm = { name: src.name || "", mobile: src.mobile || "", email: src.email || "", country: "India", state: src.state || state.answers?.leadState || "", language: src.language || "" };
   }
   const form = state.leadForm;
 
@@ -1884,7 +2416,7 @@ function LeadDetailsBody({ state, errors, bump }) {
     <div className="max-w-md space-y-3">
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Name<span className="text-red-500 ml-0.5">*</span></label>
-        <input className={inputCls(errors.lead_name)} value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Your full name" />
+        <input className={inputCls(errors.lead_name)} value={form.name} onChange={(e) => set("name", sanitize.personName(e.target.value))} placeholder="Your full name" />
         <ErrorText msg={errors.lead_name} />
       </div>
       <div>
@@ -1905,7 +2437,7 @@ function LeadDetailsBody({ state, errors, bump }) {
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Country<span className="text-red-500 ml-0.5">*</span></label>
-        <input className={inputCls(errors.lead_country)} value={form.country} onChange={(e) => set("country", e.target.value)} placeholder="India" />
+        <input className={inputCls(errors.lead_country) + " bg-gray-100 cursor-not-allowed"} value="India" readOnly tabIndex={-1} />
         <ErrorText msg={errors.lead_country} />
       </div>
       <div>
@@ -1948,7 +2480,7 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
   const lc = state.leadContact || signedInContact();
   const [form, setForm] = useState({
     name: lc?.name || "", mobile: lc?.mobile || "", email: lc?.email || "",
-    country: lc?.country || "India", state: lc?.state || "", language: lc?.language || "",
+    country: "India", state: lc?.state || "", language: lc?.language || "",
   });
   // phase: "details" (contact form) -> "otp" (verify code) -> "done" (auto-continues).
   // Opens straight on the form — no separate "why sign up" screen first.
@@ -2007,6 +2539,7 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
   async function submitDetails(e) {
     e.preventDefault();
     if (!form.name.trim()) return setError("Please enter your name.");
+    if (!PATTERNS.personName.test(form.name.trim())) return setError("Name can contain only letters, spaces, dots and apostrophes.");
     if (!/^[6-9]\d{9}$/.test(form.mobile.trim())) return setError("Please enter a valid 10-digit mobile number.");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return setError("Please enter a valid email — we'll send your verification code there.");
     if (!form.country.trim()) return setError("Please enter your country.");
@@ -2026,7 +2559,7 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
         if (/not found/i.test(err?.message || "")) {
           mode = "signup";
           // Referral scan token (if any) rides along so the server can attribute the signup.
-          await signupWithPhone(form.name.trim(), form.email.trim(), form.mobile.trim(), getReferralToken());
+          await signupWithPhone(form.name.trim(), form.email.trim(), form.mobile.trim(), getReferralToken(), form.state);
         } else {
           throw err;
         }
@@ -2067,6 +2600,8 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
     // the contact details in case they were corrected here.
     if (state.leadCaptured && (state.leadContact?.leadId || state.leadContact?.direct)) {
       state.leadContact = { ...state.leadContact, ...form };
+      syncAuthFromContact(state, state.leadContact);
+      resaveContact(state);
       setPhase("done");
       return;
     }
@@ -2181,7 +2716,7 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name<span className="text-red-500 ml-0.5">*</span></label>
-                <input className={inputCls()} value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Your full name" />
+                <input className={inputCls()} value={form.name} onChange={(e) => set("name", sanitize.personName(e.target.value))} placeholder="Your full name" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Mobile<span className="text-red-500 ml-0.5">*</span></label>
@@ -2199,7 +2734,7 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Country<span className="text-red-500 ml-0.5">*</span></label>
-                <input className={inputCls()} value={form.country} onChange={(e) => set("country", e.target.value)} placeholder="India" />
+                <input className={inputCls() + " bg-gray-100 cursor-not-allowed"} value="India" readOnly tabIndex={-1} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">State<span className="text-red-500 ml-0.5">*</span></label>
@@ -2304,6 +2839,15 @@ function Field({ f, A, errors, setAnswer, state, bump, liveStateNames }) {
     // `indiastates.state_name` (see liveStateNames fetch in FlowRunner).
     const baseOpts = typeof f.opts === "function" ? f.opts(A) : f.opts;
     const opts = baseOpts === STATES && liveStateNames?.length ? [...liveStateNames, "Other"] : baseOpts;
+    // A fixed pick (Country = India) can't be changed or cleared.
+    if (f.fixed) {
+      return (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{f.label}<ReqMark f={f} A={A} /></label>
+          <input className={inputCls(errors[f.k]) + " bg-gray-100 cursor-not-allowed"} value={A[f.k] || f.def} readOnly tabIndex={-1} />
+        </div>
+      );
+    }
     return (
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">{f.label}<ReqMark f={f} A={A} /></label>
@@ -2519,7 +3063,7 @@ function GstinLookupField({ f, A, errors, setAnswer, state, bump }) {
       : /trust|society/.test(ctb) ? "Trust / Society"
       : "";
     fillEmpty("pan_number", details.pan || gstin.slice(2, 12));
-    fillEmpty("pan_name", details.legalName);
+    fillEmpty("pan_name", formatInput("panName", details.legalName));
     fillEmpty("pan_type", type);
   }
 
@@ -2799,6 +3343,10 @@ function DocsBody({ step, A, state, errors, bump }) {
 
   async function attach(it, file) {
     if (!file) return;
+    if (file.type.startsWith("video/") || !DOC_ACCEPT_RE.test(file.name)) {
+      setUploadError((e) => ({ ...e, [it]: "Videos are not allowed. Upload PDF, JPG, PNG, DOC, DOCX, XLS or XLSX." }));
+      return;
+    }
     setUploadError((e) => ({ ...e, [it]: "" }));
     setUploading((u) => ({ ...u, [it]: true }));
     try {
@@ -2860,11 +3408,11 @@ function DocsBody({ step, A, state, errors, bump }) {
                         <button type="button" onClick={(e) => { e.preventDefault(); remove(it); }} className="text-xs text-gray-500 hover:text-red-600 mt-1">↺ Replace / remove</button>
                       </>
                     ) : (
-                      <span className="block text-xs text-gray-400 mt-0.5">Click to browse · PDF, JPG, PNG up to 5 MB</span>
+                      <span className="block text-xs text-gray-400 mt-0.5">Click to browse · PDF, JPG, PNG, DOC, XLS up to 5 MB (no videos)</span>
                     )}
                     {uploadError[it] && <span className="block text-xs text-red-600 mt-0.5">⚠ {uploadError[it]}</span>}
                   </span>
-                  <input type="file" className="hidden" disabled={isUploading} onChange={(e) => attach(it, e.target.files?.[0])} />
+                  <input type="file" className="hidden" accept={DOC_ACCEPT} disabled={isUploading} onChange={(e) => { attach(it, e.target.files?.[0]); e.target.value = ""; }} />
                 </label>
               );
             })}
@@ -3459,7 +4007,13 @@ function TmMarksBody({ flow, A, state, errors, setAnswer, bump }) {
   if (!state.tmMarkSearch) state.tmMarkSearch = {};
   const searched = (A.tm_name || "").trim().toLowerCase();
   const perApp = (flow.serviceLines?.(A) || [])[0];
+  // Professional fee from the price master for the applicant's state (see
+  // ensureMasterPrices); the flow's figure only when there's no price row.
+  const perAppFee = perApp ? pricedLine(flow.serviceId, state, perApp.professionalFee, 0)[0] : 0;
   const govt = tmGovtFee(A);
+  useEffect(() => {
+    ensureMasterPrices(flow, A, state).then(bump).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function clearMarkErrors(i) {
     Object.keys(errors).forEach((k) => { if (i == null ? k.startsWith("mark") : k.startsWith(`mark${i}_`)) delete errors[k]; });
@@ -3589,7 +4143,7 @@ function TmMarksBody({ flow, A, state, errors, setAnswer, bump }) {
       {perApp && (
         <div className="mt-4">
           <Note variant="info" title={`You're filing ${marks.length} application${marks.length === 1 ? "" : "s"}`}
-            body={`Each application: ${rupee(perApp.professionalFee)} professional fee + ${rupee(govt)} government fee (+ GST on the professional fee).${govt > 4500 ? " The ₹9,000 government fee applies to a company/LLP/partnership without MSME (Udyam) or Startup India registration." : ""}`} />
+            body={`Each application: ${rupee(perAppFee)} professional fee + ${rupee(govt)} government fee (+ GST on the professional fee).${govt > 4500 ? " The ₹9,000 government fee applies to a company/LLP/partnership without MSME (Udyam) or Startup India registration." : ""}`} />
         </div>
       )}
     </div>
@@ -3693,7 +4247,7 @@ function ReviewBody({ flowId, A, state, errors, onConfirm, onJump }) {
       <Section title="Service Information" rows={[["Service Name", state.serviceType], ["Application Type", flow.kind || "Existing Company"], ["Prepared On", today()]]} />
       <Section title="Applicant Information" rows={applicant} />
       {g.map((x) => <Section key={x.index} title={x.title} rows={x.rows} editIndex={x.index} />)}
-      <Section title="Additional Services" rows={addons.length ? addons.map((a) => [a, rupee(ADDON_PRICE[a] || 999)]) : [["Selected Services", "None selected"]]} />
+      <Section title="Additional Services" rows={addons.length ? addons.map((a) => [a, rupee(pricedLine(ADDON_SERVICE_ID[a] || null, state, ADDON_PRICE[a] || 999, 0)[0])]) : [["Selected Services", "None selected"]]} />
       <label className="flex items-start gap-3 bg-gray-50 border border-gray-200 rounded-lg p-4 mt-4 cursor-pointer">
         <input type="checkbox" className="mt-0.5 w-4 h-4 accent-blue-600" checked={state.confirmed} onChange={(e) => onConfirm(e.target.checked)} />
         <span className="text-sm font-medium">I confirm that the information provided is correct and that I am authorised to submit this application.</span>
@@ -3702,6 +4256,66 @@ function ReviewBody({ flowId, A, state, errors, onConfirm, onJump }) {
     </div>
   );
 }
+
+// State-wise prices from the price master (ServicePriceCurrencyMaster, the same
+// source the Services pages and staff quotes use), keyed "serviceId:stateId".
+// flow.price / flow.govt and ADDON_PRICE are only a fallback for a service
+// with no price row for the applicant's state. Session-only cache, so a resumed
+// application always re-reads current prices.
+const masterPriceCache = new Map();
+let stateIdsByName = null; // lower-cased state_name -> StateID, loaded once
+async function loadStateIds() {
+  if (stateIdsByName) return stateIdsByName;
+  const rows = await getAllStates();
+  const map = new Map();
+  (Array.isArray(rows) ? rows : []).forEach((r) => {
+    const name = String(r.state_name || "").trim().toLowerCase();
+    const id = r.id ?? r.StateID;
+    if (name && id != null) map.set(name, id);
+  });
+  if (map.size) stateIdsByName = map;
+  return map;
+}
+const applicantStateId = (state) => {
+  const name = String(state?.leadContact?.state || "").trim().toLowerCase();
+  return name && stateIdsByName ? stateIdsByName.get(name) ?? null : null;
+};
+// { professionalFee, governmentFee } for this service in the applicant's state,
+// or null when the master has no price (caller falls back).
+function masterPriceFor(serviceId, state) {
+  const stateId = applicantStateId(state);
+  if (!serviceId || stateId == null) return null;
+  return masterPriceCache.get(`${serviceId}:${stateId}`) || null;
+}
+// Load master prices for the main service and every add-on with a ServiceID.
+async function ensureMasterPrices(flow, A, state) {
+  await loadStateIds();
+  const stateId = applicantStateId(state);
+  if (stateId == null) return;
+  const mainId = typeof flow.serviceIdFor === "function" ? flow.serviceIdFor(A) : flow.serviceId || null;
+  const addons = Array.isArray(A?.additionalServices) ? A.additionalServices : [];
+  const ids = [...new Set([mainId, ...addons.map((a) => ADDON_SERVICE_ID[a])].filter(Boolean))];
+  await Promise.all(ids.map(async (sid) => {
+    const key = `${sid}:${stateId}`;
+    if (masterPriceCache.has(key)) return;
+    const res = await getServicePrice({ ServiceId: sid, StateId: stateId }).catch(() => null);
+    const row = res?.success ? res.data : null;
+    if (!row) return;
+    // Vendor / contract fees are folded into the professional fee (they're
+    // GST-able too). The bulk API already zeroes GovernmentFee when the client
+    // pays it directly and reports it as ClientPaidGovtFee — add it back: the
+    // quote line carries the full govt. fee and the server strips it itself.
+    masterPriceCache.set(key, {
+      professionalFee: (Number(row.ProfessionalFee) || 0) + (Number(row.VendorFee) || 0) + (Number(row.ContractFee) || 0),
+      governmentFee: (Number(row.GovernmentFee) || 0) + (Number(row.ClientPaidGovtFee) || 0),
+    });
+  }));
+}
+// Price used for a line: master price when known, else the flow's fallback.
+const pricedLine = (serviceId, state, fallbackProfessional, fallbackGovt) => {
+  const m = masterPriceFor(serviceId, state);
+  return m ? [m.professionalFee, m.governmentFee] : [fallbackProfessional, fallbackGovt];
+};
 
 // Fee breakdown, with GST worked out the same way as every other quote in the
 // app (utils/gstCalc.js): per line, 18% of professional (+ vendor) fee — never
@@ -3720,24 +4334,36 @@ function feeLines(flow, A, state) {
   };
   const serviceId = typeof flow.serviceIdFor === "function" ? flow.serviceIdFor(A) : flow.serviceId || null;
   const addons = Array.isArray(A.additionalServices) ? A.additionalServices : [];
+  const [mainProfessional, mainGovt] = pricedLine(serviceId, state, flow.price, flow.govt);
   const lines = [
-    line(state?.serviceType || flow.name, serviceId, flow.price, flow.govt),
-    ...addons.map((a) => line(a, ADDON_SERVICE_ID[a] || null, ADDON_PRICE[a] || 999, 0)),
+    line(state?.serviceType || flow.name, serviceId, mainProfessional, mainGovt),
+    ...addons.map((a) => {
+      const addonId = ADDON_SERVICE_ID[a] || null;
+      const [professional, govt] = pricedLine(addonId, state, ADDON_PRICE[a] || 999, 0);
+      return line(a, addonId, professional, govt);
+    }),
   ];
   const sum = (k) => lines.reduce((s, l) => s + l[k], 0);
   const addonLines = lines.slice(1).map((l) => [l.name, l.professionalFee]);
+  // Client pays this service's govt. fee directly (ServiceMaster
+  // IsGovtFeePaidByClient, same as the staff Quote/Deal screens) → it's not
+  // billed, so it's left out of the total. The lines still carry it: the
+  // server strips it from the Quote/Deal itself and records it as
+  // ClientPaidGovtFee — zeroing it here too would lose that amount.
+  const clientPaidGovt = serviceId && state?.govtPaidByClient?.[serviceId] ? Number(mainGovt) || 0 : 0;
   return {
     lines,
-    service: flow.price,
+    service: mainProfessional,
     addonLines,
     addonTotal: addonLines.reduce((s, l) => s + l[1], 0),
-    govt: flow.govt,
+    govt: mainGovt - clientPaidGovt,
+    clientPaidGovt,
     gst: sum("gstAmount"),
     cgst: sum("cgst"),
     sgst: sum("sgst"),
     igst: sum("igst"),
     gstEligible,
-    total: sum("total"),
+    total: sum("total") - clientPaidGovt,
   };
 }
 
@@ -3748,6 +4374,18 @@ async function ensureGstInfo(state) {
   if (state.gstInfo || !franchiseeId) return;
   state.gstInfo = await fetchFranchiseeGstInfo(franchiseeId);
 }
+
+// Load (once per service) whether the client pays the main service's govt.
+// fee directly — ServiceMaster.IsGovtFeePaidByClient, see feeLines(). Kept by
+// ServiceID since the main service can change with the answers (business type).
+async function ensureGovtFeeFlag(flow, A, state) {
+  const serviceId = typeof flow.serviceIdFor === "function" ? flow.serviceIdFor(A) : flow.serviceId || null;
+  if (!serviceId) return;
+  if (state.govtPaidByClient && serviceId in state.govtPaidByClient) return;
+  const res = await getServiceById({ ServiceId: serviceId });
+  state.govtPaidByClient = { ...state.govtPaidByClient, [serviceId]: Number(res?.data?.IsGovtFeePaidByClient) === 1 };
+}
+
 // Two ways to finish: pay online (the quote page offers UPI / card / net
 // banking / wallet) or ask an advisor to call back.
 const PAY_ONLINE_METHOD = "Proceed to Payment";
@@ -3763,6 +4401,27 @@ const PAY_METHODS = [
    the applicant either go on to Payment or request a call instead.
 --------------------------------------------------------------------------- */
 const normName = (s) => String(s || "").toLowerCase().replace(/\(.*?\)/g, "").replace(/[^a-z0-9]/g, "");
+
+// A package's yearly quote lines, built the way the CRM's package quote builds
+// them (QuoteModal, Yearly): whole rupees, Total = TotalFeeYearly (GST already
+// in it), ProfessionalFee = Total - Vendor - Govt. The govt. fee goes as is —
+// the server strips it for client-paid services, same as the registration.
+function packageLines(p) {
+  return (p.services || []).map((s) => {
+    const vendorFee = Math.round(Number(s.VendorFeeYearly)) || 0;
+    const govtFee = Math.round(Number(s.GovernmentFeeYearly)) || 0;
+    const origTotal = Number(s.TotalFeeYearly);
+    const total = Math.round(Number.isFinite(origTotal) && origTotal > 0 ? origTotal : (Number(s.ProfessionalFeeYearly) || 0) + vendorFee + govtFee);
+    return { serviceId: s.ServiceID || s.serviceId || null, serviceName: s.ServiceName || "", professionalFee: total - vendorFee - govtFee, vendorFee, govtFee, total };
+  });
+}
+// What the package quote will total — the sum of its lines; the master's
+// YearlyMRP only when the package has no priced services.
+function packageYearlyTotal(p, lines = packageLines(p)) {
+  const sum = lines.reduce((s, l) => s + l.total, 0);
+  return sum > 0 ? sum : Number(p.YearlyMRP || p.price || 0);
+}
+
 function PackagesBody({ A, state, bump, onPay, onCallback, onBack }) {
   const [plans, setPlans] = useState(null); // null = loading
   const wanted = A.businessType || state.serviceType;
@@ -3785,7 +4444,8 @@ function PackagesBody({ A, state, bump, onPay, onCallback, onBack }) {
   const selectedId = A.selectedPackage?.id;
   function pick(p) {
     const id = p.PackageID || p.id;
-    A.selectedPackage = selectedId === id ? null : { id, name: p.PackageName || p.name, price: Number(p.YearlyMRP || p.price || 0) };
+    const lines = packageLines(p);
+    A.selectedPackage = selectedId === id ? null : { id, name: p.PackageName || p.name, price: packageYearlyTotal(p, lines), lines };
     bump();
   }
 
@@ -3809,7 +4469,7 @@ function PackagesBody({ A, state, bump, onPay, onCallback, onBack }) {
                   <b className="text-sm">{p.PackageName || p.name}</b>
                   <span className={`flex-none w-5 h-5 rounded-full border-2 flex items-center justify-center text-[10px] ${on ? "bg-blue-600 border-blue-600 text-white" : "border-gray-300"}`}>{on ? "✓" : ""}</span>
                 </div>
-                <div className="text-lg font-bold mt-1">{rupee(Number(p.YearlyMRP || p.price || 0))}<span className="text-xs font-normal text-gray-500"> / year</span></div>
+                <div className="text-lg font-bold mt-1">{rupee(packageYearlyTotal(p))}<span className="text-xs font-normal text-gray-500"> / year</span></div>
                 {(p.Description || p.description) && <p className="text-xs text-gray-500 mt-1">{p.Description || p.description}</p>}
                 {p.services?.length > 0 && (
                   <ul className="mt-2 space-y-1">
@@ -3827,7 +4487,7 @@ function PackagesBody({ A, state, bump, onPay, onCallback, onBack }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button onClick={onPay} className="py-3 rounded-lg bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700">💳 Pay &amp; Continue →</button>
           <button onClick={onCallback} disabled={state.__paying} className="py-3 rounded-lg border-2 border-blue-500 text-blue-700 font-semibold text-sm disabled:opacity-60">
-            {state.__paying ? "Submitting…" : "📞 Request a Call"}
+            {state.__paying ? "Submitting…" : "Request a Call"}
           </button>
         </div>
         <p className="text-xs text-gray-400 mt-2">Requesting a call saves your quote — one of our advisors will call you. Nothing is charged now.</p>
@@ -3848,8 +4508,8 @@ const toLocalInput = (d) => {
    and an optional note. Submitting hands { preferredAt, note } to doCallback.
 --------------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------------
-   Shown instead of the form when this application's call-back was already
-   submitted.
+   Shown instead of the form when a call-back was already submitted at this
+   stage of the application.
 --------------------------------------------------------------------------- */
 function CallbackAlreadyRequestedModal({ callAt, onClose }) {
   return (
@@ -3859,10 +4519,9 @@ function CallbackAlreadyRequestedModal({ callAt, onClose }) {
           className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl leading-none">
           &times;
         </button>
-        <div className="text-3xl mb-2">📞</div>
         <h3 className="text-lg font-semibold text-gray-900 mb-1">Call back already requested</h3>
         <p className="text-sm text-gray-600">
-          You've already submitted a call-back request for this application.
+          You've already submitted a call-back request at this stage.
           {callAt ? <> Our advisor will call you on <b>{callAt}</b>.</> : " Our advisor will call you shortly."}
         </p>
         <button type="button" onClick={onClose}
@@ -3979,6 +4638,8 @@ function CallbackRequestModal({ onClose, onSubmit }) {
 function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
   useEffect(() => {
     if (!state.gstInfo) ensureGstInfo(state).then(bump).catch(() => {});
+    ensureGovtFeeFlag(flow, A, state).then(bump).catch(() => {});
+    ensureMasterPrices(flow, A, state).then(bump).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const f = feeLines(flow, A, state);
   // Anything other than a call back (incl. drafts saved with the old UPI /
@@ -3988,7 +4649,6 @@ function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
     <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-5">
       <div className="border border-gray-200 rounded-xl p-4">
         <h3 className="font-semibold mb-2">Fee summary</h3>
-        {A.selectedPackage && <div className="mb-3"><Note variant="info" body={`Package selected: ${A.selectedPackage.name} (${rupee(A.selectedPackage.price)} / year). Our team will add it to your quote — it isn't included in the total below.`} /></div>}
         <div className="text-xs font-bold uppercase text-blue-600 mt-3 mb-1">Service charges</div>
         <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span>{state.serviceType} — professional fee</span><b>{rupee(f.service)}</b></div>
         {f.addonLines.length > 0 && <div className="text-xs font-bold uppercase text-blue-600 mt-3 mb-1">Additional services</div>}
@@ -3996,7 +4656,16 @@ function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
           <div key={name} className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span>{name}</span><b>{rupee(amt)}</b></div>
         ))}
         <div className="text-xs font-bold uppercase text-blue-600 mt-3 mb-1">Government fees</div>
-        <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span>Statutory / filing fees{f.govt ? "" : " (none for this service)"}</span><b>{rupee(f.govt)}</b></div>
+        {f.clientPaidGovt > 0 ? (
+          // Same as the staff Quote/Deal screens: billed at ₹0, "₹X paid by client".
+          <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"
+            title="Government fee is paid by you directly at the time of service and is not included in this total">
+            <span>Statutory / filing fees<span className="block text-xs text-amber-600">{rupee(f.clientPaidGovt)} directly paid by you at the time of service — not included in this total</span></span>
+            <b>{rupee(0)}</b>
+          </div>
+        ) : (
+          <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span>Statutory / filing fees{f.govt ? "" : " (none for this service)"}</span><b>{rupee(f.govt)}</b></div>
+        )}
         <div className="text-xs font-bold uppercase text-blue-600 mt-3 mb-1">Taxes</div>
         {!f.gstEligible ? (
           <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span>GST (not applicable)</span><b>{rupee(0)}</b></div>
@@ -4012,6 +4681,24 @@ function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
         )}
         <div className="flex justify-between text-base font-bold pt-3"><span>Total Amount</span><span>{rupee(f.total)}</span></div>
         <p className="text-xs text-gray-400 mt-3">🔒 You'll review and approve this quote (with OTP verification) before any payment is taken.</p>
+        {A.selectedPackage && (
+          // The package is its own Package quote (createPackageForApplication),
+          // never part of the registration total above.
+          <div className="mt-4 border-t border-gray-200 pt-3">
+            <div className="text-xs font-bold uppercase text-blue-600 mb-1">Package — separate quote</div>
+            {(A.selectedPackage.lines || []).map((l, i) => (
+              <div key={l.serviceId || i} className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span>{l.serviceName}</span><b>{rupee(l.total)}</b></div>
+            ))}
+            <div className="flex justify-between text-base font-bold pt-3"><span>{A.selectedPackage.name} (yearly)</span><span>{rupee(A.selectedPackage.price)}</span></div>
+            <p className="text-xs text-gray-400 mt-1">Billed as a separate package quote, payable in full.</p>
+            {state.packageQuote?.packageId === A.selectedPackage.id && (
+              <button type="button" onClick={() => window.open(quoteApprovalUrl(state.packageQuote.quoteId), "_blank", "noopener,noreferrer")}
+                className="w-full mt-3 py-2.5 rounded-lg border-2 border-blue-500 text-blue-700 font-semibold text-sm">
+                Review &amp; Approve Package Quote →
+              </button>
+            )}
+          </div>
+        )}
       </div>
       <div className="border border-gray-200 rounded-xl p-4">
         <h3 className="font-semibold mb-3">Payment method</h3>
@@ -4026,13 +4713,19 @@ function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
           <>
             <div className="mt-4"><Note variant="info" body="We'll save your quote and one of our advisors will call you shortly. Nothing is charged now." /></div>
             <button onClick={onCallback} disabled={state.__paying} className="w-full mt-4 py-2.5 rounded-lg bg-blue-600 text-white font-semibold text-sm disabled:opacity-60">
-              {state.__paying ? "Submitting…" : "📞 Request a Call Back →"}
+              {state.__paying ? "Submitting…" : "Request a Call Back →"}
             </button>
           </>
         ) : (
           <>
-            <div className="mt-4"><Note variant="info" body="Opens your quote in a new tab to accept, verify, and choose how to pay. A GST invoice is emailed as soon as the payment succeeds." /></div>
-            <button onClick={onPay} className="w-full mt-4 py-2.5 rounded-lg bg-blue-600 text-white font-semibold text-sm">🔒 Proceed to Payment →</button>
+            {state.awaitingPayment ? (
+              <div className="mt-4"><Note variant="warn" body="Waiting for your payment. Your quote is open in a new tab — approve it and complete the payment there. This page moves to “Application Submitted” automatically once the payment succeeds." /></div>
+            ) : (
+              <div className="mt-4"><Note variant="info" body="Opens your quote in a new tab to accept, verify, and choose how to pay. A GST invoice is emailed as soon as the payment succeeds." /></div>
+            )}
+            <button onClick={onPay} disabled={state.__paying} className="w-full mt-4 py-2.5 rounded-lg bg-blue-600 text-white font-semibold text-sm disabled:opacity-60">
+              {state.__paying ? "Opening…" : state.awaitingPayment ? "🔒 Open Quote to Pay →" : "🔒 Review & Approve Quote →"}
+            </button>
           </>
         )}
         <button onClick={onBack} className="w-full mt-2 py-2.5 rounded-lg text-gray-500 text-sm font-semibold hover:bg-gray-50">Back</button>
@@ -4079,7 +4772,16 @@ function SuccessScreen({ state, onExit, onComplete, nextLabel, onRetryPayment })
         <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span className="text-gray-500">Submission Date</span><b>{s.date || today()}</b></div>
         {s.callAt && <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span className="text-gray-500">Call Back On</span><b>{s.callAt}</b></div>}
         <div className="flex justify-between text-sm py-2"><span className="text-gray-500">{s.callback ? "Quote Amount" : "Amount Paid"}</span><b>{s.amount || ""}</b></div>
+        {state.packageQuote && (
+          <div className="flex justify-between text-sm py-2 border-t border-dashed border-gray-100"><span className="text-gray-500">Package quote — {state.packageQuote.name}</span><b>{rupee(state.packageQuote.amount)} / year</b></div>
+        )}
       </div>
+      {state.packageQuote && (
+        <button type="button" onClick={() => window.open(quoteApprovalUrl(state.packageQuote.quoteId), "_blank", "noopener,noreferrer")}
+          className="mt-4 px-5 py-2.5 rounded-lg border-2 border-blue-500 text-blue-700 text-sm font-semibold">
+          Review &amp; Approve Package Quote →
+        </button>
+      )}
       {onComplete ? (
         <div className="flex items-center justify-center gap-3 mt-6">
           <button onClick={onRetryPayment} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50">← Back</button>
