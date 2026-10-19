@@ -66,8 +66,8 @@ export const getServicePrice = async ({ ServiceId, StateId }) => {
 };
 
 // ✅ Fetch service packages
-export const getServicePackages = async () => {
-  const res = await axiosInstance.get("/getPackage");
+export const getServicePackages = async (params) => {
+  const res = await axiosInstance.get("/getPackage", { params });
   return res.data;
 };
 

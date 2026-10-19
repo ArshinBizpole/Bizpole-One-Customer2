@@ -5,14 +5,16 @@ import {
   useScroll,
   useTransform,
   useSpring,
-  AnimatePresence,
 } from "framer-motion";
+
+const BIZPOLE_YOUTUBE = "https://www.youtube.com/@bizpole3483";
 
 const Howwework = () => {
   const sectionRef = useRef(null);
   const leftRef = useRef(null);
   const rightRef = useRef(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  // No demo video yet — the play button opens Bizpole's YouTube channel.
+  const openVideos = () => window.open(BIZPOLE_YOUTUBE, "_blank", "noopener,noreferrer");
   const [hoveringPlay, setHoveringPlay] = useState(false);
 
   const leftInView = useInView(leftRef, { once: true, margin: "-80px" });
@@ -128,46 +130,9 @@ const Howwework = () => {
         .modal-close:hover { background: rgba(255,255,255,0.2); }
       `}</style>
 
-      {/* ── Video Modal ── */}
-      <AnimatePresence>
-        {isPlaying && (
-          <motion.div
-            className="modal-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsPlaying(false)}
-          >
-            <motion.div
-              className="modal-inner"
-              initial={{ scale: 0.88, opacity: 0, y: 30 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.88, opacity: 0, y: 30 }}
-              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button className="modal-close" onClick={() => setIsPlaying(false)}>✕</button>
-              {/* Replace src with your actual video URL */}
-              <div className="w-full h-full flex items-center justify-center">
-                <div className="text-center text-white/40 space-y-3">
-                  <div className="text-5xl">🎬</div>
-                  <div className="text-sm font-medium" style={{ fontFamily: 'DM Sans, sans-serif' }}>
-                    Replace this with your video embed
-                  </div>
-                  <div className="text-xs text-white/20">e.g. YouTube iframe or &lt;video&gt; tag</div>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <section ref={sectionRef} className="hww-section py-20 md:py-28">
-        <div className="hww-grain" />
-        <div className="hww-blob w-80 h-80 bg-[#F5C518] opacity-[0.08] top-[-60px] left-[-60px]" />
-        <div className="hww-blob w-64 h-64 bg-[#3B82F6] opacity-[0.05] bottom-10 right-10" />
 
-        <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-12">
+        <div className="relative z-10 max-w-[1600px] mx-auto px-6 md:px-12">
           <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16">
 
             {/* ── LEFT: Video Card ── */}
@@ -196,7 +161,7 @@ const Howwework = () => {
                 className="hww-card rounded-[24px] aspect-video relative z-10 ring-1 ring-black/10 shadow-2xl cursor-pointer group"
                 whileHover={{ scale: 1.015 }}
                 transition={{ duration: 0.4 }}
-                onClick={() => setIsPlaying(true)}
+                onClick={openVideos}
               >
                 {/* Label */}
                
@@ -215,7 +180,7 @@ const Howwework = () => {
                   className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30"
                   onHoverStart={() => setHoveringPlay(true)}
                   onHoverEnd={() => setHoveringPlay(false)}
-                  onClick={(e) => { e.stopPropagation(); setIsPlaying(true); }}
+                  onClick={(e) => { e.stopPropagation(); openVideos(); }}
                   whileTap={{ scale: 0.92 }}
                   initial={{ scale: 0, opacity: 0 }}
                   animate={leftInView ? { scale: 1, opacity: 1 } : {}}
@@ -281,7 +246,7 @@ const Howwework = () => {
                   whileHover={{ scale: 1.04, y: -2 }}
                   whileTap={{ scale: 0.97 }}
                   className="inline-flex items-center gap-2 bg-[#1a1a1a] text-white text-sm font-semibold px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-shadow"
-                  onClick={() => setIsPlaying(true)}
+                  onClick={openVideos}
                 >
                   <span>Watch the demo</span>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="white">

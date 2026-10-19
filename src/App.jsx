@@ -18,11 +18,10 @@ import BusinessPanel from "./components/BusinessPanel";
 import Tellabout from "./components/Tellabout";
 import NewCompanyFlow from "./components/NewCompanyFlow";
 import Subscription from "./components/Subscription";
-import Payment from "./components/Payment";
+import NotFound from "./pages/NotFound";
 
 // Main Dashboard pages
 import DashboardLayout from "./pages/DashboardLayout";
-import DashboardMain from "./pages/DashboardMain";
 import BizpoleBooks from "./pages/BizpoleBooks";
 
 // BizpoleOne dashboard pages
@@ -173,7 +172,6 @@ function App() {
           <Route path="/startbusiness/apply" element={<NewCompanyFlow />} />
           <Route path="/startbusiness/about" element={<Tellabout />} />
           <Route path="/startbusiness/subscriptions" element={<Subscription />} />
-          <Route path="/payments" element={<Payment />} />
           <Route path="/quiz" element={<Quiz />} />
           <Route path="/questions" element={<BusinessQuizWizard />} />
           {/* Sign-in link sent by the WhatsApp assistant (document upload) */}
@@ -215,7 +213,8 @@ function App() {
 
               {/* Main Dashboard */}
               <Route path="/dashboard" element={<DashboardLayout />}>
-                <Route index element={<DashboardMain />} />
+                {/* /dashboard had only a "Welcome to Dashboard" placeholder — open the real one */}
+                <Route index element={<Navigate to="/dashboard/bizpoleone" replace />} />
                 <Route path="books" element={<BizpoleBooks />} />
 
                 <Route path="bizpoleone" element={<BizpoleOneDashboardLayout />}>
@@ -262,6 +261,9 @@ function App() {
               </Route>
 
             </Route>
+
+            {/* Anything unmatched — instead of a blank page */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
 

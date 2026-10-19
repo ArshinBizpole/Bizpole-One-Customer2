@@ -5,6 +5,8 @@ import { CartContext } from "../context/CartContext";
 import { useNavigate } from "react-router-dom";
 import { upsertQuote } from "../api/Quote";
 import { getSecureItem } from "../utils/secureStorage";
+import { selectSignedInCompany } from "../utils/signedInCompany";
+import { goToNewCustomerFlow } from "../utils/newCustomerFlow";
 import ServicesApi from "../api/ServicesApi";
 import axios from "../api/axiosInstance";
 import { fetchFranchiseeGstInfo, calcGstAmount, splitGst } from "../utils/gstCalc";
@@ -12,6 +14,7 @@ import { proceedToQuote } from "../utils/proceedToQuote";
 import { motion, AnimatePresence } from "framer-motion";
 import SigninModal from "../components/Modals/SigninModal";
 import ServiceDetails from "./ServiceDetails";
+import PackagePlans from "../components/PackagePlans";
 import { Building2, FileText, Scale, CheckCircle2, Wallet, Globe2, Tag, Sparkles, Briefcase, Receipt, FileCheck2, DollarSign, ShoppingCart, MapPin, ArrowRight, X, Loader2 } from "lucide-react";
 // Icons
 const IconSearch = () => (
@@ -370,10 +373,13 @@ const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price, onSele
 };
 
 // embedded: rendered inside another page (e.g. Pricing & Plans tab) — skip the page hero and full-screen height
-const Services = ({ embedded = false }) => {
+// initialServiceId (embedded): open straight on that service's details.
+const Services = ({ embedded = false, initialServiceId = null }) => {
   const [services, setServices] = useState([]);
   // embedded only: service whose "Know More" details are shown in place of the list
-  const [detailServiceId, setDetailServiceId] = useState(null);
+  const [detailServiceId, setDetailServiceId] = useState(embedded ? initialServiceId : null);
+  // Public page only: packages tab (default) or the individual-services list
+  const [view, setView] = useState("packages");
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -383,16 +389,27 @@ const Services = ({ embedded = false }) => {
   const [totalCount, setTotalCount] = useState(0);
   const [filter, setFilter] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
-  const { cart, addToCart, removeFromCart } = useContext(CartContext);
+  const { cart, addToCart, removeFromCart, clearCart } = useContext(CartContext);
   // selectedServices is now derived from cart keys
   const selectedServices = Object.keys(cart).map(id => Number(id));
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  // lg+ : filters sit beside the grid (slide by width). Below: stacked on top,
+  // full width (collapse by height).
+  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia("(min-width: 1024px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = (e) => setIsDesktop(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
   const [stateId, setStateId] = useState(() => localStorage.getItem("StateID"));
   const [bulkPrices, setBulkPrices] = useState({});
   const [bulkLoading, setBulkLoading] = useState(false);
   const [showStateModal, setShowStateModal] = useState(false);
   const [allStates, setAllStates] = useState([]);
   const [showSigninModal, setShowSigninModal] = useState(false);
+  // The card whose own "Request Quote" opened sign-in (null = the selection's Proceed to Quote).
+  const [signinService, setSigninService] = useState(null);
   const [selectedStateForModal, setSelectedStateForModal] = useState("");
   const [statesLoading, setStatesLoading] = useState(false);
   const [proceedingToQuote, setProceedingToQuote] = useState(false);
@@ -572,8 +589,30 @@ const Services = ({ embedded = false }) => {
   return (
     <>
       {!embedded && <ToastContainer position="top-right" autoClose={3000} />}
-      <SigninModal isOpen={showSigninModal} onClose={() => setShowSigninModal(false)} />
-      <div className={embedded ? "" : "min-h-screen bg-gray-50"}>
+      <SigninModal
+        isOpen={showSigninModal}
+        onClose={() => setShowSigninModal(false)}
+        // Stay here with the selection intact instead of jumping to the dashboard.
+        onSuccess={(tokenData) => {
+          selectSignedInCompany(tokenData?.user || getSecureItem("user"));
+          setShowSigninModal(false);
+          toast.success(selectedServices.length
+            ? "Signed in. Your selected services are saved — click Proceed to Quote."
+            : "Signed in. You can request your quote now.");
+        }}
+        // New customer: the matching application collects their details and makes the quote
+        // — for the card that asked, else the first selected service that has one.
+        onSignup={() => {
+          setShowSigninModal(false);
+          const stateName = allStates.find((s) => String(s.id || s.StateID) === String(stateId))?.state_name || "";
+          let cache = [];
+          try { cache = JSON.parse(localStorage.getItem("AllServicesCache") || "[]"); } catch { cache = []; }
+          const selected = selectedServices.map((sid) =>
+            services.find((s) => s.ServiceID === sid) || cache.find((s) => s.ServiceID === sid) || { ServiceID: sid, ...cart[sid] });
+          goToNewCustomerFlow(navigate, signinService ? [signinService] : selected, stateName);
+        }}
+      />
+      <div className={embedded ? "" : "min-h-screen bg-gray-50 -mt-20 lg:-mt-24 pt-20 lg:pt-24"}>
 
         {/* State selection modal */}
         {showStateModal && (
@@ -656,27 +695,55 @@ const Services = ({ embedded = false }) => {
         )}
         {/* Page Header */}
         {!embedded && <div className=" border-b border-gray-100">
-          <div className="max-w-7xl mt-26 mb-18 mx-auto px-6 py-10 text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 text-[#c9a700] text-xs font-semibold rounded-full mb-4 border border-amber-100">
-              <IconStar /> Explore Our Services
-            </div>
-            <h1 className="text-4xl md:text-5xl font-bold  text-gray-900 mb-3">
-              Choose Your Perfect Service
+          <div className="max-w-7xl mx-auto px-6 pt-10 pb-10 text-center">
+            <h1 className="text-3xl md:text-4xl font-bold text-[#F3C625] mb-3">
+              The Right Plan for Your Business
             </h1>
             <p className="text-gray-500 max-w-lg mx-auto text-sm">
-              Professional business services tailored to help your company thrive in today's competitive market
+              Pick a ready-made package that bundles the services your business needs, or choose individual services and pay only for what you use.
             </p>
+
+            {/* Package / individual service tabs */}
+            <div className="mt-7 inline-flex flex-wrap justify-center gap-3">
+              <button
+                onClick={() => setView("packages")}
+                className={`px-5 py-2 rounded-full text-sm font-semibold border transition-all ${view === "packages"
+                  ? "bg-gray-900 border-gray-900 text-white shadow-md"
+                  : "bg-white border-gray-300 text-gray-600 hover:text-gray-900"
+                  }`}
+              >
+                Package
+              </button>
+              <button
+                onClick={() => setView("services")}
+                className={`px-5 py-2 rounded-full text-sm font-semibold border transition-all ${view === "services"
+                  ? "bg-[#FFFBEA] border-[#F3C625] text-black shadow-md"
+                  : "bg-white border-[#F3C625] text-gray-700 hover:text-gray-900"
+                  }`}
+              >
+                Choose individual service
+              </button>
+            </div>
           </div>
         </div>}
 
-        <div className={embedded ? "flex gap-6" : "max-w-7xl mx-auto px-6 py-8 flex gap-6"}>
+        {!embedded && view === "packages" && (
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 py-8 sm:py-10">
+            <PackagePlans />
+          </div>
+        )}
+
+        {(embedded || view === "services") && <div className={`flex flex-col lg:flex-row gap-4 lg:gap-6 ${embedded ? "" : "max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8"}`}>
           {/* Sidebar */}
           <motion.aside
-            animate={{ width: sidebarOpen ? 240 : 0, opacity: sidebarOpen ? 1 : 0 }}
+            initial={false}
+            animate={isDesktop
+              ? { width: sidebarOpen ? 240 : 0, height: "auto", opacity: sidebarOpen ? 1 : 0 }
+              : { width: "100%", height: sidebarOpen ? "auto" : 0, opacity: sidebarOpen ? 1 : 0 }}
             transition={{ duration: 0.3 }}
             className="flex-shrink-0 overflow-hidden"
           >
-            <div className="w-60 bg-white rounded-3xl border border-gray-100 shadow-sm p-5 sticky">
+            <div className="w-full lg:w-60 bg-white rounded-3xl border border-gray-100 shadow-sm p-5 sticky">
               {/* Sidebar Header */}
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2.5">
@@ -875,12 +942,14 @@ const Services = ({ embedded = false }) => {
                           onClick={async () => {
                             const token = localStorage.getItem('token');
                             if (!token) {
+                              setSigninService(null);
                               setShowSigninModal(true);
                               return;
                             }
                             setProceedingToQuote(true);
                             try {
-                              await proceedToQuote({ cart, services });
+                              // Quoted — the selection is done with, so clear it.
+                              if (await proceedToQuote({ cart, services })) clearCart();
                             } finally {
                               setProceedingToQuote(false);
                             }
@@ -909,7 +978,7 @@ const Services = ({ embedded = false }) => {
           {/* Main Content */}
           <div className="flex-1 min-w-0">
             {/* Toolbar */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
               <div className="flex items-center gap-3">
                 {!sidebarOpen && (
                   <button
@@ -953,7 +1022,7 @@ const Services = ({ embedded = false }) => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                  className={`grid grid-cols-1 md:grid-cols-2 ${embedded ? "2xl:grid-cols-3" : "xl:grid-cols-3"} gap-4`}
                 >
                   {Array.from({ length: 4 }).map((_, i) => (
                     <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5 animate-pulse">
@@ -996,7 +1065,7 @@ const Services = ({ embedded = false }) => {
                 </motion.div>
               ) : (
                 <motion.div key="grid" layout>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className={`grid grid-cols-1 md:grid-cols-2 ${embedded ? "2xl:grid-cols-3" : "xl:grid-cols-3"} gap-4`}>
                     {services.map((service) => (
                       <ServiceCard
                         key={service.ServiceID}
@@ -1008,7 +1077,7 @@ const Services = ({ embedded = false }) => {
                         onSelectState={openStateModal}
                         stateId={stateId}
                         bulkLoading={bulkLoading}
-                        setShowSigninModal={setShowSigninModal}
+                        setShowSigninModal={(open) => { setSigninService(service); setShowSigninModal(open); }}
                         navigate={navigate}
                       />
                     ))}
@@ -1054,7 +1123,7 @@ const Services = ({ embedded = false }) => {
               )}
             </AnimatePresence>
           </div>
-        </div>
+        </div>}
       </div>
     </>
   );

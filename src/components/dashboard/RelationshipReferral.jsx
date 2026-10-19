@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { UserRound, MessageCircle, Phone, CalendarPlus, Gift, ArrowRight } from "lucide-react";
+import { UserRound, MessageCircle, Phone, Mail, Gift, ArrowRight } from "lucide-react";
 import useSelectedCompany from "../../hooks/useSelectedCompany";
 import { getRelationshipReferral } from "../../api/DashboardApi";
 import { getReferralMe } from "../../api/ReferralApi";
@@ -43,57 +43,88 @@ const RelationshipReferral = () => {
   const referrer = programme?.programmeEnabled ? programme.referrer : null;
   const terms = programme?.terms || {};
 
-  const gridCls = SHOW_CUSTOMER_REFER_AND_EARN ? "grid grid-cols-1 gap-4 lg:grid-cols-2" : "grid grid-cols-1 gap-4";
-
   if (loading) {
     return (
-      <div className={`${gridCls} animate-pulse`}>
-        <div className="h-48 rounded-2xl bg-white shadow-sm" />
-        {SHOW_CUSTOMER_REFER_AND_EARN && <div className="h-48 rounded-2xl bg-yellow-50" />}
+      <div className="grid grid-cols-1 gap-4 animate-pulse">
+        <div className="h-40 rounded-3xl bg-amber-50/60" />
+        {SHOW_CUSTOMER_REFER_AND_EARN && <div className="h-40 rounded-2xl bg-yellow-50" />}
       </div>
     );
   }
 
-  return (
-    <div className={gridCls}>
-      {/* Relationship manager */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-4 md:p-5 shadow-sm">
-        <div className="mb-4 flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-100 text-yellow-600">
-            <UserRound className="h-4 w-4" />
-          </div>
-          <h3 className="text-sm font-semibold text-gray-800">Your Relationship Manager</h3>
-        </div>
+  const digits = String(rm?.phone || "").replace(/\D/g, "");
+  const whatsapp = digits ? `https://wa.me/${digits.length === 10 ? `91${digits}` : digits}` : null;
 
+  return (
+    <div className="grid grid-cols-1 gap-4">
+      {/* Relationship manager */}
+      <div className="rounded-3xl border border-amber-200 bg-gradient-to-r from-amber-50/70 via-white to-amber-50/70 p-5 md:p-7">
         {rm ? (
-          <>
-            <div className="flex items-center gap-3.5">
-              <div className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-yellow-100 text-lg font-extrabold text-yellow-700">
-                {rm.initials || "—"}
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+            <div className="flex flex-1 items-center gap-5">
+              <div className="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-full border-[3px] border-amber-400 bg-amber-100 text-2xl font-extrabold text-amber-700">
+                {rm.initials || <UserRound className="h-8 w-8" />}
               </div>
               <div>
-                <b className="text-sm text-gray-800">{rm.name}</b>
-                <p className="text-xs text-gray-500">Dedicated RM · Mon–Sat, 10am–7pm</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                  Your Relationship Manager
+                </p>
+                <p className="text-xl font-bold text-gray-900">{rm.name}</p>
+                <p className="text-sm font-medium text-gray-700">Relationship Manager</p>
+                <p className="mt-1 max-w-xs text-sm text-gray-400">
+                  Your dedicated partner for all compliance and filing support.
+                </p>
               </div>
             </div>
 
-            <div className="mt-4 flex gap-2">
-              <button className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-yellow-400 px-3 py-2 text-xs font-semibold text-gray-800 hover:bg-yellow-500">
-                <MessageCircle className="h-3.5 w-3.5" /> Chat
-              </button>
-              <a
-                href={rm.phone ? `tel:${rm.phone}` : undefined}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                <Phone className="h-3.5 w-3.5" /> Call
-              </a>
-              <button className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50">
-                <CalendarPlus className="h-3.5 w-3.5" /> Book meeting
-              </button>
+            <div className="flex flex-col gap-4 lg:w-72">
+              {rm.phone && (
+                <a href={`tel:${rm.phone}`} className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-500">
+                    <Phone className="h-4 w-4" />
+                  </span>
+                  <span>
+                    <b className="block text-sm text-gray-900">{rm.phone}</b>
+                    <small className="text-xs text-gray-400">Mon – Sat, 10:00 AM – 7:00 PM</small>
+                  </span>
+                </a>
+              )}
+              {rm.email && (
+                <a href={`mailto:${rm.email}`} className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-500">
+                    <Mail className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <b className="block truncate text-sm text-gray-900">{rm.email}</b>
+                    <small className="text-xs text-gray-400">Email your RM</small>
+                  </span>
+                </a>
+              )}
             </div>
-          </>
+
+            {whatsapp && (
+              <a
+                href={whatsapp}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 self-start rounded-full border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-900 shadow-sm hover:bg-gray-50 lg:self-center"
+              >
+                <MessageCircle className="h-4 w-4" /> Chat Now <ArrowRight className="h-4 w-4" />
+              </a>
+            )}
+          </div>
         ) : (
-          <p className="text-sm text-gray-400">No relationship manager assigned yet.</p>
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+              <UserRound className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                Your Relationship Manager
+              </p>
+              <p className="text-sm text-gray-500">No relationship manager assigned yet.</p>
+            </div>
+          </div>
         )}
       </div>
 
