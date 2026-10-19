@@ -6,6 +6,7 @@ import HeaderStats from '../components/HeaderStats';
 import SectionTitle from '../components/dashboard/SectionTitle';
 import ComplianceHealth from '../components/dashboard/ComplianceHealth';
 import QuotesList from '../components/dashboard/QuotesList';
+import DealsList from '../components/dashboard/DealsList';
 import ServicesActions from '../components/dashboard/ServicesActions';
 import VaultFinance from '../components/dashboard/VaultFinance';
 import SuiteRecommendations from '../components/dashboard/SuiteRecommendations';
@@ -38,6 +39,10 @@ const BizpoleOne = () => {
         {/* ===== Compliance & Health ===== */}
         <SectionTitle title="Compliance & Health" tag="NEW" />
         <ComplianceHealth />
+
+        {/* ===== Service requests (deals) ===== */}
+        <SectionTitle title="Your Requests" tag="NEW" />
+        <DealsList />
 
         {/* ===== Quotes ===== */}
         <SectionTitle title="Quotes" tag="NEW" />

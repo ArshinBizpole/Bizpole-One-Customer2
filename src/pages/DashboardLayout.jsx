@@ -199,6 +199,37 @@ const DashboardLayout = () => {
     setShowCompanyDropdown(false);
   };
 
+  // Companies created after sign-in — e.g. by the WhatsApp assistant for a new
+  // portal sign-up — aren't in the cached login payload. Refresh the customer
+  // from the server once on mount (customer sessions only); keep the selected
+  // company, or select the first one if none was selected yet.
+  useEffect(() => {
+    if (!localStorage.getItem("token") || localStorage.getItem("partnerToken")) return;
+    let cancelled = false;
+    axiosInstance
+      .get("/website/me")
+      .then((res) => {
+        const fresh = res.data?.data;
+        if (cancelled || !res.data?.success || !Array.isArray(fresh?.Companies)) return;
+        setSecureItem("user", JSON.stringify(fresh));
+        setCompanies(fresh.Companies);
+        let savedId = null;
+        try {
+          const raw = getSecureItem("selectedCompany");
+          savedId = (typeof raw === "string" ? JSON.parse(raw) : raw)?.CompanyID ?? null;
+        } catch {
+          savedId = null;
+        }
+        const current = fresh.Companies.find((c) => String(c.CompanyID) === String(savedId));
+        if (current) loadQuotesForCompany(current);
+        else if (fresh.Companies.length > 0) handleCompanySelect(fresh.Companies[0]);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Generate new quote
   const handleGenerateQuote = () => {
     if (!selectedCompanyId) {
