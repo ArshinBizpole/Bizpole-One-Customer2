@@ -304,7 +304,7 @@ const MyIndividualservices = () => {
       key: "action", header: "Action",
       render: (row) => (
         <button
-          onClick={() => navigate("/dashboard/bizpoleone/orderdetails", { state: { order: row, IsIndividual: ind } })}
+          onClick={() => navigate(`/dashboard/bizpoleone/orderdetails?id=${encodeURIComponent(row.OrderPK ?? row.OrderID)}&ind=${ind}`, { state: { order: row, IsIndividual: ind } })}
           className="px-3 py-1.5 bg-amber-400 hover:bg-amber-500 text-white text-xs font-medium rounded-full transition"
         >
           View Details

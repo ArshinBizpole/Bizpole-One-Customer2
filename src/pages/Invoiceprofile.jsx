@@ -218,18 +218,20 @@ const InvoiceProfile = () => {
     }
   };
 
+  // Billing help shown on the Overview tab. Invoices here are per service: one GST
+  // invoice once a service's payment is complete (no seats, plans or monthly cycles).
   const faqs = [
     {
-      question: 'How are seats billed?',
-      answer: 'Seats are billed monthly based on your subscription plan. You can add or remove seats at any time.'
-    },
-    {
-      question: 'What are available seats?',
-      answer: 'Available seats are the number of users that can access your account. Additional seats can be purchased as needed.'
-    },
-    {
       question: 'When will I receive my invoice?',
-      answer: 'Invoices are generated on the 1st of each month and are due by the 8th of the same month.'
+      answer: 'A GST invoice is issued for each service as soon as its payment is complete. You can view and download it from the Invoices tab.'
+    },
+    {
+      question: 'How do I get a refund?',
+      answer: 'Raise a refund request from the Refunds page. Refunds follow our Cancellation and Refund Policy.'
+    },
+    {
+      question: 'Who can I contact about an invoice?',
+      answer: 'Call +91 95399 95533, email info@bizpole.in, or raise a ticket from Customer Support.'
     },
   ];
 
@@ -315,7 +317,7 @@ const InvoiceProfile = () => {
 
   return (
     <div>
-      <div className="mx-auto px-6 py-10">
+      <div className="mx-auto px-1 sm:px-4 md:px-6 py-4 md:py-10">
         {/* Heading */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-semibold text-gray-900">Invoice</h1>
@@ -359,11 +361,11 @@ const InvoiceProfile = () => {
               className="grid grid-cols-1 lg:grid-cols-2 gap-6"
             >
               {/* Next invoice card */}
-              <div className="border border-gray-200 rounded-xl p-6">
+              <div className="border border-gray-200 rounded-xl p-4 sm:p-6">
                 {nextInvoice ? (
                   <>
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm text-gray-500">Next monthly invoice</h3>
+                      <h3 className="text-sm text-gray-500">Latest invoice</h3>
                       <button
                         onClick={() => handleOpenFullPreview(nextInvoice)}
                         className="text-xs font-medium text-gray-700 border border-gray-300 rounded-md px-3 py-1.5 hover:bg-gray-50 transition-colors"
@@ -371,12 +373,12 @@ const InvoiceProfile = () => {
                         Preview
                       </button>
                     </div>
-                    <div className="flex items-baseline gap-2 mb-4">
-                      <span className="text-3xl font-semibold text-gray-900">
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mb-4">
+                      <span className="text-2xl sm:text-3xl font-semibold text-gray-900">
                         {formatCurrency(nextInvoice.InvoiceValue || nextInvoice.OrderValue || nextInvoice.InvoiceTotal)}
                       </span>
                       <span className="text-sm text-gray-400">
-                        due {formatDate(nextInvoice.InvoiceDate || nextInvoice.OrderDate)}
+                        dated {formatDate(nextInvoice.InvoiceDate || nextInvoice.OrderDate)}
                       </span>
                     </div>
                     <button
@@ -384,7 +386,7 @@ const InvoiceProfile = () => {
                       className="w-full flex items-center justify-between text-sm text-gray-500 pt-3 border-t border-gray-100 hover:text-gray-700 transition-colors"
                     >
                       <span>
-                        {formatCurrency(nextInvoice.InvoiceValue || nextInvoice.OrderValue || nextInvoice.InvoiceTotal)} for 1 monthly seat
+                        {nextInvoice.InvoiceCode || nextInvoice.invoiceCode || 'View invoice'}
                       </span>
                       <FiChevronRight className="w-4 h-4" />
                     </button>
@@ -398,11 +400,11 @@ const InvoiceProfile = () => {
               </div>
 
               {/* Plan card */}
-              <div className="border border-gray-200 rounded-xl p-6">
-                <div className="flex items-center justify-between mb-4">
+              <div className="border border-gray-200 rounded-xl p-4 sm:p-6">
+                <div className="flex items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-2">
                     <span className="w-5 h-5 bg-yellow-400 rounded-sm inline-block" />
-                    <h3 className="text-sm font-medium text-gray-900">You're on the Plus plan</h3>
+                    <h3 className="text-sm font-medium text-gray-900">Billing help</h3>
                   </div>
                   <button
                     onClick={() => navigate('/dashboard/bizpoleone/pricing')}
@@ -412,7 +414,7 @@ const InvoiceProfile = () => {
                   </button>
                 </div>
                 <div className="divide-y divide-gray-100">
-                  {faqs.slice(0, 2).map((faq, index) => (
+                  {faqs.map((faq, index) => (
                     <div key={index}>
                       <button
                         onClick={() => toggleFaq(index)}
@@ -478,6 +480,36 @@ const InvoiceProfile = () => {
                     <p className="text-sm text-gray-500">No invoices found</p>
                   </div>
                 ) : (
+                  <>
+                  {/* Phones: one card per invoice instead of the 4-column table */}
+                  <ul className="sm:hidden divide-y divide-gray-100">
+                    {pagedInvoices.map((invoice, index) => {
+                      const isSelected = selectedInvoice === invoice;
+                      const status = invoice.InvoiceStatus || invoice.Status || 'Unknown';
+                      return (
+                        <li
+                          key={invoice.InvoiceID || invoice.id || index}
+                          onClick={() => handleViewInvoice(invoice)}
+                          className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${isSelected ? 'bg-yellow-50/60' : 'active:bg-gray-50'}`}
+                        >
+                          <FiFileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-800 truncate">
+                              {invoice.InvoiceCode || invoice.invoiceCode || 'Invoice'}
+                            </p>
+                            <p className={`text-xs ${status.toLowerCase() === 'upcoming' || status.toLowerCase() === 'pending' ? 'text-yellow-600 font-medium' : 'text-gray-500'}`}>
+                              {formatDate(invoice.InvoiceDate || invoice.invoiceDate)}
+                            </p>
+                          </div>
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${getStatusBadge(status)}`}>
+                            {status}
+                          </span>
+                          <FiChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-gray-200">
@@ -504,7 +536,7 @@ const InvoiceProfile = () => {
                             <td className="py-3.5 px-5">
                               <div className="flex items-center gap-2 text-gray-700">
                                 <FiFileText className="w-4 h-4 text-gray-400" />
-                                {invoice.InvoiceCode || invoice.invoiceCode || 'Monthly invoice'}
+                                {invoice.InvoiceCode || invoice.invoiceCode || 'Invoice'}
                               </div>
                             </td>
                             <td className="py-3.5 px-5">
@@ -529,9 +561,11 @@ const InvoiceProfile = () => {
                       })}
                     </tbody>
                   </table>
+                  </div>
+                  </>
                 )}
                 {!loading && !error && invoices.length > INVOICES_PER_PAGE && (
-                  <div className="sticky bottom-0 z-10 bg-white flex items-center justify-between px-5 py-3 border-t border-gray-200">
+                  <div className="sticky bottom-0 z-10 bg-white flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 border-t border-gray-200">
                     <span className="text-xs text-gray-500">
                       Showing {pageStart + 1}–{Math.min(pageStart + INVOICES_PER_PAGE, invoices.length)} of {invoices.length}
                     </span>
@@ -544,17 +578,31 @@ const InvoiceProfile = () => {
               <AnimatePresence>
                 {selectedInvoice && (
                   <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
+                    key="invoice-backdrop"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setSelectedInvoice(null)}
+                    className="lg:hidden fixed inset-0 z-40 bg-black/40"
+                  />
+                )}
+                {selectedInvoice && (
+                  <motion.div
+                    key="invoice-panel"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
                     transition={{ duration: 0.2 }}
-                    className="hidden lg:flex flex-col w-[320px] flex-shrink-0 border border-gray-200 rounded-xl p-6 min-h-[600px]"
+                    // Below lg it's a bottom sheet over the list; lg+ the side panel.
+                    className="flex flex-col bg-white border border-gray-200 p-5 sm:p-6
+                      fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl
+                      lg:static lg:z-auto lg:max-h-none lg:overflow-visible lg:rounded-xl lg:w-[320px] lg:flex-shrink-0 lg:min-h-[600px]"
                   >
                     <div className="flex items-start justify-between mb-5 pb-5 border-b border-gray-200">
                       <div>
                         <div className="flex items-center gap-2">
                           <h3 className="text-sm font-medium text-gray-900">
-                            Monthly invoice
+                            {selectedInvoice.InvoiceCode || selectedInvoice.invoiceCode || 'Invoice'}
                           </h3>
                           {showFullInvoice && (
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(selectedInvoice.InvoiceStatus || selectedInvoice.Status)}`}>
@@ -609,10 +657,10 @@ const InvoiceProfile = () => {
 
                     <div className="mb-5 pb-5 border-b border-gray-200">
                       <p className="text-sm font-medium text-gray-900 mb-1">
-                        {showFullInvoice ? 'Renewing monthly seats' : 'Renewing monthly'}
+                        Invoice summary
                       </p>
                       <p className="text-xs text-gray-400">
-                        Assigned monthly {showFullInvoice ? 'seats that renewed' : 'that will renew'} for {formatDate(selectedInvoice.InvoiceDate || selectedInvoice.OrderDate)}
+                        GST invoice for services paid, dated {formatDate(selectedInvoice.InvoiceDate || selectedInvoice.OrderDate)}
                       </p>
                     </div>
 
@@ -639,13 +687,7 @@ const InvoiceProfile = () => {
                             {formatCurrency(selectedInvoiceBreakdown.total)}
                           </span>
                         </div>
-                        <div className="flex items-start gap-2 p-3 rounded-lg bg-[#E4ECFF]">
-                          <FiAlertCircle className="w-4 h-4 text-[#1E2746] mt-0.5 flex-shrink-0" />
-                          <p className="text-xs text-[#1E2746]">
-                            Upgrade to an annual plan for a{' '}
-                            <span className="underline cursor-pointer">20% discount</span>
-                          </p>
-                        </div>
+
                       </>
                     ) : (
                       <div className="space-y-2 mb-2">

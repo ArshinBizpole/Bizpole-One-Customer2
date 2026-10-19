@@ -11,10 +11,13 @@ export const loginWithPhone = async (phone) => {
 };
 
 // `referralToken` = stored referral scan token (see utils/referralAttribution); omitted when absent.
-export const signupWithPhone = async (name, email, phone, referralToken) => {
+// state: the customer's state — saved on the Customer and used to pick the
+// franchisee serving it (the server no longer assumes Kerala / franchisee 1).
+export const signupWithPhone = async (name, email, phone, referralToken, state) => {
   try {
     const body = { name, email, phone };
     if (referralToken) body.referralToken = referralToken;
+    if (state) body.state = state;
     const response = await axiosInstance.post("/website-signup", body);
     return response.data;
   } catch (error) {
@@ -39,3 +42,14 @@ export const verifyOtp = async (phone, otp) => {
 };
 
 
+
+// Sign in with the one-tap link sent on WhatsApp (document upload links).
+// Returns { token, user, companyId, redirectPath, redirectState }.
+export const magicLogin = async (token) => {
+  try {
+    const response = await axiosInstance.post("/whatsapp-bot/magic-login", { token });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};

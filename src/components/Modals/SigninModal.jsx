@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { loginWithPhone, signupWithPhone, verifyOtp } from "../../api/AuthApi";
+import { getAllStates } from "../../api/States";
 import { setSecureItem } from "../../utils/secureStorage";
 import { notifyTokenSet } from "../../utils/authSession";
 import { clearReferralToken, getReferralToken } from "../../utils/referralAttribution";
@@ -35,6 +36,16 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
   // For sign-up extra fields
   const [signupName, setSignupName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
+  // The customer's state — saved on their account and used to pick the
+  // franchisee serving it (instead of everyone defaulting to Kerala).
+  const [signupState, setSignupState] = useState("");
+  const [stateOptions, setStateOptions] = useState([]);
+  useEffect(() => {
+    if (!isOpen || mode !== "signup" || stateOptions.length) return;
+    getAllStates()
+      .then((rows) => setStateOptions((Array.isArray(rows) ? rows : []).map((r) => r.state_name).filter(Boolean)))
+      .catch(() => {});
+  }, [isOpen, mode, stateOptions.length]);
 
   // Timer countdown for OTP
   useEffect(() => {
@@ -52,7 +63,7 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
   // Request OTP for both sign-in and sign-up
   const handleNextStep = async () => {
     if (mode === "signup") {
-      if (!signupName || !signupEmail || !inputValue) {
+      if (!signupName || !signupEmail || !inputValue || !signupState) {
         alert("Please fill all sign up fields");
         return;
       }
@@ -66,7 +77,7 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
       if (mode === "signup") {
         // Referral scan token (if any, unexpired) rides along; the server attributes the
         // signup from it and ignores it if invalid — it never blocks signup.
-        await signupWithPhone(signupName, signupEmail, inputValue, getReferralToken());
+        await signupWithPhone(signupName, signupEmail, inputValue, getReferralToken(), signupState);
       } else {
         await loginWithPhone(inputValue);
       }
@@ -84,6 +95,7 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
     setOtpValues(["", "", "", ""]);
     setSignupName("");
     setSignupEmail("");
+    setSignupState("");
   };
 
   const handleBackStep = () => {
@@ -242,6 +254,26 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
                       onChange={(e) => setSignupEmail(e.target.value)}
                       className="w-full border border-gray-300 rounded-lg px-4 py-3 outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100 transition-all"
                     />
+                  </motion.div>
+                  <motion.div
+                    className="w-full"
+                    initial={{ y: -10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.19 }}
+                  >
+                    <label className="block text-sm font-medium text-gray-700 mb-2 text-left">
+                      State
+                    </label>
+                    <select
+                      value={signupState}
+                      onChange={(e) => setSignupState(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-white outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100 transition-all"
+                    >
+                      <option value="">Select your state</option>
+                      {stateOptions.map((name) => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
                   </motion.div>
                 </>
               )}

@@ -3,10 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getServiceById, getServicePrice } from "../api/ServicesApi";
 import { upsertQuote } from "../api/Quote";
 import { getSecureItem } from "../utils/secureStorage";
+import { selectSignedInCompany } from "../utils/signedInCompany";
 import { fetchFranchiseeGstInfo, calcGstAmount, splitGst } from "../utils/gstCalc";
 import { proceedToQuote } from "../utils/proceedToQuote";
-import { BUSINESS_TYPE_SERVICE_ID, STATES } from "../components/ExixistingCompany/existingCompanyData";
-import { ToastContainer } from "react-toastify";
+import { goToNewCustomerFlow } from "../utils/newCustomerFlow";
+import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { getAllStates } from "../api/States";
 import SigninModal from "../components/Modals/SigninModal";
@@ -35,45 +36,6 @@ const parsePriceResponse = (res) => {
   return res?.data?.Price || null;
 };
 
-// A new customer has no customer/company data to quote against yet, so
-// "Proceed to Quote" opens the Start New Company application matching the
-// service on this page (it collects their details and makes the quote at the
-// end). Returns the route state for /startbusiness/apply, or null when no
-// application fits — the "What would you like to register?" menu then.
-const BUSINESS_TYPE_BY_SERVICE_ID = Object.fromEntries(
-  Object.entries(BUSINESS_TYPE_SERVICE_ID).map(([type, id]) => [id, type])
-);
-const newCustomerFlowFor = (service) => {
-  const id = Number(service?.ServiceID);
-  const name = String(service?.ServiceName || service?.Name || "");
-  const category = String(service?.Category?.CategoryName || "");
-  if (BUSINESS_TYPE_BY_SERVICE_ID[id]) {
-    return { flowId: "newco", initialSet: { businessType: BUSINESS_TYPE_BY_SERVICE_ID[id] } };
-  }
-  if (id === 281 || /gst\s*regist/i.test(name)) return { flowId: "gst" };
-  if (id === 344 || /trade\s*mark/i.test(name)) return { flowId: "trademark" };
-  if (/msme|udyam/i.test(name)) return { flowId: "msme" };
-  if (/\biec\b|import\s*(&|and|\/)?\s*export/i.test(name)) return { flowId: "iec" };
-  if (/fssai|food/i.test(name)) return { flowId: "fssai" };
-  if (/business\s*regist|incorporat/i.test(category)) return { flowId: "newco" };
-  return null;
-};
-
-// The address State field of each application (addressFields prefix + "state").
-const ADDRESS_STATE_KEY = { newco: "state", gst: "gst_state", msme: "msme_state", iec: "iec_state", fssai: "other_state" };
-
-// Carries the state picked on this page into the application: the Details
-// tab's State (leadState) and the address step's State. Only names spelled as
-// the application's own state list are passed on.
-const withPickedState = (flow, stateName) => {
-  if (!STATES.includes(stateName) || stateName === "Other") return flow;
-  const addressKey = ADDRESS_STATE_KEY[flow.flowId];
-  return {
-    ...flow,
-    initialSet: { ...flow.initialSet, leadState: stateName, ...(addressKey && { [addressKey]: stateName }) },
-  };
-};
-
 // embedded: shown inside another page (e.g. Pricing & Plans) instead of the /services/:id route —
 // takes serviceId as a prop, shows a Back button, and drops the public-site layout and Get Started CTA.
 const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
@@ -99,7 +61,7 @@ const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
   const [pendingAdd, setPendingAdd] = useState(false);
   const [activeTab, setActiveTab] = useState("eligibility");
 
-  const { cart, addToCart } = useContext(CartContext);
+  const { cart, addToCart, clearCart } = useContext(CartContext);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [showSigninModal, setShowSigninModal] = useState(false);
 
@@ -268,20 +230,22 @@ const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
     addToCart(service.ServiceID, { ...priceObj, ServiceName: service?.Name || service?.ServiceName });
   };
 
+  const pickedStateName = allStates.find((s) => String(s.id || s.StateID) === String(stateId))?.state_name || "";
+
   // Same as "Proceed to Quote" on the Services page: quotes the whole selection
   // and opens the quote preview in a new tab.
   const handleProceedToQuote = async () => {
     // New customer (not signed in, or no company yet) — collect their details
     // through the matching Start New Company application instead.
     if (!localStorage.getItem('token') || !getSecureItem("selectedCompany")?.CompanyID) {
-      const flow = newCustomerFlowFor(service);
-      const stateName = allStates.find((s) => String(s.id || s.StateID) === String(stateId))?.state_name || "";
-      navigate(flow ? "/startbusiness/apply" : "/startbusiness/services", flow ? { state: withPickedState(flow, stateName) } : undefined);
+      goToNewCustomerFlow(navigate, [service], pickedStateName);
       return;
     }
     setQuoteLoading(true);
     try {
-      await proceedToQuote({ cart, services: service ? [{ ...service, ServiceName: service.ServiceName || service.Name }] : [] });
+      const quoteId = await proceedToQuote({ cart, services: service ? [{ ...service, ServiceName: service.ServiceName || service.Name }] : [] });
+      // Quoted — the selection is done with, so clear it.
+      if (quoteId) clearCart();
     } finally {
       setQuoteLoading(false);
     }
@@ -409,7 +373,21 @@ const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
   return (
     <>
       {!embedded && <ToastContainer position="top-right" autoClose={3000} />}
-      <SigninModal isOpen={showSigninModal} onClose={() => setShowSigninModal(false)} />
+      <SigninModal
+        isOpen={showSigninModal}
+        onClose={() => setShowSigninModal(false)}
+        // Stay on this service with the selection intact instead of jumping to the dashboard.
+        onSuccess={(tokenData) => {
+          selectSignedInCompany(tokenData?.user || getSecureItem("user"));
+          setShowSigninModal(false);
+          toast.success("Signed in. You can request your quote now.");
+        }}
+        // New customer: this service's application collects their details and makes the quote.
+        onSignup={() => {
+          setShowSigninModal(false);
+          goToNewCustomerFlow(navigate, [service], pickedStateName);
+        }}
+      />
       <div className={embedded ? "pb-10 font-sans" : "bg-gray-100 min-h-screen pt-10 pb-20 font-sans mt-26"}>
         <div className={embedded ? "" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}>
           {embedded && onBack && (
