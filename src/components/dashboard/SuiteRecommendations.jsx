@@ -61,11 +61,11 @@ const SuiteRecommendations = () => {
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-800 to-gray-700 p-5 text-white">
           <BookOpen className="absolute -right-3 -top-3 h-24 w-24 opacity-10" />
           <div className="text-[11px] font-bold uppercase tracking-wide opacity-85">
-            Bizpole Books · Accounting
+            Journl · Accounting
           </div>
           <h4 className="my-2 text-lg font-bold">You're filing GST manually.</h4>
           <p className="mb-4 max-w-md text-[12.5px] leading-relaxed opacity-90">
-            Bizpole Books auto-prepares your GST returns, tracks invoices & expenses, and syncs straight
+            Journl auto-prepares your GST returns, tracks invoices & expenses, and syncs straight
             into your compliance score. Stop juggling spreadsheets.
           </p>
           <button className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-xs font-bold text-gray-800">

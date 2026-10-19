@@ -17,9 +17,9 @@ export default function Navbar() {
   const navItems = [
     { label: "Services", path: "/services" },
     { label: "Product", path: "/products" },
-    { label: "Bizpole One", path: "/bizpoleone" },
-    { label: "Trademark Search", path: "/trademark-search" },
+    { label: "Bizpole One", path: "/bizpoleone", isNew: true },
     { label: "Partners", path: "/partners" },
+    { label: "Trademark Search", path: "/trademark-search" },
   ];
 
   // Auto-open Signin Modal
@@ -59,43 +59,77 @@ export default function Navbar() {
     setMobileMenuOpen(false);
   };
 
+  // The Bizpole One page's hero shape runs up behind the nav, so the nav floats
+  // over it instead of taking its own row.
+  const isBizpoleOnePage = location.pathname === "/bizpoleone";
+
   return (
     <>
       {/* NAVBAR */}
-      <nav className="relative z-50 w-full bg-white border-b border-gray-200 shadow-sm">
-        <div className="px-6 py-3 flex items-center justify-between">
+      <nav className={`${isBizpoleOnePage ? "absolute top-0 left-0 right-0" : "relative"} z-50 w-full bg-transparent`}>
+        <div className="h-20 lg:h-24 px-4 sm:px-6 lg:px-10 flex items-center justify-between gap-4">
           {/* LOGO */}
           <div
             onClick={() => navigate("/")}
             className="cursor-pointer flex items-center"
           >
-            <img
-              src="/Images/image.png"
-              alt="Bizpole Logo"
-              className="h-10"
-            />
+            {hasToken || isBizpoleOnePage ? (
+              <img src="/Images/image.png" alt="Bizpole One" className="h-10 sm:h-12 lg:h-14 w-auto" />
+            ) : (
+              // mix-blend keeps the logo's white backdrop from showing on tinted pages
+              <img src="/Images/logo.webp" alt="Bizpole" className="h-10 sm:h-12 lg:h-14 w-auto mix-blend-multiply" />
+            )}
           </div>
 
           {/* DESKTOP MENU */}
-          <ul className="hidden md:flex items-center gap-8 font-medium text-sm">
+          <ul className="hidden lg:flex items-center gap-7 xl:gap-12 font-medium text-base xl:text-lg">
             {navItems.map((item, index) => {
               const isActive = location.pathname === item.path;
 
               return (
                 <li key={index} className="relative">
-                  <button
-                    onClick={() => handleNavigate(item.path)}
-                    className={`transition-all duration-300 ${
-                      isActive
-                        ? "text-black"
-                        : "text-gray-600 hover:text-black"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
+                  {item.isNew ? (
+                    // Highlighted pill with a "New" badge (design: 3.jpg)
+                    <button
+                      onClick={() => handleNavigate(item.path)}
+                      className={`relative px-4 py-1.5 rounded-full border text-black transition-all duration-300 ${
+                        isActive
+                          ? "bg-[#FCE38A] border-[#F5C518]"
+                          : "bg-[#FEF1B8] border-[#FBE08A] hover:bg-[#FCE38A]"
+                      }`}
+                    >
+                      {item.label}
+                      <span className="absolute -top-2.5 right-3 rounded-full bg-[#F5C518] px-1.5 py-[1px] text-[9px] font-semibold leading-tight text-black shadow-sm">
+                        New
+                        {/* Three short rays fanning out from the badge's top-right corner */}
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 16 16"
+                          className="absolute -top-3 -right-3 h-4 w-4 text-[#F5C518] pointer-events-none"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                        >
+                          <path d="M4.5 7.5 L5.5 2.5" />
+                          <path d="M7.5 9 L11.5 5" />
+                          <path d="M8.5 12 L13.5 11" />
+                        </svg>
+                      </span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleNavigate(item.path)}
+                      className={`transition-all duration-300 ${
+                        isActive ? "text-black" : "text-gray-800 hover:text-black"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  )}
 
-                  {/* Active underline */}
-                  {isActive && (
+                  {/* Active underline (the pill marks its own active state) */}
+                  {isActive && !item.isNew && (
                     <motion.div
                       layoutId="nav-underline"
                       className="absolute -bottom-2 left-0 right-0 h-[2px] bg-black rounded-full"
@@ -107,14 +141,14 @@ export default function Navbar() {
           </ul>
 
           {/* RIGHT SIDE */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden lg:flex items-center gap-3">
             {hasToken ? (
               <>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => navigate("/dashboard/bizpoleone")}
-                  className="px-5 py-2 rounded-full bg-black text-white text-sm font-medium shadow-md"
+                  className="px-5 xl:px-6 py-2.5 rounded-full text-sm xl:text-base font-medium shadow-md bg-black text-white"
                 >
                   Dashboard →
                 </motion.button>
@@ -127,7 +161,7 @@ export default function Navbar() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setShowSignin(true)}
-                  className="px-5 py-2 rounded-full text-sm font-medium text-gray-700 hover:text-black"
+                  className="px-5 py-2.5 rounded-full text-sm xl:text-base font-medium text-gray-700 hover:text-black"
                 >
                   Sign In
                 </motion.button>
@@ -137,7 +171,7 @@ export default function Navbar() {
                   whileHover={{ scale: 1.07 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => navigate("/startbusiness")}
-                  className="px-6 py-2 rounded-full bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-semibold shadow-lg"
+                  className="px-5 xl:px-7 py-2.5 xl:py-3 rounded-full bg-gradient-to-r from-yellow-400 to-yellow-500 text-black text-sm xl:text-base font-semibold shadow-lg"
                 >
                   Get Started Business
                 </motion.button>
@@ -146,13 +180,13 @@ export default function Navbar() {
           </div>
 
           {/* MOBILE: profile (when signed in) + menu button */}
-          <div className="md:hidden flex items-center gap-3">
+          <div className="lg:hidden flex items-center gap-3">
             {hasToken && <ProfileMenu />}
             <button
               className="text-black"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
-              {mobileMenuOpen ? <FaTimes size={22} /> : <FaBars size={22} />}
+              {mobileMenuOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
             </button>
           </div>
         </div>
@@ -165,16 +199,21 @@ export default function Navbar() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
-              className="md:hidden mt-3 mx-3 rounded-2xl bg-white shadow-xl border border-gray-200"
+              className="lg:hidden absolute left-3 right-3 top-full rounded-2xl bg-white shadow-xl border border-gray-200"
             >
               <ul className="flex flex-col p-6 space-y-5 text-gray-800">
                 {navItems.map((item, index) => (
                   <li key={index}>
                     <button
                       onClick={() => handleNavigate(item.path)}
-                      className="w-full text-left text-lg font-medium hover:text-black transition"
+                      className={`w-full text-left text-base sm:text-lg font-medium hover:text-black transition ${location.pathname === item.path ? "text-black" : ""}`}
                     >
                       {item.label}
+                      {item.isNew && (
+                        <span className="ml-2 align-middle rounded-full bg-[#F5C518] px-2 py-[2px] text-[10px] font-semibold text-black">
+                          New
+                        </span>
+                      )}
                     </button>
                   </li>
                 ))}

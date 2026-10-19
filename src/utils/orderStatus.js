@@ -38,14 +38,42 @@ export function getOrderStatusLabel(value) {
   return orderStatusList.find((s) => s.value === n)?.label ?? 'In Process';
 }
 
+// The only service statuses a customer may see — same words as the order list.
+export const CUSTOMER_SERVICE_STATUSES = ['Not Started', 'In Process', 'On Hold', 'Completed', 'Cancelled', 'Dropped'];
+
+// Internal service states (serviceassignment Status / quoteservicedetails StatusRemark),
+// keyed with case, spaces and punctuation stripped. Team routing steps (queue,
+// team-lead acceptance, approval) and the 48h-SLA "expired" signal are internal
+// workflow — to the customer that is all just "In Process".
+const SERVICE_STATUS_TO_CUSTOMER = {
+  pending: 'Not Started',
+  pendingacceptence: 'Not Started',
+  pendingacceptance: 'Not Started',
+  serviceinque: 'Not Started',
+  assigned: 'In Process',
+  teamleadaccepted: 'In Process',
+  approved: 'In Process',
+  inprogress: 'In Process',
+  inprocess: 'In Process',
+  expired: 'In Process',
+  onhold: 'On Hold',
+  completed: 'Completed',
+  closed: 'Completed',
+  forceclosed: 'Completed',
+  cancelled: 'Cancelled',
+  dropped: 'Dropped',
+};
+
 /**
- * Same masking for the free-text service status strings (serviceassignment
- * Status / quoteservicedetails StatusRemark), which reach the portal verbatim
- * and can literally read "expired".
+ * Map a free-text service status to one of CUSTOMER_SERVICE_STATUSES. These strings
+ * reach the portal verbatim and have included "expired", "Pending-Acceptence" and
+ * script tags like "backfill-20260724". Anything unrecognised is "In Process" — a
+ * service that still exists still has work outstanding.
  */
 export function toCustomerServiceStatus(status) {
-  const raw = String(status ?? '').trim();
-  if (!raw) return 'Pending';
-  if (raw.toLowerCase().replace(/\s+/g, '').includes('expir')) return 'In Process';
-  return raw;
+  const key = String(status ?? '').toLowerCase().replace(/[^a-z]/g, '');
+  if (!key) return 'Not Started';
+  if (SERVICE_STATUS_TO_CUSTOMER[key]) return SERVICE_STATUS_TO_CUSTOMER[key];
+  if (key.includes('dropped')) return 'Dropped'; // "client dropped", "customer service dropped"
+  return 'In Process';
 }

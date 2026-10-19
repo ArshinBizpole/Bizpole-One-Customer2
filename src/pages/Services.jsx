@@ -14,6 +14,7 @@ import { proceedToQuote } from "../utils/proceedToQuote";
 import { motion, AnimatePresence } from "framer-motion";
 import SigninModal from "../components/Modals/SigninModal";
 import ServiceDetails from "./ServiceDetails";
+import PackagePlans from "../components/PackagePlans";
 import { Building2, FileText, Scale, CheckCircle2, Wallet, Globe2, Tag, Sparkles, Briefcase, Receipt, FileCheck2, DollarSign, ShoppingCart, MapPin, ArrowRight, X, Loader2 } from "lucide-react";
 // Icons
 const IconSearch = () => (
@@ -377,6 +378,8 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
   const [services, setServices] = useState([]);
   // embedded only: service whose "Know More" details are shown in place of the list
   const [detailServiceId, setDetailServiceId] = useState(embedded ? initialServiceId : null);
+  // Public page only: packages tab (default) or the individual-services list
+  const [view, setView] = useState("packages");
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -609,7 +612,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
           goToNewCustomerFlow(navigate, signinService ? [signinService] : selected, stateName);
         }}
       />
-      <div className={embedded ? "" : "min-h-screen bg-gray-50"}>
+      <div className={embedded ? "" : "min-h-screen bg-gray-50 -mt-20 lg:-mt-24 pt-20 lg:pt-24"}>
 
         {/* State selection modal */}
         {showStateModal && (
@@ -692,20 +695,45 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
         )}
         {/* Page Header */}
         {!embedded && <div className=" border-b border-gray-100">
-          <div className="max-w-7xl mt-26 mb-18 mx-auto px-6 py-10 text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 text-[#c9a700] text-xs font-semibold rounded-full mb-4 border border-amber-100">
-              <IconStar /> Explore Our Services
-            </div>
-            <h1 className="text-4xl md:text-5xl font-bold  text-gray-900 mb-3">
-              Choose Your Perfect Service
+          <div className="max-w-7xl mx-auto px-6 pt-10 pb-10 text-center">
+            <h1 className="text-3xl md:text-4xl font-bold text-[#F3C625] mb-3">
+              The Right Plan for Your Business
             </h1>
             <p className="text-gray-500 max-w-lg mx-auto text-sm">
-              Professional business services tailored to help your company thrive in today's competitive market
+              Pick a ready-made package that bundles the services your business needs, or choose individual services and pay only for what you use.
             </p>
+
+            {/* Package / individual service tabs */}
+            <div className="mt-7 inline-flex flex-wrap justify-center gap-3">
+              <button
+                onClick={() => setView("packages")}
+                className={`px-5 py-2 rounded-full text-sm font-semibold border transition-all ${view === "packages"
+                  ? "bg-gray-900 border-gray-900 text-white shadow-md"
+                  : "bg-white border-gray-300 text-gray-600 hover:text-gray-900"
+                  }`}
+              >
+                Package
+              </button>
+              <button
+                onClick={() => setView("services")}
+                className={`px-5 py-2 rounded-full text-sm font-semibold border transition-all ${view === "services"
+                  ? "bg-[#FFFBEA] border-[#F3C625] text-black shadow-md"
+                  : "bg-white border-[#F3C625] text-gray-700 hover:text-gray-900"
+                  }`}
+              >
+                Choose individual service
+              </button>
+            </div>
           </div>
         </div>}
 
-        <div className={`flex flex-col lg:flex-row gap-4 lg:gap-6 ${embedded ? "" : "max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8"}`}>
+        {!embedded && view === "packages" && (
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 py-8 sm:py-10">
+            <PackagePlans />
+          </div>
+        )}
+
+        {(embedded || view === "services") && <div className={`flex flex-col lg:flex-row gap-4 lg:gap-6 ${embedded ? "" : "max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8"}`}>
           {/* Sidebar */}
           <motion.aside
             initial={false}
@@ -994,7 +1022,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4"
+                  className={`grid grid-cols-1 md:grid-cols-2 ${embedded ? "2xl:grid-cols-3" : "xl:grid-cols-3"} gap-4`}
                 >
                   {Array.from({ length: 4 }).map((_, i) => (
                     <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5 animate-pulse">
@@ -1037,7 +1065,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
                 </motion.div>
               ) : (
                 <motion.div key="grid" layout>
-                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+                  <div className={`grid grid-cols-1 md:grid-cols-2 ${embedded ? "2xl:grid-cols-3" : "xl:grid-cols-3"} gap-4`}>
                     {services.map((service) => (
                       <ServiceCard
                         key={service.ServiceID}
@@ -1095,7 +1123,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
               )}
             </AnimatePresence>
           </div>
-        </div>
+        </div>}
       </div>
     </>
   );

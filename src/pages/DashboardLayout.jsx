@@ -4,6 +4,7 @@ import NotificationBell from "../components/NotificationBell";
 import GlobalSearch from "../components/GlobalSearch";
 import { setSecureItem, getSecureItem } from "../utils/secureStorage";
 import axiosInstance from "../api/axiosInstance";
+import { JOURNL_URL } from "../utils/externalLinks";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 import {
   BookOpen,
@@ -18,7 +19,6 @@ import {
 export const DashboardContext = createContext();
 
 const DashboardLayout = () => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // The mobile menu floats over the page — close it once the user navigates.
   const { pathname } = useLocation();
@@ -202,24 +202,10 @@ const DashboardLayout = () => {
     setShowCompanyDropdown(false);
   };
 
-  // ✅ Auto collapse on smaller screens
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 1024) {
-        setIsSidebarOpen(true);
-      } else {
-        setIsSidebarOpen(false);
-      }
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  // ✅ Updated sidebar menu items with new icons
+  // Products — listed in the mobile header menu (desktop: the profile menu).
   const menuItems = [
     { name: "Bizpole One", path: "/dashboard/bizpoleone", icon: Layers },
-    { name: "Bizpole Books", path: "/dashboard/books", icon: BookOpen },
+    { name: "Journl", href: JOURNL_URL, icon: BookOpen }, // own site — new tab
   ];
 const uniqueCompanies = Array.from(
   new Map(
@@ -357,7 +343,18 @@ const uniqueCompanies = Array.from(
             <nav className="border-t pt-3">
               <ul className="grid grid-cols-2 gap-2">
                 {menuItems.map((item) => (
-                  <li key={item.path}>
+                  <li key={item.path || item.href}>
+                    {item.href ? (
+                      <a
+                        href={item.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition bg-gray-50 text-gray-700 hover:bg-gray-100"
+                      >
+                        <item.icon size={18} />
+                        {item.name}
+                      </a>
+                    ) : (
                     <NavLink
                       to={item.path}
                       className={({ isActive }) =>
@@ -369,6 +366,7 @@ const uniqueCompanies = Array.from(
                       <item.icon size={18} />
                       {item.name}
                     </NavLink>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -378,85 +376,9 @@ const uniqueCompanies = Array.from(
         </div>
 
         {/* ✅ Main Section */}
-        <div className="flex flex-1 min-h-0 lg:p-2">
-          {/* Sidebar (desktop — on mobile its links are in the header menu) */}
-          <div
-            className={`bg-[#221e1e] text-white transition-all duration-300
-            ${isSidebarOpen ? "w-60" : "w-16"}
-            hidden lg:flex flex-col justify-between rounded-xl shadow-md overflow-y-auto`}
-          >
-            {/* Sidebar Top */}
-            <div>
-              {/* Toggle + Title */}
-              <div className="p-4 border-b border-gray-700 flex justify-between items-center">
-                {isSidebarOpen && (
-                  <span className="font-bold text-lg tracking-wide">
-                    Bizpole
-                  </span>
-                )}
-                <button
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="p-2 rounded hover:bg-gray-800"
-                >
-                  {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
-                </button>
-              </div>
-
-              {/* Menu Items */}
-              <nav className="mt-4 px-2">
-                <ul className="space-y-2">
-                  {menuItems.map((item, index) => (
-                    <li key={index}>
-                      <NavLink
-                        to={item.path}
-                        className={({ isActive }) =>
-                          `flex items-center gap-3 py-3 px-3 rounded-lg transition
-                        ${
-                          isActive
-                            ? "bg-gray-700 text-white"
-                            : "text-gray-300 hover:bg-gray-700 hover:text-white"
-                        }`
-                        }
-                      >
-                        <item.icon size={isSidebarOpen ? 24 : 20} />
-                        {isSidebarOpen && (
-                          <span className="text-sm font-medium">
-                            {item.name}
-                          </span>
-                        )}
-                      </NavLink>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            </div>
-
-            {/* Help / Logout removed from the sidebar — Log out now lives in
-                the header profile menu (ProfileMenu). */}
-          </div>
-
-          {/* Sidebar Bottom */}
-          {/* <div className="p-4 border-t border-gray-700 flex flex-col space-y-2">
-            <NavLink
-              to="/help"
-              className="flex items-center gap-3 py-2 px-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white"
-            >
-              <HelpCircle size={isSidebarOpen ? 24 : 20} />
-              {isSidebarOpen && <span className="text-sm font-medium">Help</span>}
-            </NavLink>
-             <button
-      onClick={() => setShowConfirm(true)}
-      className="flex items-center gap-3 py-2 px-3 rounded-lg text-red-500 hover:bg-gray-700 hover:text-red-400"
-    >
-      <LogOut size={isSidebarOpen ? 24 : 20} />
-      {isSidebarOpen && <span className="text-sm font-medium">Logout</span>}
-
-
-    </button>
-   
-          </div> */}
+        <div className="flex flex-1 min-h-0">
           {/* Page Content */}
-          <main className="flex-1 min-w-0 bg-gray-50 overflow-auto lg:rounded-xl">
+          <main className="flex-1 min-w-0 bg-gray-50 overflow-auto">
             <Outlet /> {/* ✅ Nested Dashboard Routes */}
           </main>
         </div>
