@@ -105,7 +105,14 @@ export function inProgressApplications() {
     if (belongsToOtherCustomer(saved)) continue;
     const touched = saved.stepIndex > 0 || Object.keys(saved.answers || {}).length > 0;
     if (!touched) continue;
-    out.push({ flowId, name: FLOWS[flowId].name, kind: FLOWS[flowId].kind, step: (saved.stepIndex || 0) + 1 });
+    out.push({
+      flowId,
+      name: FLOWS[flowId].name,
+      kind: FLOWS[flowId].kind,
+      step: (saved.stepIndex || 0) + 1,
+      stepIndex: saved.stepIndex || 0,
+      answers: saved.answers || {},
+    });
   }
   return out;
 }

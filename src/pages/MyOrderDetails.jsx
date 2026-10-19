@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import CryptoJS from 'crypto-js';
 import { getInvoiceDetails } from '../api/Companyinvoice';
-import { initPayment } from '../api/Orders/Order';
+import { initPayment, getOrdersByCompanyId, getCompanyIdFromStorage } from '../api/Orders/Order';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { getSecureItem } from '../utils/secureStorage';
@@ -50,9 +50,58 @@ const MyOrderDetails = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Get order data from navigation state
-  const order = location.state?.order || {};
-  const IsIndividual = location.state?.IsIndividual || 0;
+  // The order comes from navigation state when opened from the orders list. The
+  // URL also carries ?id= (and ?ind=), so a refresh or a shared link can rebuild
+  // it: first from this tab's session copy, else from the company's orders.
+  const [searchParams] = useSearchParams();
+  const orderKey = searchParams.get('id');
+  const stateOrder = location.state?.order || null;
+  const sessionKey = orderKey ? `orderDetails:${orderKey}` : null;
+  const [restored, setRestored] = useState(() => {
+    if (stateOrder || !sessionKey) return null;
+    try { return JSON.parse(sessionStorage.getItem(sessionKey) || 'null'); } catch { return null; }
+  });
+  const [loadingOrder, setLoadingOrder] = useState(!stateOrder && !!orderKey && !restored);
+
+  useEffect(() => {
+    if (!stateOrder || !sessionKey) return;
+    try {
+      sessionStorage.setItem(sessionKey, JSON.stringify({ order: stateOrder, IsIndividual: location.state?.IsIndividual || 0 }));
+    } catch { /* storage full or blocked — the state copy still works */ }
+  }, [stateOrder, sessionKey, location.state?.IsIndividual]);
+
+  useEffect(() => {
+    if (stateOrder || restored || !orderKey) return;
+    const companyId = getCompanyIdFromStorage();
+    if (!companyId) { setLoadingOrder(false); return; }
+    const ind = searchParams.get('ind');
+    let cancelled = false;
+    getOrdersByCompanyId({ companyId, page: 1, limit: 100, IsIndividual: ind === null ? undefined : Number(ind) })
+      .then((res) => {
+        if (cancelled) return;
+        const rows = Array.isArray(res?.data) ? res.data : [];
+        const row = rows.find((r) => String(r.OrderPK) === orderKey || String(r.OrderID) === orderKey);
+        if (row) setRestored({ order: row, IsIndividual: Number(ind) || 0 });
+      })
+      .catch(() => { /* falls through to "No Order Found" */ })
+      .finally(() => { if (!cancelled) setLoadingOrder(false); });
+    return () => { cancelled = true; };
+  }, [stateOrder, restored, orderKey, searchParams]);
+
+  const order = stateOrder || restored?.order || {};
+  const IsIndividual = location.state?.IsIndividual ?? restored?.IsIndividual ?? 0;
+
+  // Real dates only: the order date, the last update, and an estimate of
+  // completion from the services' task TAT (TotalTAT days, from the server).
+  const fmtDate = (d) => {
+    if (!d) return null;
+    const dt = new Date(d);
+    return Number.isNaN(dt.getTime()) ? null : dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+  const placedAt = order.CreatedAt || order.CreatedDate || order.order_date || null;
+  const maxTatDays = Math.max(0, ...(Array.isArray(order.ServiceDetails) ? order.ServiceDetails : []).map((s) => Number(s.TotalTAT) || 0));
+  const estCompletion = order.EstCompletionDate
+    || (placedAt && maxTatDays > 0 ? new Date(new Date(placedAt).getTime() + Math.ceil(maxTatDays) * 86400000) : null);
 
   const isIndividualService = IsIndividual === 1; // Check if it's individual service
 
@@ -68,22 +117,43 @@ const MyOrderDetails = () => {
       { stage: 'Completed', key: 4 },
     ];
 
+    // Dropped / Cancelled end the journey after "Order Placed".
+    if (statusValue === 6 || statusValue === 7) {
+      return [
+        { stage: 'Order Placed', key: 1, completed: true, date: fmtDate(placedAt) || '—' },
+        {
+          stage: statusValue === 6 ? 'Dropped' : 'Cancelled',
+          key: 2,
+          completed: true,
+          tone: 'danger',
+          date: fmtDate(order.UpdatedAt) ? `Updated ${fmtDate(order.UpdatedAt)}` : '—',
+        },
+      ];
+    }
+
     let completedIdx = 0;
     if (statusValue === 1) completedIdx = 0;      // Not Started
     else if (statusValue === 2) completedIdx = 1; // Action Required
     else if (statusValue === 3) completedIdx = 2; // In Process
     else if (statusValue === 4) completedIdx = 3; // Completed
     else if (statusValue === 5) completedIdx = 2; // On Hold -> stalled mid-progress
-    else if (statusValue === 6) completedIdx = 1; // Dropped
-    else if (statusValue === 7) completedIdx = 0; // Cancelled
 
-    return steps.map((step, idx) => ({
-      ...step,
-      completed: idx <= completedIdx,
-      date: idx <= completedIdx && (order.CreatedAt || order.CreatedDate)
-        ? new Date(order.CreatedAt || order.CreatedDate).toLocaleDateString()
-        : 'N/A',
-    }));
+    // Name the current step for what it really is.
+    if (statusValue === 2) steps[1] = { ...steps[1], stage: 'Action required from you', tone: 'warn' };
+    if (statusValue === 5) steps[2] = { ...steps[2], stage: 'On hold', tone: 'warn' };
+
+    const lastUpdated = fmtDate(order.UpdatedAt);
+    const expected = fmtDate(estCompletion);
+    const last = steps.length - 1;
+    return steps.map((step, idx) => {
+      let date;
+      if (idx === 0) date = fmtDate(placedAt) || '—';
+      else if (idx === completedIdx) date = lastUpdated ? `Updated ${lastUpdated}` : 'Current step';
+      else if (idx < completedIdx) date = 'Done';
+      else if (idx === last && expected) date = `Expected by ${expected}`;
+      else date = 'Pending';
+      return { ...step, completed: idx <= completedIdx, date };
+    });
   };
 
   const getOrderItems = () => {
@@ -295,6 +365,14 @@ const MyOrderDetails = () => {
     navigate('/dashboard/bizpoleone/tasks', { state: { serviceId: item.ServiceDetailsID, service: item } });
   };
 
+  if (loadingOrder) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-4">
+        <div className="inline-block w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   if (!order || !order.OrderID) {
     return (
       <motion.div
@@ -307,7 +385,7 @@ const MyOrderDetails = () => {
           <h3 className="text-2xl font-bold text-gray-800 mb-2">No Order Found</h3>
           <p className="text-gray-600 mb-6">Please go back and select an order to view details.</p>
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/dashboard/bizpoleone/individual')}
             className="px-6 py-3 bg-amber-400 text-black rounded-full hover:bg-amber-500 transition font-medium"
           >
             Go Back
@@ -397,9 +475,9 @@ const MyOrderDetails = () => {
                 <p className="text-xs text-gray-400 mb-1">Est. Completion</p>
                 <p className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                  {order.EstCompletionDate
-                    ? new Date(order.EstCompletionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                    : 'N/A'}
+                  {estCompletion && toCustomerOrderStatus(order.OrderStatus || order.Status) !== 4
+                    ? fmtDate(estCompletion)
+                    : toCustomerOrderStatus(order.OrderStatus || order.Status) === 4 ? 'Completed' : 'N/A'}
                 </p>
               </div>
               <div className="bg-gray-50 rounded-xl p-3">
@@ -432,9 +510,9 @@ const MyOrderDetails = () => {
                     {index !== timelineSteps.length - 1 && (
                       <div className={`absolute left-[5px] top-3 w-0.5 h-full ${step.completed ? 'bg-amber-300' : 'bg-gray-200'}`} />
                     )}
-                    <span className={`relative z-10 w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${step.completed ? 'bg-amber-400' : 'bg-gray-200'}`} />
+                    <span className={`relative z-10 w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${step.tone === 'danger' ? 'bg-red-400' : step.tone === 'warn' ? 'bg-orange-400' : step.completed ? 'bg-amber-400' : 'bg-gray-200'}`} />
                     <div className="ml-4">
-                      <p className={`text-sm font-medium ${step.completed ? 'text-gray-900' : 'text-gray-400'}`}>
+                      <p className={`text-sm font-medium ${step.tone === 'danger' ? 'text-red-600' : step.tone === 'warn' ? 'text-orange-600' : step.completed ? 'text-gray-900' : 'text-gray-400'}`}>
                         {step.stage}
                       </p>
                       <p className="text-xs text-gray-400 mt-0.5">{step.date}</p>
@@ -634,9 +712,9 @@ const MyOrderDetails = () => {
                     {index !== timelineSteps.length - 1 && (
                       <div className={`absolute left-[5px] top-3 w-0.5 h-full ${step.completed ? 'bg-amber-300' : 'bg-gray-200'}`} />
                     )}
-                    <span className={`relative z-10 w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${step.completed ? 'bg-amber-400' : 'bg-gray-200'}`} />
+                    <span className={`relative z-10 w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${step.tone === 'danger' ? 'bg-red-400' : step.tone === 'warn' ? 'bg-orange-400' : step.completed ? 'bg-amber-400' : 'bg-gray-200'}`} />
                     <div className="ml-4">
-                      <p className={`text-sm font-medium ${step.completed ? 'text-gray-900' : 'text-gray-400'}`}>
+                      <p className={`text-sm font-medium ${step.tone === 'danger' ? 'text-red-600' : step.tone === 'warn' ? 'text-orange-600' : step.completed ? 'text-gray-900' : 'text-gray-400'}`}>
                         {step.stage}
                       </p>
                       <p className="text-xs text-gray-400 mt-0.5">{step.date}</p>
