@@ -415,7 +415,7 @@ const DirectorPromoterForm = ({ onNext, onBack, initialData }) => {
               )}
             </div>
  <img
-              src="/Images/logo.webp"
+              src="/Images/image.png"
               alt="Bizpole Logo"
               className="h-12 md:h-14 lg:h-14"
             />          </div>

@@ -1,7 +1,6 @@
 // src/layouts/ProfileLayout.jsx
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { setSecureItem, getSecureItem } from "../utils/secureStorage";
-import { clearStorageKeepingApplications } from "../utils/applicationPrefill";
 import {
   LayoutGrid,
   Calendar,
@@ -14,12 +13,12 @@ import {
   X,
   ChevronDown,
   User,
-  LogOut,
   ArrowLeft,
-  Camera,
 } from "lucide-react";
 import { useState, useEffect, createContext } from "react";
-import ConfirmMsg from "../components/ConfirmMsg";
+import ProfileMenu from "../components/ProfileMenu";
+import ProfilePhotoPicker from "../components/ProfilePhotoPicker";
+import { userPhoto } from "../utils/profilePhoto";
 
 export const ProfileCompanyContext = createContext(null);
 
@@ -38,14 +37,22 @@ const ProfileLayout = () => {
   const [selectedCompany, setSelectedCompany] = useState("");
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+
+  // Close the company dropdown on a click outside it (or Esc).
+  useEffect(() => {
+    if (!showCompanyDropdown) return;
+    const onDown = (e) => { if (!e.target.closest("[data-company-dropdown]")) setShowCompanyDropdown(false); };
+    const onKey = (e) => { if (e.key === "Escape") setShowCompanyDropdown(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [showCompanyDropdown]);
   const [companies, setCompanies] = useState([]);
   const navigate = useNavigate();
-  const profileCompletion = user?.profileCompletion || 80;
 
-  const handlePhotoUpload = () => {
-    // wire this up to your actual upload flow
-    console.log("Open photo upload");
-  };
 
   // Load user and company data from secureStorage (robust parse)
   useEffect(() => {
@@ -105,11 +112,6 @@ const ProfileLayout = () => {
   }, []);
 
   // Handle logout
-  const [showConfirm, setShowConfirm] = useState(false);
-  const handleLogout = () => {
-    clearStorageKeepingApplications();
-    navigate("/");
-  };
 
   // Handle back to dashboard - MOVED INSIDE THE COMPONENT
   const handleBackToDashboard = () => {
@@ -122,13 +124,13 @@ const ProfileLayout = () => {
       <header className="bg-white px-6 py-3 flex justify-between items-center shadow-sm fixed top-0 left-0 right-0 z-50">
         {/* Logo */}
         <div className="flex items-center">
-          <img src="/Images/logo.webp" alt="Bizpole Logo" className="h-14" />
+          <img src="/Images/image.png" alt="Bizpole Logo" className="h-14" />
         </div>
 
         {/* Desktop Right Section */}
         <div className="hidden lg:flex items-center space-x-6">
           {/* Company Selector */}
-          <div className="relative">
+          <div className="relative" data-company-dropdown>
             <button
               className="px-6 py-2 rounded-full font-semibold text-black bg-[#FFC42A40] hover:bg-[#FFC42A70] transition flex items-center gap-2"
               onClick={() => setShowCompanyDropdown((prev) => !prev)}
@@ -193,9 +195,7 @@ const ProfileLayout = () => {
             </button>
 
             {/* Profile */}
-            <NavLink to="/profile" className="flex items-center cursor-pointer">
-              <img src="/Images/user.jpg" alt="Profile" className="w-9 h-9 rounded-full shadow" />
-            </NavLink>
+            <ProfileMenu />
           </div>
         </div>
 
@@ -205,7 +205,7 @@ const ProfileLayout = () => {
             <Bell size={22} className="text-gray-600" />
             <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
           </button>
-          <img src="/Images/user.jpg" alt="Profile" className="w-9 h-9 rounded-full shadow" />
+          <ProfileMenu />
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 rounded hover:bg-gray-100">
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -230,29 +230,22 @@ const ProfileLayout = () => {
                   stroke="#FBBF24"
                   strokeWidth="2"
                   strokeLinecap="round"
-                  strokeDasharray={2 * Math.PI * 45}
-                  strokeDashoffset={2 * Math.PI * 45 * (1 - profileCompletion / 100)}
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
-                {user?.profileImage ? (
-                  <img src={user.profileImage} alt="Profile" className="w-20 h-20 rounded-full object-cover" />
+                {userPhoto(user) ? (
+                  <img src={userPhoto(user)} alt="Profile" className="w-20 h-20 rounded-full object-cover" />
                 ) : (
                   <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">
                     <User size={40} className="text-gray-400" />
                   </div>
                 )}
               </div>
-              <span className="absolute -top-1 -right-1 bg-yellow-400 text-white text-[11px] font-bold w-9 h-9 rounded-full flex items-center justify-center border-4 border-white shadow">
-                {profileCompletion}%
-              </span>
-              <button
-                type="button"
-                onClick={handlePhotoUpload}
-                className="absolute -bottom-1 right-4 bg-yellow-400 hover:bg-yellow-500 text-white w-9 h-9 rounded-full flex items-center justify-center border-4 border-white shadow transition"
-              >
-                <Camera size={16} />
-              </button>
+              <ProfilePhotoPicker
+                className="absolute -bottom-1 right-4"
+                hasPhoto={!!userPhoto(user)}
+                onChange={(url) => setUser((u) => ({ ...u, ProfileImage: url || null, profileImage: url || null }))}
+              />
             </div>
             <h2 className="text-lg font-semibold mt-4 text-gray-900">
               Hello {user?.FirstName || user?.firstName || "User"}
@@ -289,7 +282,7 @@ const ProfileLayout = () => {
         </div>
 
         {/* Bottom Buttons */}
-        <div className="p-6 space-y-4">
+        <div className="px-6 pt-6 pb-28 space-y-4">
           {/* Back to Dashboard Button */}
           <button
             onClick={handleBackToDashboard}
@@ -315,22 +308,7 @@ const ProfileLayout = () => {
             <span>→</span>
           </button> */}
 
-          {/* Logout */}
-          <button onClick={() => setShowConfirm(true)} className=" w-full inline-flex items-center text-center gap-3 px-8 py-4 border border-red-500 text-red-500 rounded-2xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all">
-            <LogOut size={20} />
-            <span className="text-sm font-medium">Logout</span>
-          </button>
-          <ConfirmMsg
-            open={showConfirm}
-            title="Logout"
-            message="Do you want to logout?"
-            confirmText="Logout"
-            cancelText="Cancel"
-            onConfirm={() => { setShowConfirm(false); handleLogout(); }}
-            onCancel={() => setShowConfirm(false)}
-            showCancel={true}
-            variant="delete"
-          />
+          {/* Logout moved to the header profile menu (ProfileMenu). */}
         </div>
       </aside>
 

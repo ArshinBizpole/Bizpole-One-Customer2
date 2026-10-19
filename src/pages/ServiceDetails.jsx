@@ -74,9 +74,12 @@ const withPickedState = (flow, stateName) => {
   };
 };
 
-const ServiceDetails = () => {
+// embedded: shown inside another page (e.g. Pricing & Plans) instead of the /services/:id route —
+// takes serviceId as a prop, shows a Back button, and drops the public-site layout and Get Started CTA.
+const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
   const navigate = useNavigate();
-  const { id: SERVICE_ID } = useParams();
+  const { id: routeServiceId } = useParams();
+  const SERVICE_ID = serviceId ?? routeServiceId;
 
   // State management
   const [service, setService] = useState(null);
@@ -152,26 +155,20 @@ const ServiceDetails = () => {
     }
   }, [stateId]);
 
-  // Use Features from API as Key Benefits
-  const benefits = service?.Features && Array.isArray(service.Features)
-    ? service.Features.map(f => f.FeatureName)
-    : [
-      "Limited Liability Protection",
-      "Separate Legal Entity",
-      "Easy Fund Raising",
-      "Tax Benefits",
-      "Perpetual Succession",
-    ];
+  // Key Benefits = ServiceFeatures. /filterServices sends them as plain names
+  // (["..."]); older responses sent {FeatureName} objects — accept both. No
+  // hard-coded fallback: a service without features just hides the section.
+  const benefits = (Array.isArray(service?.Features) ? service.Features : [])
+    .map(f => (typeof f === "string" ? f : f?.FeatureName))
+    .filter(Boolean);
 
-  // Use Deliverables from API as What's Included
-  const whatsIncluded = service?.Deliverables && Array.isArray(service.Deliverables)
-    ? service.Deliverables.map(d => d.label)
-    : [
-      "Company Name Approval",
-      "MOA & AOA",
-      "Digital Signature",
-      "PAN & TAN",
-    ];
+  // What's Included = ServiceDeliverables for this service only. Some services
+  // have the same deliverable saved several times — show each label once.
+  const whatsIncluded = [...new Set(
+    (Array.isArray(service?.Deliverables) ? service.Deliverables : [])
+      .map(d => (typeof d === "string" ? d : d?.label)?.trim())
+      .filter(Boolean)
+  )];
 
   const tabs = [
     { id: "eligibility", label: "ELIGIBILITY CRITERIA", icon: <FaClipboardCheck size={13} /> },
@@ -250,8 +247,10 @@ const ServiceDetails = () => {
   };
 
   const addToSelection = (priceForState) => {
-    // If price is not available, use a default object
+    // If price is not available, use a zero placeholder flagged priceMissing —
+    // proceedToQuote refuses to quote it rather than inventing a price.
     const priceObj = priceForState || {
+      priceMissing: true,
       ProfessionalFee: 0,
       VendorFee: 0,
       GovtFee: 0,
@@ -409,10 +408,19 @@ const ServiceDetails = () => {
 
   return (
     <>
-      <ToastContainer position="top-right" autoClose={3000} />
+      {!embedded && <ToastContainer position="top-right" autoClose={3000} />}
       <SigninModal isOpen={showSigninModal} onClose={() => setShowSigninModal(false)} />
-      <div className="bg-gray-100 min-h-screen pt-10 pb-20 font-sans mt-26">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className={embedded ? "pb-10 font-sans" : "bg-gray-100 min-h-screen pt-10 pb-20 font-sans mt-26"}>
+        <div className={embedded ? "" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}>
+          {embedded && onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="text-sm font-semibold text-gray-700 hover:text-black"
+            >
+              ← Back to services
+            </button>
+          )}
           {/* Service details fetch status */}
           {loading && (
             <div className="text-center text-gray-500 py-8">Loading service details...</div>
@@ -442,9 +450,14 @@ const ServiceDetails = () => {
                   </div>
 
                   {/* Meta */}
-                  <p className="text-gray-400 text-xs mb-6 ml-12 bg-yellow-50 w-max px-2 py-0.5 rounded-full">
-                    {service?.Category?.CategoryName || "Incorporation"} &nbsp;·&nbsp; ⏱ {service?.EstimatedTAT || service?.Duration || "7–10"} Days
-                  </p>
+                  {(service?.Category?.CategoryName || service?.EstimatedTAT || service?.Duration) && (
+                    <p className="text-gray-400 text-xs mb-6 ml-12 bg-yellow-50 w-max px-2 py-0.5 rounded-full">
+                      {[
+                        service?.Category?.CategoryName,
+                        (service?.EstimatedTAT || service?.Duration) && `⏱ ${service?.EstimatedTAT || service?.Duration} Days`,
+                      ].filter(Boolean).join("  ·  ")}
+                    </p>
+                  )}
 
                   {serviceDescription && (
                     <p className="text-gray-600 text-sm leading-relaxed">
@@ -523,6 +536,7 @@ const ServiceDetails = () => {
                     </motion.button>
 
                     {/* What's Included */}
+                    {whatsIncluded.length > 0 && (
                     <div className="mb-5">
                       <h4 className="text-sm font-extrabold text-gray-900 mb-3">
                         What's Included
@@ -544,6 +558,7 @@ const ServiceDetails = () => {
                         ))}
                       </ul>
                     </div>
+                    )}
 
                     {/* Action Buttons */}
                     <div className="space-y-2">
@@ -599,7 +614,7 @@ const ServiceDetails = () => {
           )}
 
           {/* ── KEY BENEFITS ── */}
-          {service && (
+          {service && benefits.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -704,7 +719,7 @@ const ServiceDetails = () => {
           )}
 
           {/* ── CTA ── */}
-          {service && (
+          {service && !embedded && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}

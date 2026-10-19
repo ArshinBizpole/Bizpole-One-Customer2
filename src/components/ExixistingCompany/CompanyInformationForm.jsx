@@ -103,6 +103,7 @@ import React, { useState, useEffect } from "react";
 import { getAllStates } from "../../api/States";
 import { assignCustomer } from "../../api/CustomerApi";
 import { setSecureItem } from "../../utils/secureStorage";
+import { sanitize } from "../../utils/formValidation";
 
 const CompanyInformationForm = ({ onNext, initialData }) => {
   const [form, setForm] = useState({
@@ -168,7 +169,8 @@ const CompanyInformationForm = ({ onNext, initialData }) => {
   }, []);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name } = e.target;
+    const value = name === "pan" ? sanitize.pan(e.target.value) : e.target.value;
     setForm((prev) => ({
       ...prev,
       [name]: value,
@@ -442,7 +444,7 @@ const CompanyInformationForm = ({ onNext, initialData }) => {
               </div>
             </div>
  <img
-              src="/Images/logo.webp"
+              src="/Images/image.png"
               alt="Bizpole Logo"
               className="h-12 md:h-14 lg:h-14"
             />          </div>

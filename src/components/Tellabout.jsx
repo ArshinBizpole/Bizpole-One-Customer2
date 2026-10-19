@@ -6,6 +6,7 @@ import { assignCustomer, createCustomer } from "../api/CustomerApi";
 import { getAllStates } from "../api/States";
 import { setSecureItem } from "../utils/secureStorage";
 import { notifyTokenSet } from "../utils/authSession";
+import { clearReferralToken, referralTokenField } from "../utils/referralAttribution";
 
 // ── Brand decorations ─────────────────────────────────────────────────────────
 function FloatingOrb({ style, delay = 0 }) {
@@ -66,17 +67,13 @@ const Tellabout = () => {
     fetchCountryCodes();
   }, []);
 
-  const partnerIdFromStorage = localStorage.getItem("PartnerID");
-  const isAssociate = !!partnerIdFromStorage;
-  const AssociateID = partnerIdFromStorage ? Number(partnerIdFromStorage) : null;
-
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     FirstName:"", LastName:"", Email:"", CountryCode:"+91", Mobile:"", Country:"India",
     State:"", City:"null", District:"", PinCode:"", PreferredLanguage:"",
     AddressLine1:"", AddressLine2:"", DateOfBirth:"", PANNumber:"", IsComponyRegistered:1,
     Origin:"", SecondaryMobile:"", SecondaryEmail:"", CustomerCategory:"", FranchiseeID:null, CreatedBy:null,
-    Companies:[{ BusinessName:"", CompanyEmail:"", CompanyMobile:"", Country:"India", State:"", City:"null", District:"", Agents:[], CompanyPAN:"", GSTNumber:"", CIN:"", ConstitutionCategory:"", Sector:"", BusinessNature:"", Website:"", PinCode:"", PrimaryCompany:1, AssociateID, isAssociate }],
+    Companies:[{ BusinessName:"", CompanyEmail:"", CompanyMobile:"", Country:"India", State:"", City:"null", District:"", Agents:[], CompanyPAN:"", GSTNumber:"", CIN:"", ConstitutionCategory:"", Sector:"", BusinessNature:"", Website:"", PinCode:"", PrimaryCompany:1 }],
   });
 
   const [assignLoading, setAssignLoading] = useState(false);
@@ -125,15 +122,16 @@ const Tellabout = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const pid = localStorage.getItem("PartnerID");
-    const isAss = !!pid; const AID = pid ? Number(pid) : null;
     if (!formData.FranchiseeID) { alert("Please select language, state, and district to assign a franchisee before submitting."); return; }
     try {
       const updatedFormData = { ...formData, Origin: formData.HowDidYouHear || formData.Origin || "website" };
       const agentId = updatedFormData.CreatedBy;
-      const company = { ...updatedFormData.Companies[0], BusinessName:updatedFormData.Companies[0].BusinessName, CompanyEmail:updatedFormData.Companies[0].CompanyEmail, CompanyMobile:updatedFormData.Companies[0].CompanyMobile, Country:"India", State:updatedFormData.State, City:"null", District:updatedFormData.District, Agents:agentId?[{EmployeeID:agentId}]:[], CompanyPAN:updatedFormData.Companies[0].CompanyPAN, GSTNumber:updatedFormData.Companies[0].GSTNumber, CIN:updatedFormData.Companies[0].CIN, ConstitutionCategory:updatedFormData.Companies[0].ConstitutionCategory, Sector:updatedFormData.Companies[0].Sector, BusinessNature:updatedFormData.Companies[0].BusinessNature, Website:updatedFormData.Companies[0].Website, AssociateID:AID, isAssociate:isAss, PinCode:updatedFormData.PinCode, PrimaryCompany:1 };
-      const payload = { ...updatedFormData, Companies:[company], isAssociate:isAss, AssociateID:AID };
+      const company = { ...updatedFormData.Companies[0], BusinessName:updatedFormData.Companies[0].BusinessName, CompanyEmail:updatedFormData.Companies[0].CompanyEmail, CompanyMobile:updatedFormData.Companies[0].CompanyMobile, Country:"India", State:updatedFormData.State, City:"null", District:updatedFormData.District, Agents:agentId?[{EmployeeID:agentId}]:[], CompanyPAN:updatedFormData.Companies[0].CompanyPAN, GSTNumber:updatedFormData.Companies[0].GSTNumber, CIN:updatedFormData.Companies[0].CIN, ConstitutionCategory:updatedFormData.Companies[0].ConstitutionCategory, Sector:updatedFormData.Companies[0].Sector, BusinessNature:updatedFormData.Companies[0].BusinessNature, Website:updatedFormData.Companies[0].Website, PinCode:updatedFormData.PinCode, PrimaryCompany:1 };
+      // Referral attribution travels only as the server-issued scan token (never an
+      // AssociateID from the browser); an invalid/expired token never blocks signup.
+      const payload = { ...updatedFormData, Companies:[company], ...referralTokenField() };
       const res = await createCustomer(payload);
+      clearReferralToken();
       if (res?.data?.token) { localStorage.setItem('token', res.data.token); notifyTokenSet(); setSecureItem('user', JSON.stringify(res.data.user)); }
       if (location?.state) { setSecureItem('location', JSON.stringify(location.state)); }
       const typeId = location?.state?.type || null;
@@ -284,7 +282,7 @@ const Tellabout = () => {
             </div>
 
             {/* Logo */}
-            <motion.img src="/Images/logo.webp" alt="Bizpole"
+            <motion.img src="/Images/image.png" alt="Bizpole"
               style={{ height:36,width:90,position:"relative",zIndex:4 }}
               initial={{ opacity:0,y:-10 }} animate={{ opacity:1,y:0 }} transition={{ delay:0.2 }}
             />

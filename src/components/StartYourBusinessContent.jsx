@@ -41,7 +41,7 @@ const StartYourBusinessContent = ({ onNext }) => {
           border: none; padding: 0; cursor: pointer; border-radius: 18px;
         }
         .rc-inner {
-          border-radius: 16px; padding: 16px 20px;
+          border-radius: 16px; padding: 20px 24px;
           background: #F5C518;
           transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
         }
@@ -80,14 +80,14 @@ const StartYourBusinessContent = ({ onNext }) => {
       <SigninModal isOpen={showSigninModal} onClose={() => setShowSigninModal(false)} />
 
       <motion.div
-        className="syb-root w-full max-w-5xl shadow-sm"
-        initial={{ opacity: 0, y: 30, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -30, scale: 0.97 }}
+        className="syb-root fixed inset-0 z-40 overflow-y-auto"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -30 }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        style={{ borderRadius: 28, overflow: "hidden", position: "relative" }}
+        style={{ background: "#ffffff" }}
       >
-        <div className="flex flex-col lg:flex-row" style={{ minHeight: 480, position: "relative" }}>
+        <div className="flex flex-col lg:flex-row" style={{ minHeight: "100vh", position: "relative" }}>
 
           {/* ════ LEFT — YELLOW SWIRL PANEL ════ */}
           <div
@@ -126,7 +126,7 @@ const StartYourBusinessContent = ({ onNext }) => {
               transition={{ delay: 0.3, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
               style={{
                 position: "relative", zIndex: 2,
-                width: "70%", maxWidth: 260, height: "62%", maxHeight: 300,
+                width: "60%", maxWidth: 380, height: "55%", maxHeight: 440,
                 borderRadius: 22,
                 background: "rgba(255,255,255,0.22)",
                 border: "1px solid rgba(255,255,255,0.35)",
@@ -140,21 +140,13 @@ const StartYourBusinessContent = ({ onNext }) => {
             className="lg:w-[56%]"
             style={{
               position: "relative", background: "#ffffff",
-              display: "flex", flexDirection: "column", justifyContent: "center",
-              gap: 22, padding: "28px 32px",
+              display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center",
+              gap: 28, padding: "32px clamp(20px, 6vw, 88px)",
             }}
           >
 
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              style={{ position: "relative", zIndex: 2, alignSelf: "flex-end" }}
-            >
-              <img src="/Images/logo.webp" alt="Bizpole" style={{ height: 24, width: "auto" }} />
-            </motion.div>
 
-            <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 18, width: "100%", maxWidth: 560 }}>
 
               {/* Heading */}
               <motion.div
@@ -162,7 +154,7 @@ const StartYourBusinessContent = ({ onNext }) => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.28, duration: 0.6 }}
               >
-                <h1 className="syb-display" style={{ color: "#1a1a1a", fontSize: "clamp(1.4rem, 2.4vw, 1.9rem)", marginBottom: 6 }}>
+                <h1 className="syb-display" style={{ color: "#1a1a1a", fontSize: "clamp(1.6rem, 2.6vw, 2.3rem)", marginBottom: 8 }}>
                   Let's talk{" "}
                   <span style={{ position: "relative", display: "inline-block" }}>
                     <span style={{ position: "relative", zIndex: 1 }}>business!</span>
@@ -174,7 +166,7 @@ const StartYourBusinessContent = ({ onNext }) => {
                     />
                   </span>
                 </h1>
-                <p style={{ color: "#9ca3af", fontSize: 13, fontWeight: 400, lineHeight: 1.5 }}>
+                <p style={{ color: "#9ca3af", fontSize: 14, fontWeight: 400, lineHeight: 1.5 }}>
                   To begin this journey, tell us what type of account you'd be opening.
                 </p>
               </motion.div>
@@ -195,10 +187,10 @@ const StartYourBusinessContent = ({ onNext }) => {
                       onClick={card.onClick}
                     >
                       <div className="rc-inner">
-                        <div style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, fontSize: 14, color: "#1a1a1a", marginBottom: 4 }}>
+                        <div style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, fontSize: 16, color: "#1a1a1a", marginBottom: 4 }}>
                           {card.title}
                         </div>
-                        <div style={{ fontSize: 12, color: "#4a4a4a", fontWeight: 400 }}>
+                        <div style={{ fontSize: 13, color: "#4a4a4a", fontWeight: 400 }}>
                           {card.sub}
                         </div>
                       </div>
@@ -234,8 +226,8 @@ const StartYourBusinessContent = ({ onNext }) => {
             </div>
           </div>
 
-          {/* Floating toggle at the seam */}
-          <button className="seam-toggle" aria-label="Next">
+          {/* Floating toggle at the seam — returns to the "What would you like to register?" menu */}
+          <button className="seam-toggle" aria-label="Next" onClick={onNext}>
             <ChevronRight size={20} strokeWidth={2.5} />
           </button>
 

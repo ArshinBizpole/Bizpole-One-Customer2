@@ -1,21 +1,43 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Clock, Users, FileText, User, Calendar as CalendarIcon } from 'lucide-react';
-import { EVENT_TYPES } from './constants';
+import { X, Users, FileText, User, Calendar as CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
+
+// Filled phone icon for call-back events (Event Details title).
+const CallIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M20.0104 15.3798C18.7804 15.3798 17.5904 15.1798 16.4804 14.8198C16.1255 14.6995 15.7331 14.7928 15.4704 15.0598L13.9004 17.0298C11.0704 15.5898 8.75035 13.2798 7.31035 10.4498L9.28035 8.8798C9.56035 8.6098 9.64035 8.2198 9.53035 7.8598C8.99446 6.73752 8.6465 5.53485 8.50035 4.2998C8.50035 3.7498 8.05035 3.2998 7.50035 3.2998H4.11035C3.56035 3.2998 3.11035 3.7498 3.11035 4.2998C3.11035 13.6898 10.7204 21.2998 20.1104 21.2998C20.6604 21.2998 21.1104 20.8498 21.1104 20.2998V16.8798C21.1104 16.3298 20.6604 15.8798 20.1104 15.8798L20.0104 15.3798Z" fill="currentColor"/>
+  </svg>
+);
+
+// Calendar icon for the Date card in Event Details.
+const DateIcon = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M6.66667 5.83333V2.5M13.3333 5.83333V2.5M5.83333 9.16667H14.1667M4.16667 17.5H15.8333C16.7538 17.5 17.5 16.7538 17.5 15.8333V5.83333C17.5 4.91286 16.7538 4.16667 15.8333 4.16667H4.16667C3.24619 4.16667 2.5 4.91286 2.5 5.83333V15.8333C2.5 16.7538 3.24619 17.5 4.16667 17.5L6.66667 5.83333" stroke="#262626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+// Clock icon for the Time card in Event Details.
+const TimeIcon = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M8.25 4.91667V8.25L10.75 10.75M15.75 8.25C15.75 12.3894 12.3894 15.75 8.25 15.75C4.11064 15.75 0.75 12.3894 0.75 8.25C0.75 4.11064 4.11064 0.75 8.25 0.75C12.3894 0.75 15.75 4.11064 15.75 8.25L8.25 4.91667" stroke="#262626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
 
 export const EventDetailsModal = ({ selectedEvent, setSelectedEvent, handleDeleteEvent }) => {
   if (!selectedEvent) return null;
-  const eventType = EVENT_TYPES[selectedEvent.type] || EVENT_TYPES.MEETING;
+  // Call-backs come from the server: show their remarks and status, read-only.
+  const readOnly = !!selectedEvent.readOnly;
   // const meetingType = MEETING_TYPES[selectedEvent.meetingType] || MEETING_TYPES.IN_PERSON;
 
   const getEventIcon = () => {
     switch (selectedEvent.type) {
-      case "MEETING": return <Users size={14} />;
-      case "PRESENTATION": return <FileText size={14} />;
-      case "TEAM": return <User size={14} />;
-      case "PERSONAL": return <CalendarIcon size={14} />;
-      default: return <Users size={14} />;
+      case "MEETING": return <Users size={18} />;
+      case "PRESENTATION": return <FileText size={18} />;
+      case "TEAM": return <User size={18} />;
+      case "PERSONAL": return <CalendarIcon size={18} />;
+      case "CALL_BACK": return <CallIcon size={18} />;
+      default: return <Users size={18} />;
     }
   };
 
@@ -41,43 +63,67 @@ export const EventDetailsModal = ({ selectedEvent, setSelectedEvent, handleDelet
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="bg-white rounded-xl w-full max-w-md shadow-xl overflow-hidden"
+          className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="p-6">
-            <div className="flex justify-between items-start mb-6">
-              <h3 className="text-xl font-bold text-gray-800">Event Details</h3>
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-xl font-bold text-gray-900">Event Details</h3>
               <button
                 onClick={() => setSelectedEvent(null)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
+                className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
             <div className="space-y-5">
-              {/* Event Name */}
-              <div>
-                <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${eventType.color} ${eventType.text} mb-2`}>
+              {/* Icon + title */}
+              <div className="flex items-center gap-4">
+                <span className="w-12 h-12 rounded-full bg-amber-100 text-gray-900 flex items-center justify-center flex-shrink-0">
                   {getEventIcon()}
-                  <span className="ml-1.5">{eventType.name}</span>
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900">{selectedEvent.title}</h3>
+                </span>
+                <h3 className="text-xl font-bold text-gray-900 leading-snug">{selectedEvent.title}</h3>
               </div>
-              {/* Date & Time */}
-              <div className="flex items-start text-gray-700">
-                <Clock size={20} className="mr-3 mt-0.5 flex-shrink-0" />
-                <div>
-                  <div className="font-medium">{selectedEvent.start ? format(selectedEvent.start, "EEEE, MMMM d, yyyy") : ''}</div>
-                  <div className="text-gray-600">{selectedEvent.start ? format(selectedEvent.start, "h:mm a") : ''} - {selectedEvent.end ? format(selectedEvent.end, "h:mm a") : ''}</div>
+              {/* Date & Time cards */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+                  <span className="w-8 h-8 rounded-full bg-amber-100 text-gray-800 flex items-center justify-center flex-shrink-0">
+                    <DateIcon size={14} />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-[11px] text-gray-500">Date</div>
+                    <div className="text-xs font-semibold text-gray-900">{selectedEvent.start ? format(selectedEvent.start, "EEEE, MMMM d, yyyy") : ''}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+                  <span className="w-8 h-8 rounded-full bg-amber-100 text-gray-800 flex items-center justify-center flex-shrink-0">
+                    <TimeIcon size={14} />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-[11px] text-gray-500">Time</div>
+                    <div className="text-xs font-semibold text-gray-900">
+                      {selectedEvent.start ? format(selectedEvent.start, "h:mm a") : ''} - {selectedEvent.end ? format(selectedEvent.end, "h:mm a") : ''}
+                    </div>
+                  </div>
                 </div>
               </div>
-              {/* Description */}
+              {/* Remarks / Description */}
               <div>
-                <div className="text-gray-700 font-medium mb-2">Description</div>
-                <p className="text-gray-600 bg-gray-50 p-4 rounded-lg">
+                <div className="text-[11px] font-medium uppercase tracking-wide text-gray-500 mb-2">{readOnly ? 'Remarks' : 'Description'}</div>
+                <p className="text-sm text-gray-700 bg-amber-50 p-4 rounded-xl whitespace-pre-line leading-relaxed">
                   {selectedEvent.description || <span className="italic text-gray-400">No description</span>}
                 </p>
               </div>
+              {readOnly && (
+                <div>
+                  <div className="text-[11px] font-medium uppercase tracking-wide text-gray-500 mb-2">Status</div>
+                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-green-50 text-gray-800 capitalize">
+                    <span className="w-2 h-2 rounded-full bg-green-500" />
+                    {selectedEvent.status || 'Scheduled'}
+                  </span>
+                </div>
+              )}
+              {!readOnly && (<>
               {/* Priority */}
               <div className="flex items-center text-gray-700">
                 <span className="font-medium mr-2">Priority:</span>
@@ -112,20 +158,15 @@ export const EventDetailsModal = ({ selectedEvent, setSelectedEvent, handleDelet
                 <span className="font-medium mr-2">Repeat:</span>
                 <span>{selectedEvent.repeat ? 'Every day' : 'No'}</span>
               </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-8">
-              <button
-                onClick={() => setSelectedEvent(null)}
-                className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors"
-              >
-                Close
-              </button>
-              <button
-                onClick={handleDeleteEvent}
-                className="px-5 py-2.5 bg-red-500 text-white rounded-lg font-medium text-sm hover:bg-red-600 transition-colors"
-              >
-                Delete Event
-              </button>
+              <div className="flex justify-end">
+                <button
+                  onClick={handleDeleteEvent}
+                  className="px-5 py-2.5 bg-red-500 text-white rounded-lg font-medium text-sm hover:bg-red-600 transition-colors"
+                >
+                  Delete Event
+                </button>
+              </div>
+              </>)}
             </div>
           </div>
         </motion.div>

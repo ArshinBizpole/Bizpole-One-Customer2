@@ -27,7 +27,7 @@ export const normalizeMobile = (v) => {
 export const sanitize = {
     personName: (v) => v.replace(/[^A-Za-z .']/g, "").slice(0, 100),
     mobile: (v) => normalizeMobile(v).slice(0, 10),
-    email: (v) => v.replace(/\s/g, "").slice(0, 100),
+    email: (v) => v.replace(/\s/g, "").toLowerCase().slice(0, 100),
     country: (v) => v.replace(/[^A-Za-z .-]/g, "").slice(0, 56),
     postal: (v, country) => (isIndia(country)
         ? v.replace(/\D/g, "").slice(0, 6)
@@ -35,6 +35,9 @@ export const sanitize = {
     gstin: (v) => v.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 15),
     pan: (v) => v.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 10),
     aadhaar: (v) => v.replace(/\D/g, "").slice(0, 12),
+    ifsc: (v) => v.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 11),
+    cin: (v) => v.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 21),
+    digits: (v) => v.replace(/\D/g, ""),
     decimal: (v) => v.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1").slice(0, 20),
     text: (max) => (v) => v.slice(0, max),
 };

@@ -14,10 +14,12 @@ export const getServiceDetailById = async (id) => {
         throw error;
     }
 };
-export const serviceFormMapping = async (id, orderId) => {
+// `companyId` is optional: when given, the server also returns the company's
+// constitution so the caller can keep only the forms that apply to it.
+export const serviceFormMapping = async (id, orderId, companyId) => {
 
     try {
-        const response = await axiosInstance.post(`/getServiceFormFullMapping`, { serviceId: id, orderId });
+        const response = await axiosInstance.post(`/getServiceFormFullMapping`, { serviceId: id, orderId, ...(companyId ? { companyId } : {}) });
 
         return response.data;
     } catch (error) {

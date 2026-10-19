@@ -226,7 +226,7 @@ const ComplianceStatusCheck = ({ onBack, registrationDetails }) => {
       <div className="lg:hidden flex justify-between items-center p-4 bg-white shadow-sm">
         <h1 className="text-xl font-bold text-gray-800">Compliance Status</h1>
         <img
-          src="/Images/logo.webp"
+          src="/Images/image.png"
           alt="Bizpole Logo"
           className="h-12 md:h-14 lg:h-14"
         />
@@ -245,7 +245,7 @@ const ComplianceStatusCheck = ({ onBack, registrationDetails }) => {
               </div>
             </div>
             <img
-              src="/Images/logo.webp"
+              src="/Images/image.png"
               alt="Bizpole Logo"
               className="h-12 md:h-14 lg:h-14"
             />
