@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { MoreVertical, Search, ArrowLeft, ArrowRight, Plus, Eye, Pencil, Trash2, X, Loader2 } from 'lucide-react';
+import { MoreVertical, Search, Plus, Eye, Pencil, Trash2, X, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import * as DealsApi from '../../api/DealsApi';
 import { getSecureItem } from '../../utils/secureStorage';
 import { format } from 'date-fns';
 import AddCompanyModal from '../../components/Modals/AddCompanyModal';
+import Pagination from '../../components/Pagination';
 
 const AssociateCompanies = () => {
     const navigate = useNavigate();
@@ -249,42 +250,7 @@ const AssociateCompanies = () => {
                     <p className="text-sm text-gray-500">
                         Showing page {page} of {totalPages || 1}
                     </p>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setPage(p => Math.max(1, p - 1))}
-                            disabled={page === 1}
-                            className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <ArrowLeft className="w-4 h-4" />
-                        </button>
-                        {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
-                            let pageNum;
-                            if (totalPages <= 5) pageNum = i + 1;
-                            else if (page <= 3) pageNum = i + 1;
-                            else if (page >= totalPages - 2) pageNum = totalPages - 4 + i;
-                            else pageNum = page - 2 + i;
-
-                            return (
-                                <button
-                                    key={pageNum}
-                                    onClick={() => setPage(pageNum)}
-                                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${page === pageNum
-                                        ? 'bg-yellow-400 text-black'
-                                        : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
-                                        }`}
-                                >
-                                    {pageNum}
-                                </button>
-                            );
-                        })}
-                        <button
-                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                            disabled={page === totalPages || totalPages === 0}
-                            className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <ArrowRight className="w-4 h-4" />
-                        </button>
-                    </div>
+                    <Pagination page={page} totalPages={totalPages} onPage={setPage} />
                 </div>
             </div>
 

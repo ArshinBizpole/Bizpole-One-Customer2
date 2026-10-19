@@ -7,6 +7,7 @@ import {
 } from "../../api/ServicesApi";
 import { useSearchParams } from "react-router-dom";
 import { Oval } from "react-loader-spinner";
+import Pagination from '../../components/Pagination';
 
 const INDIAN_STATES = [
   "Andhra Pradesh",
@@ -718,21 +719,6 @@ function ExploreServices() {
     return colors[index % colors.length];
   };
 
-  const getPaginationButtons = () => {
-    const buttons = [];
-    const maxButtons = 5;
-    let startPage = Math.max(
-      1,
-      pagination.currentPage - Math.floor(maxButtons / 2),
-    );
-    let endPage = Math.min(pagination.totalPages, startPage + maxButtons - 1);
-    if (endPage - startPage < maxButtons - 1) {
-      startPage = Math.max(1, endPage - maxButtons + 1);
-    }
-    for (let i = startPage; i <= endPage; i++) buttons.push(i);
-    return buttons;
-  };
-
   return (
     <>
       <div
@@ -1393,90 +1379,12 @@ function ExploreServices() {
             !categoriesLoading &&
             services.length > 0 &&
             pagination.totalPages > 1 && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "8px",
-                  marginTop: "48px",
-                }}
-              >
-                <button
-                  onClick={() => handlePageChange(pagination.currentPage - 1)}
-                  disabled={pagination.currentPage === 1}
-                  style={{
-                    padding: "10px 18px",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "10px",
-                    backgroundColor: "white",
-                    cursor:
-                      pagination.currentPage === 1 ? "not-allowed" : "pointer",
-                    fontSize: "14px",
-                    color: pagination.currentPage === 1 ? "#cbd5e1" : "#64748b",
-                    fontWeight: "500",
-                    transition: "all 0.2s",
-                    opacity: pagination.currentPage === 1 ? 0.5 : 1,
-                  }}
-                >
-                  ← Previous
-                </button>
-
-                {getPaginationButtons().map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => handlePageChange(page)}
-                    style={{
-                      width: "40px",
-                      height: "40px",
-                      border:
-                        page === pagination.currentPage
-                          ? "none"
-                          : "1px solid #e2e8f0",
-                      borderRadius: "10px",
-                      backgroundColor:
-                        page === pagination.currentPage ? "#3b82f6" : "white",
-                      color:
-                        page === pagination.currentPage ? "white" : "#64748b",
-                      cursor: "pointer",
-                      fontSize: "14px",
-                      fontWeight:
-                        page === pagination.currentPage ? "600" : "500",
-                      transition: "all 0.2s",
-                    }}
-                  >
-                    {page}
-                  </button>
-                ))}
-
-                <button
-                  onClick={() => handlePageChange(pagination.currentPage + 1)}
-                  disabled={pagination.currentPage >= pagination.totalPages}
-                  style={{
-                    padding: "10px 18px",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "10px",
-                    backgroundColor: "white",
-                    cursor:
-                      pagination.currentPage === pagination.totalPages
-                        ? "not-allowed"
-                        : "pointer",
-                    fontSize: "14px",
-                    color:
-                      pagination.currentPage === pagination.totalPages
-                        ? "#cbd5e1"
-                        : "#64748b",
-                    fontWeight: "500",
-                    transition: "all 0.2s",
-                    opacity:
-                      pagination.currentPage === pagination.totalPages
-                        ? 0.5
-                        : 1,
-                  }}
-                >
-                  Next →
-                </button>
-              </div>
+              <Pagination
+                page={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                onPage={handlePageChange}
+                className="justify-center mt-12"
+              />
             )}
         </div>
 

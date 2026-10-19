@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { buildInvoiceView } from "./invoiceView";
 
 const formatDate = (dateString) => {
   if (!dateString) return "-";
@@ -9,12 +10,15 @@ const formatDate = (dateString) => {
 };
 
 // Draws the Bizpole invoice directly with jsPDF (no DOM screenshot), so it can't fail on
-// unsupported CSS (Tailwind gradients/oklch colors break html2canvas). Shared by the
-// customer invoice page and the associate order page.
-//   invoice: { InvoiceCode, InvoiceDate, OrderID, CompanyName, PrimaryCustomer, customerName,
-//              state, quoteCodeId, FranchiseeName, serviceDetails[], amounts: { total, gst, pending } }
+// unsupported CSS (Tailwind gradients/oklch colors break html2canvas).
+//   invoice: an invoiceforservice row from /company/invoice-details (incl. billTo
+//            { company, customer } and PartySnapshot), optionally enriched with the
+//            order's serviceDetails / amounts / quoteCodeId (see Invoiceprofile.jsx)
 //   franchiseeDetails: issuing franchisee (DisplayName, address, CIN/PAN/GST) or null
-export const generateInvoicePdf = (invoice, franchiseeDetails, { billToName: billToOverride } = {}) => {
+// All figures come from buildInvoiceView, shared with the on-screen InvoicePreview.
+export const generateInvoicePdf = (invoice, franchiseeDetails, { billToName } = {}) => {
+  const v = buildInvoiceView(invoice, franchiseeDetails, { billToName });
+
   const amber = [230, 168, 43];
   const red = [220, 38, 38];
   const dark = [17, 24, 39];
@@ -25,15 +29,6 @@ export const generateInvoicePdf = (invoice, franchiseeDetails, { billToName: bil
     const num = parseFloat(amount) || 0;
     return `Rs. ${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
-
-  const total = invoice.amounts?.total
-    || parseFloat(invoice.OrderValue || invoice.InvoiceValue || invoice.InvoiceTotal || 0);
-  const gst = invoice.amounts?.gst || 0;
-  const subtotal = total - gst;
-  const dueAmount = invoice.amounts?.pending ?? 0;
-  const services = Array.isArray(invoice.serviceDetails) ? invoice.serviceDetails : [];
-  const rounding = services.reduce((sum, s) => sum + (parseFloat(s.Rounding) || 0), 0);
-  const gstPercent = services.find((s) => parseFloat(s.GSTPercent) > 0)?.GSTPercent;
 
   const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -81,68 +76,65 @@ export const generateInvoicePdf = (invoice, franchiseeDetails, { billToName: bil
   doc.line(marginX, y, pageWidth - marginX, y);
   y += 30;
 
-  // FROM (left) — issuing franchisee, looked up by the order's FranchiseeID
-  const clean = (v) => (v && v !== "null" && v !== "undefined") ? String(v).trim() : "";
-  const fromName = franchiseeDetails?.DisplayName || franchiseeDetails?.FranchiseeName
-    || invoice.FranchiseeName || "Bizpole";
+  // FROM (left) — issuing franchisee
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(...dark);
-  doc.text(fromName, marginX, y);
+  doc.text(v.fromName, marginX, y);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(...gray);
-  const fromLines = franchiseeDetails
-    ? [
-        [franchiseeDetails.AddressLine1].filter(clean).map(clean).join(""),
-        [franchiseeDetails.AddressLine2].filter(clean).map(clean).join(""),
-        [franchiseeDetails.City, franchiseeDetails.State, franchiseeDetails.Pincode].filter(clean).map(clean).join(", "),
-      ].filter(Boolean)
-    : [
-        "2ND FLOOR, FALCON COMPLEX, OPP HPCL PETROL BUNK, NURANI",
-        "Palakkad City, Palakkad - 678014, Kerala, India",
-      ];
   let leftY = y + 15;
-  fromLines.forEach((line) => {
+  v.fromLines.forEach((line) => {
     doc.text(line, marginX, leftY);
     leftY += 13;
   });
 
-  // BILL TO (right, right-aligned)
+  // BILL TO (right, right-aligned) — company, contact, address, GSTIN/PAN, place of supply
+  const right = pageWidth - marginX;
+  const billWidth = 230;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...lightGray);
-  doc.text("BILL TO:", pageWidth - marginX, y - 11, { align: "right" });
+  doc.text("BILL TO:", right, y - 11, { align: "right" });
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(...dark);
-  const billToName = billToOverride || invoice.CompanyName || invoice.PrimaryCustomer || "Customer";
-  const billToLines = doc.splitTextToSize(billToName, 220);
   let rightY = y + 4;
-  billToLines.forEach((line) => {
-    doc.text(line, pageWidth - marginX, rightY, { align: "right" });
+  doc.splitTextToSize(v.billToName, billWidth).forEach((line) => {
+    doc.text(line, right, rightY, { align: "right" });
     rightY += 14;
   });
-  const contactName = invoice.customerName || invoice.PrimaryCustomer;
-  if (contactName && contactName !== billToName) {
+  if (v.contactName && v.contactName !== v.billToName) {
     doc.setFontSize(10);
-    doc.text(contactName, pageWidth - marginX, rightY, { align: "right" });
+    doc.text(v.contactName, right, rightY, { align: "right" });
     rightY += 14;
   }
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(...gray);
-  if (invoice.state) {
-    doc.text(invoice.state, pageWidth - marginX, rightY, { align: "right" });
-    rightY += 14;
+  [...v.billToLines, v.billToPhone, v.billToEmail].filter(Boolean).forEach((text) => {
+    doc.splitTextToSize(text, billWidth).forEach((line) => {
+      doc.text(line, right, rightY, { align: "right" });
+      rightY += 12;
+    });
+  });
+  doc.setTextColor(...dark);
+  if (v.recipientGstin) {
+    doc.text(`GSTIN: ${v.recipientGstin}`, right, rightY, { align: "right" });
+    rightY += 12;
+  }
+  if (v.recipientPan) {
+    doc.text(`PAN: ${v.recipientPan}`, right, rightY, { align: "right" });
+    rightY += 12;
   }
   doc.setTextColor(...lightGray);
-  doc.text(`Place of Supply: ${invoice.state || "-"}`, pageWidth - marginX, rightY, { align: "right" });
-  rightY += 13;
+  doc.text(`Place of Supply: ${v.placeOfSupply || "-"}`, right, rightY + 2, { align: "right" });
+  rightY += 15;
 
   y = Math.max(leftY, rightY) + 15;
 
-  // CIN / PAN / GST box (light amber background)
+  // CIN / PAN / GST box (light amber background) — the supplier's
   const boxH = 52;
   doc.setFillColor(255, 247, 224);
   doc.setDrawColor(...amber);
@@ -152,9 +144,9 @@ export const generateInvoicePdf = (invoice, franchiseeDetails, { billToName: bil
   doc.setFontSize(9);
   let by = y + 17;
   [
-    ["CIN:", franchiseeDetails?.CIN || "U70200KL2023PTC083967"],
-    ["PAN:", franchiseeDetails?.PAN || "AAMCB0068L"],
-    ["GST:", franchiseeDetails?.GSTNumber || "32AAMCB0068L1ZN"],
+    ["CIN:", v.sellerCin],
+    ["PAN:", v.sellerPan],
+    ["GST:", v.sellerGstin],
   ].forEach(([label, value]) => {
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...dark);
@@ -174,12 +166,12 @@ export const generateInvoicePdf = (invoice, franchiseeDetails, { billToName: bil
   doc.setFillColor(255, 247, 224);
   doc.rect(marginX, y, pageWidth - marginX * 2, bandH, "F");
   const infoCols = [
-    { label: "INVOICE NUMBER", value: invoice.InvoiceCode || invoice.invoiceCode || "-" },
-    { label: "INVOICE DATE", value: formatDate(invoice.InvoiceDate || invoice.invoiceDate) },
-    { label: "P.O. / S.O. NO.", value: invoice.quoteCodeId || invoice.InvoiceCode || "-" },
-    { label: "P.O. / S.O. DATE", value: formatDate(invoice.InvoiceDate || invoice.invoiceDate) },
-    { label: "INVOICE TOTAL", value: money(total) },
-    { label: "DUE AMOUNT", value: money(dueAmount) },
+    { label: "INVOICE NUMBER", value: v.invoiceCode },
+    { label: "INVOICE DATE", value: formatDate(v.invoiceDate) },
+    { label: "P.O. / S.O. NO.", value: v.poNumber },
+    { label: "P.O. / S.O. DATE", value: formatDate(v.invoiceDate) },
+    { label: "INVOICE TOTAL", value: money(v.total) },
+    { label: "DUE AMOUNT", value: money(v.due) },
   ];
   const colWidth = (pageWidth - marginX * 2) / infoCols.length;
   infoCols.forEach((col, i) => {
@@ -195,19 +187,14 @@ export const generateInvoicePdf = (invoice, franchiseeDetails, { billToName: bil
   y += bandH + 20;
 
   // Items table
-  const rows = services.length
-    ? services.map((s) => {
-        const rate = (parseFloat(s.ProfessionalFee) || 0) + (parseFloat(s.VendorFee) || 0) + (parseFloat(s.ContractorFee) || 0);
-        return [
-          `${s.ItemName || s.ServiceName || "Service"}${s.ServiceCode ? `\nHSN/SAC: ${s.ServiceCode}` : ""}`,
-          money(rate),
-          money(s.Discount),
-          money(s.GstAmount),
-          money(s.GovtFee),
-          money(s.Total),
-        ];
-      })
-    : [["Service", money(subtotal), money(0), money(gst), money(0), money(total)]];
+  const rows = v.lines.map((l) => [
+    `${l.name}${l.code ? `\nHSN/SAC: ${l.code}` : ""}`,
+    money(l.rate),
+    money(l.discount),
+    money(l.tax),
+    money(l.govtFee),
+    money(l.total),
+  ]);
 
   autoTable(doc, {
     startY: y,
@@ -225,12 +212,14 @@ export const generateInvoicePdf = (invoice, franchiseeDetails, { billToName: bil
 
   y = doc.lastAutoTable.finalY + 30;
 
-  // Totals block (right-aligned, unboxed)
+  // Totals block (right-aligned, unboxed) — CGST+SGST or IGST per place of supply
   const boxWidth = 240;
   const boxX = pageWidth - marginX - boxWidth;
-  const totalsRows = [["Sub Total", money(subtotal)], ["GST Amount", money(gst)]];
-  if (gstPercent) totalsRows.push([`IGST (${parseFloat(gstPercent).toFixed(2)}%)`, money(gst)]);
-  totalsRows.push(["Rounding", money(rounding)]);
+  const totalsRows = [
+    ["Sub Total", money(v.subtotal)],
+    ...v.taxLines.map((t) => [t.label, money(t.amount)]),
+    ["Rounding", money(v.rounding)],
+  ];
 
   doc.setFontSize(10);
   totalsRows.forEach(([label, value], i) => {
@@ -250,7 +239,7 @@ export const generateInvoicePdf = (invoice, franchiseeDetails, { billToName: bil
   doc.setFontSize(13);
   doc.setTextColor(...dark);
   doc.text("Total Amount", boxX, y);
-  doc.text(money(total), boxX + boxWidth, y, { align: "right" });
+  doc.text(money(v.total), boxX + boxWidth, y, { align: "right" });
 
   y += 70;
   doc.setFont("helvetica", "bold");
