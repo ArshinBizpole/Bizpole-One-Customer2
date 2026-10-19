@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { FaSearch, FaRegCopyright, FaChevronLeft, FaChevronRight, FaArrowRight, FaFilePdf, FaLock, FaImage, FaTimes, FaEye } from "react-icons/fa";
+import { FaSearch, FaRegCopyright, FaChevronLeft, FaChevronRight, FaArrowRight, FaFilePdf, FaLock, FaImage, FaTimes } from "react-icons/fa";
 import {
   searchTrademarks,
   searchTrademarksByImage,
@@ -21,7 +21,6 @@ import HistoryMenu from "../components/Trademark/HistoryMenu";
 import ServiceDetails from "./ServiceDetails";
 import { saveElementAsPdf } from "../utils/elementToPdf";
 import "../components/newco-theme.css";
-import { PAGER_NAV_CLASS, PAGER_PAGE_CLASS, PAGER_ACTIVE_CLASS } from "../components/Pagination";
 
 const PAGE_SIZE = 10;
 const TRADEMARK_SERVICE_ID = 344;
@@ -857,7 +856,6 @@ export default function TrademarkSearch({ embedded = false }) {
                 <button
                   disabled={!hasPrev || loading}
                   onClick={() => runSearch(submitted, page - 1)}
-<<<<<<< HEAD
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-sm font-medium text-gray-800 shadow-sm hover:border-gray-400 disabled:opacity-40"
                 >
                   <FaChevronLeft className="text-xs" /> Previous
@@ -872,36 +870,6 @@ export default function TrademarkSearch({ embedded = false }) {
                   className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-[#F5A623] hover:bg-[#EE9A10] text-white text-sm font-semibold shadow-sm disabled:opacity-40"
                 >
                   Next <FaChevronRight className="text-xs" />
-=======
-                  className={PAGER_NAV_CLASS}
-                >
-                  <FaChevronLeft className="w-3 h-3" /> Previous
-                </button>
-                <span className={`${PAGER_PAGE_CLASS} ${PAGER_ACTIVE_CLASS} inline-flex items-center justify-center`}>{page + 1}</span>
-                <button
-                  disabled={!hasNext || loading}
-                  onClick={() => runSearch(submitted, page + 1)}
-                  className={PAGER_NAV_CLASS}
-                >
-                  Next <FaChevronRight className="w-3 h-3" />
-                </button>
-              </div>
-            )}
-
-            {results.length > 0 && (
-              <div className="mt-10 rounded-2xl bg-black text-white p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div>
-                  <p className="text-xl font-bold mb-1">Found similar marks?</p>
-                  <p className="text-gray-300 text-sm">
-                    Our trademark experts will assess the conflict risk and file your application.
-                  </p>
-                </div>
-                <button
-                  onClick={openTrademarkService}
-                  className="shrink-0 inline-flex items-center gap-2 px-6 py-3 rounded-full bg-yellow-400 text-black font-semibold"
-                >
-                  Register your trademark <FaArrowRight />
->>>>>>> 2dc536accb8ad98d7f9f37d5fbeb5ab56e4718df
                 </button>
               </div>
             )}
