@@ -12,6 +12,8 @@ const post = async (url, body) => {
 
 export const getDashboardStats = (companyId) => post("/dashboard/stats", { CompanyId: companyId });
 
+export const getDashboardOverview = (companyId) => post("/dashboard/overview", { CompanyId: companyId });
+
 export const getComplianceHealth = (companyId) =>
   post("/dashboard/compliance-health", { CompanyId: companyId });
 
@@ -48,6 +50,7 @@ export const uploadCompanyDocument = async (companyId, file, { title, docType } 
 
 export default {
   getDashboardStats,
+  getDashboardOverview,
   getComplianceHealth,
   getServicesActions,
   completeAction,

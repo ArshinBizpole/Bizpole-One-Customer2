@@ -4,15 +4,14 @@ import NotificationBell from "../components/NotificationBell";
 import GlobalSearch from "../components/GlobalSearch";
 import { setSecureItem, getSecureItem } from "../utils/secureStorage";
 import axiosInstance from "../api/axiosInstance";
-import { Outlet, NavLink } from "react-router-dom";
+import { JOURNL_URL } from "../utils/externalLinks";
+import { Outlet, NavLink, useLocation } from "react-router-dom";
 import {
   BookOpen,
   Layers,
   ChevronDown,
   Menu,
   X,
-  FileText,
-  Plus,
 } from "lucide-react";
 
 
@@ -20,8 +19,12 @@ import {
 export const DashboardContext = createContext();
 
 const DashboardLayout = () => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // The mobile menu floats over the page — close it once the user navigates.
+  const { pathname } = useLocation();
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
 
   const [selectedCompany, setSelectedCompany] = useState("");
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
@@ -199,89 +202,10 @@ const DashboardLayout = () => {
     setShowCompanyDropdown(false);
   };
 
-  // Companies created after sign-in — e.g. by the WhatsApp assistant for a new
-  // portal sign-up — aren't in the cached login payload. Refresh the customer
-  // from the server once on mount (customer sessions only); keep the selected
-  // company, or select the first one if none was selected yet.
-  useEffect(() => {
-    if (!localStorage.getItem("token") || localStorage.getItem("partnerToken")) return;
-    let cancelled = false;
-    axiosInstance
-      .get("/website/me")
-      .then((res) => {
-        const fresh = res.data?.data;
-        if (cancelled || !res.data?.success || !Array.isArray(fresh?.Companies)) return;
-        setSecureItem("user", JSON.stringify(fresh));
-        setCompanies(fresh.Companies);
-        let savedId = null;
-        try {
-          const raw = getSecureItem("selectedCompany");
-          savedId = (typeof raw === "string" ? JSON.parse(raw) : raw)?.CompanyID ?? null;
-        } catch {
-          savedId = null;
-        }
-        const current = fresh.Companies.find((c) => String(c.CompanyID) === String(savedId));
-        if (current) loadQuotesForCompany(current);
-        else if (fresh.Companies.length > 0) handleCompanySelect(fresh.Companies[0]);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Generate new quote
-  const handleGenerateQuote = () => {
-    if (!selectedCompanyId) {
-      alert("Please select a company first");
-      return;
-    }
-    // Navigate to quote generation page or open modal
-    window.open('/startbusiness/choose', '_blank');
-  };
-
-  const encrypt = (id) => {
-    const secret =
-      import.meta.env.VITE_QUOTE_LINK_SECRET ||
-      "q3!9fKs7@pLzXr84$nmYtB!cVZdQ3";
-    return CryptoJS.AES.encrypt(String(id), secret).toString();
-  };
-
-  // View quote details
-  const handleViewQuote = (quote) => {
-    // Open quote in new tab or show details
-    if (quote.QuoteID) {
-      // Fix: Check if CryptoJS is available before using it
-      if (typeof CryptoJS !== 'undefined') {
-        const encrypted = encrypt(quote.QuoteID);
-        const url = `${import.meta.env.VITE_CLIENT_BASE_URL}/quotes/saved-preview/${encodeURIComponent(encrypted)}`;
-        window.open(url, "_blank");
-      } else {
-        console.error("CryptoJS is not available");
-        // Fallback: open without encryption or show error
-        alert("Unable to open quote preview. CryptoJS library not loaded.");
-      }
-    }
-  };
-
-  // ✅ Auto collapse on smaller screens
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 1024) {
-        setIsSidebarOpen(true);
-      } else {
-        setIsSidebarOpen(false);
-      }
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  // ✅ Updated sidebar menu items with new icons
+  // Products — listed in the mobile header menu (desktop: the profile menu).
   const menuItems = [
     { name: "Bizpole One", path: "/dashboard/bizpoleone", icon: Layers },
-    { name: "Bizpole Books", path: "/dashboard/books", icon: BookOpen },
+    { name: "Journl", href: JOURNL_URL, icon: BookOpen }, // own site — new tab
   ];
 const uniqueCompanies = Array.from(
   new Map(
@@ -303,10 +227,12 @@ const uniqueCompanies = Array.from(
           sidebars stay in place. */}
       <div className="h-screen overflow-hidden flex flex-col bg-gray-50">
         {/* ✅ Top Navbar */}
-        <header className="bg-white px-6 py-3 flex justify-between items-center shadow-sm">
+        {/* Header + the mobile menu that drops down over the page from it */}
+        <div className="relative z-30 shrink-0">
+        <header className="bg-white px-4 sm:px-6 py-2 sm:py-3 flex justify-between items-center shadow-sm">
           {/* Logo */}
           <div className="flex items-center">
-            <img src="/Images/image.png" alt="Bizpole Logo" className="h-14" />
+            <img src="/Images/image.png" alt="Bizpole Logo" className="h-10 sm:h-14" />
           </div>
 
           {/* Desktop Right Section */}
@@ -374,9 +300,9 @@ const uniqueCompanies = Array.from(
           </div>
         </header>
 
-        {/* ✅ Mobile Dropdown Menu */}
+        {/* ✅ Mobile Dropdown Menu — floats over the page (doesn't push it down) */}
         {isMobileMenuOpen && (
-          <div className="lg:hidden bg-white shadow-md px-6 py-4 space-y-4">
+          <div className="lg:hidden absolute left-0 right-0 top-full bg-white shadow-lg border-t border-gray-100 px-4 py-4 space-y-4 max-h-[calc(100vh-4rem)] overflow-y-auto">
             {/* Company Dropdown for Mobile */}
             <div className="relative" data-company-dropdown>
               <button
@@ -390,7 +316,7 @@ const uniqueCompanies = Array.from(
               {/* Mobile Company Dropdown */}
               {showCompanyDropdown && (
                 <div className="absolute left-0 right-0 mt-2 bg-white rounded-xl shadow-lg z-10 border border-gray-200">
-                  {companies.map((company) => (
+                  {uniqueCompanies.map((company) => (
                     <button
                       key={company.CompanyID || company.BusinessName}
                       className={`w-full text-left px-5 py-3 hover:bg-yellow-100 rounded-xl transition ${
@@ -410,161 +336,49 @@ const uniqueCompanies = Array.from(
               )}
             </div>
 
-            {/* Quotes Section for Mobile */}
-            <div className="border-t pt-4">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-semibold text-gray-800">
-                  Quotes ({quotes.length})
-                </h3>
-                <button
-                  onClick={handleGenerateQuote}
-                  className="flex items-center gap-1 px-3 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
-                >
-                  <Plus size={14} />
-                  Generate
-                </button>
-              </div>
-              {quotes.length === 0 ? (
-                <div className="text-center py-4 text-gray-500 border rounded-lg">
-                  <FileText size={32} className="mx-auto mb-2 text-gray-400" />
-                  <p>No quotes found</p>
-                  <button
-                    onClick={handleGenerateQuote}
-                    className="mt-2 px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm hover:bg-yellow-600"
-                  >
-                    Generate Quote
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {quotes.map((quote) => (
-                    <div
-                      key={quote.QuoteID}
-                      className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
-                      onClick={() => handleViewQuote(quote)}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-medium text-gray-800">
-                            {quote.PackageName || "Untitled Quote"}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            Status:{" "}
-                            <span
-                              className={`font-semibold ${
-                                quote.QuoteStatus === "Approved"
-                                  ? "text-green-600"
-                                  : quote.QuoteStatus === "Draft"
-                                    ? "text-yellow-600"
-                                    : "text-gray-600"
-                              }`}
-                            >
-                              {quote.QuoteStatus}
-                            </span>
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-semibold text-gray-800">
-                            ₹{quote.TotalAmount || quote.Total || "0"}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(
-                              quote.CreatedDate || quote.createdAt,
-                            ).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Search Bar */}
             <GlobalSearch />
+
+            {/* Products — the dark sidebar's links (that sidebar is desktop-only) */}
+            <nav className="border-t pt-3">
+              <ul className="grid grid-cols-2 gap-2">
+                {menuItems.map((item) => (
+                  <li key={item.path || item.href}>
+                    {item.href ? (
+                      <a
+                        href={item.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition bg-gray-50 text-gray-700 hover:bg-gray-100"
+                      >
+                        <item.icon size={18} />
+                        {item.name}
+                      </a>
+                    ) : (
+                    <NavLink
+                      to={item.path}
+                      className={({ isActive }) =>
+                        `flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition ${
+                          isActive ? "bg-[#221e1e] text-white" : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                        }`
+                      }
+                    >
+                      <item.icon size={18} />
+                      {item.name}
+                    </NavLink>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </nav>
           </div>
         )}
+        </div>
 
         {/* ✅ Main Section */}
-        <div className="flex flex-1 min-h-0 p-2">
-          {/* Sidebar */}
-          <div
-            className={`bg-[#221e1e] text-white transition-all duration-300
-            ${isSidebarOpen ? "w-60" : "w-16"}
-            flex flex-col justify-between rounded-xl shadow-md overflow-y-auto`}
-          >
-            {/* Sidebar Top */}
-            <div>
-              {/* Toggle + Title */}
-              <div className="p-4 border-b border-gray-700 flex justify-between items-center">
-                {isSidebarOpen && (
-                  <span className="font-bold text-lg tracking-wide">
-                    Bizpole
-                  </span>
-                )}
-                <button
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="p-2 rounded hover:bg-gray-800"
-                >
-                  {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
-                </button>
-              </div>
-
-              {/* Menu Items */}
-              <nav className="mt-4 px-2">
-                <ul className="space-y-2">
-                  {menuItems.map((item, index) => (
-                    <li key={index}>
-                      <NavLink
-                        to={item.path}
-                        className={({ isActive }) =>
-                          `flex items-center gap-3 py-3 px-3 rounded-lg transition
-                        ${
-                          isActive
-                            ? "bg-gray-700 text-white"
-                            : "text-gray-300 hover:bg-gray-700 hover:text-white"
-                        }`
-                        }
-                      >
-                        <item.icon size={isSidebarOpen ? 24 : 20} />
-                        {isSidebarOpen && (
-                          <span className="text-sm font-medium">
-                            {item.name}
-                          </span>
-                        )}
-                      </NavLink>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            </div>
-
-            {/* Help / Logout removed from the sidebar — Log out now lives in
-                the header profile menu (ProfileMenu). */}
-          </div>
-
-          {/* Sidebar Bottom */}
-          {/* <div className="p-4 border-t border-gray-700 flex flex-col space-y-2">
-            <NavLink
-              to="/help"
-              className="flex items-center gap-3 py-2 px-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white"
-            >
-              <HelpCircle size={isSidebarOpen ? 24 : 20} />
-              {isSidebarOpen && <span className="text-sm font-medium">Help</span>}
-            </NavLink>
-             <button
-      onClick={() => setShowConfirm(true)}
-      className="flex items-center gap-3 py-2 px-3 rounded-lg text-red-500 hover:bg-gray-700 hover:text-red-400"
-    >
-      <LogOut size={isSidebarOpen ? 24 : 20} />
-      {isSidebarOpen && <span className="text-sm font-medium">Logout</span>}
-
-
-    </button>
-   
-          </div> */}
+        <div className="flex flex-1 min-h-0">
           {/* Page Content */}
-          <main className="flex-1 bg-gray-50 overflow-auto rounded-xl">
+          <main className="flex-1 min-w-0 bg-gray-50 overflow-auto">
             <Outlet /> {/* ✅ Nested Dashboard Routes */}
           </main>
         </div>

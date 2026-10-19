@@ -158,7 +158,8 @@ const GlobalSearch = ({ variant = "header", placeholder = "Search" }) => {
         items: remote.services.map((s) => ({
           title: s.Name,
           sub: s.ServiceCode || "",
-          go: () => navigate(`/services/${s.ServiceID}`, { state: { serviceId: s.ServiceID } }),
+          // Inside the dashboard (sidebar kept), not the public /services/:id page.
+          go: () => navigate("/dashboard/bizpoleone/pricing", { state: { serviceId: s.ServiceID } }),
         })),
       },
       {

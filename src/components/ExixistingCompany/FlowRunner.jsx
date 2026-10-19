@@ -13,7 +13,7 @@ import { getAllServiceTypes, getPackagesByServiceType } from "../../api/ServiceT
 import { getCompanyIdFromStorage } from "../../api/SupportTickets/SupportTicket";
 import { insertDeal, getCompanyDetails, createDealFollowUp } from "../../api/DealsApi";
 import { fetchFranchiseeGstInfo, calcGstAmount, splitGst } from "../../utils/gstCalc";
-import { getServiceById } from "../../api/ServicesApi";
+import { getServiceById, getServicePrice } from "../../api/ServicesApi";
 import { loginWithPhone, signupWithPhone, verifyOtp } from "../../api/AuthApi";
 import { notifyTokenSet } from "../../utils/authSession";
 import { clearReferralToken, getReferralToken } from "../../utils/referralAttribution";
@@ -150,7 +150,9 @@ function leadFromSignedInCustomer(state, bump, run, { immediate = false } = {}) 
 // opens LeadCaptureModal, which then only verifies (no second Lead).
 // Also used outside the wizard by the standalone Trademark Search page, with a
 // minimal state ({ serviceType, flowId }) to gate the search report.
-export function requireVerifiedCustomer(state, bump, run) {
+// opts.immediate: a signed-in customer gets `run` straight away and the Lead is
+// raised in the background, instead of waiting for it (see leadFromSignedInCustomer).
+export function requireVerifiedCustomer(state, bump, run, opts = {}) {
   // otpVerified is saved with the application, but the session it proved can
   // be gone since (logout keeps applications, or the token expired) — without
   // a token the applicant isn't signed in any more, so verify again.
@@ -166,7 +168,7 @@ export function requireVerifiedCustomer(state, bump, run) {
     } catch { /* not signed in */ }
   }
   if (state.otpVerified && state.leadCaptured) { run(); return; }
-  if (leadFromSignedInCustomer(state, bump, run)) return;
+  if (leadFromSignedInCustomer(state, bump, run, opts)) return;
   state.leadGate = { run };
   bump();
 }
@@ -540,6 +542,7 @@ async function resaveDeal(flow, state, A) {
   const saved = state.dealSaved;
   if (!state.dealId || !saved || saved.locked || !signedInToken()) return;
   await ensureGstInfo(state).catch(() => {});
+  await ensureMasterPrices(flow, A, state).catch(() => {});
   const contact = changedColumns(dealContactFor(flow, A, state), saved.contact);
   const ServiceDetails = serviceDetailsFor(flow, A, state);
   const lines = JSON.stringify(ServiceDetails);
@@ -557,6 +560,7 @@ async function resaveDeal(flow, state, A) {
 async function resaveQuote(flow, state, A) {
   if (!state.quoteId || !state.quoteSaved || state.quoteLocked || !signedInToken()) return;
   await ensureGstInfo(state).catch(() => {});
+  await ensureMasterPrices(flow, A, state).catch(() => {});
   const ServiceDetails = serviceDetailsFor(flow, A, state);
   const lines = JSON.stringify(ServiceDetails);
   if (!ServiceDetails.length || lines === state.quoteSaved) return;
@@ -651,6 +655,19 @@ function allSteps(flowId, A) {
     { id: "__payment", title: "Payment", type: "payment" },
     { id: "__success", title: "Submitted", type: "success" },
   ]);
+}
+
+// Saved progress as the flow's own header shows it ("Step x of y", % complete)
+// — for listing unfinished applications outside the flow (dashboard).
+export function flowProgress(flowId, stepIndex, answers) {
+  if (!FLOWS[flowId]) return null;
+  const total = allSteps(flowId, answers || {}).length - 1; // success not counted
+  const index = Math.min(stepIndex || 0, total - 1);
+  return {
+    step: Math.min(index + 1, total),
+    total,
+    pct: total > 1 ? Math.round((index / (total - 1)) * 100) : 0,
+  };
 }
 
 function validateStep(step, A, state) {
@@ -1806,6 +1823,7 @@ async function runCreateDeal(flow, state, A, bump) {
   // once one exists.
   if (!companyName) return;
   await ensureGstInfo(state).catch(() => {});
+  await ensureMasterPrices(flow, A, state).catch(() => {});
   const ServiceDetails = serviceDetailsFor(flow, A, state);
   if (state.leadContact.direct) return createDirectDeal(flow, state, A, bump, companyName, ServiceDetails);
   try {
@@ -1900,6 +1918,7 @@ async function createQuoteForApplicationStep(flow, state, A) {
   if (!state.dealId) return;
   const companyName = resolveCompanyName(flow, A);
   await ensureGstInfo(state).catch(() => {});
+  await ensureMasterPrices(flow, A, state).catch(() => {});
   const ServiceDetails = serviceDetailsFor(flow, A, state);
   try {
     const quoteRes = await createQuoteForApplication({
@@ -2540,7 +2559,7 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
         if (/not found/i.test(err?.message || "")) {
           mode = "signup";
           // Referral scan token (if any) rides along so the server can attribute the signup.
-          await signupWithPhone(form.name.trim(), form.email.trim(), form.mobile.trim(), getReferralToken());
+          await signupWithPhone(form.name.trim(), form.email.trim(), form.mobile.trim(), getReferralToken(), form.state);
         } else {
           throw err;
         }
@@ -3988,7 +4007,13 @@ function TmMarksBody({ flow, A, state, errors, setAnswer, bump }) {
   if (!state.tmMarkSearch) state.tmMarkSearch = {};
   const searched = (A.tm_name || "").trim().toLowerCase();
   const perApp = (flow.serviceLines?.(A) || [])[0];
+  // Professional fee from the price master for the applicant's state (see
+  // ensureMasterPrices); the flow's figure only when there's no price row.
+  const perAppFee = perApp ? pricedLine(flow.serviceId, state, perApp.professionalFee, 0)[0] : 0;
   const govt = tmGovtFee(A);
+  useEffect(() => {
+    ensureMasterPrices(flow, A, state).then(bump).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function clearMarkErrors(i) {
     Object.keys(errors).forEach((k) => { if (i == null ? k.startsWith("mark") : k.startsWith(`mark${i}_`)) delete errors[k]; });
@@ -4118,7 +4143,7 @@ function TmMarksBody({ flow, A, state, errors, setAnswer, bump }) {
       {perApp && (
         <div className="mt-4">
           <Note variant="info" title={`You're filing ${marks.length} application${marks.length === 1 ? "" : "s"}`}
-            body={`Each application: ${rupee(perApp.professionalFee)} professional fee + ${rupee(govt)} government fee (+ GST on the professional fee).${govt > 4500 ? " The ₹9,000 government fee applies to a company/LLP/partnership without MSME (Udyam) or Startup India registration." : ""}`} />
+            body={`Each application: ${rupee(perAppFee)} professional fee + ${rupee(govt)} government fee (+ GST on the professional fee).${govt > 4500 ? " The ₹9,000 government fee applies to a company/LLP/partnership without MSME (Udyam) or Startup India registration." : ""}`} />
         </div>
       )}
     </div>
@@ -4222,7 +4247,7 @@ function ReviewBody({ flowId, A, state, errors, onConfirm, onJump }) {
       <Section title="Service Information" rows={[["Service Name", state.serviceType], ["Application Type", flow.kind || "Existing Company"], ["Prepared On", today()]]} />
       <Section title="Applicant Information" rows={applicant} />
       {g.map((x) => <Section key={x.index} title={x.title} rows={x.rows} editIndex={x.index} />)}
-      <Section title="Additional Services" rows={addons.length ? addons.map((a) => [a, rupee(ADDON_PRICE[a] || 999)]) : [["Selected Services", "None selected"]]} />
+      <Section title="Additional Services" rows={addons.length ? addons.map((a) => [a, rupee(pricedLine(ADDON_SERVICE_ID[a] || null, state, ADDON_PRICE[a] || 999, 0)[0])]) : [["Selected Services", "None selected"]]} />
       <label className="flex items-start gap-3 bg-gray-50 border border-gray-200 rounded-lg p-4 mt-4 cursor-pointer">
         <input type="checkbox" className="mt-0.5 w-4 h-4 accent-blue-600" checked={state.confirmed} onChange={(e) => onConfirm(e.target.checked)} />
         <span className="text-sm font-medium">I confirm that the information provided is correct and that I am authorised to submit this application.</span>
@@ -4231,6 +4256,66 @@ function ReviewBody({ flowId, A, state, errors, onConfirm, onJump }) {
     </div>
   );
 }
+
+// State-wise prices from the price master (ServicePriceCurrencyMaster, the same
+// source the Services pages and staff quotes use), keyed "serviceId:stateId".
+// flow.price / flow.govt and ADDON_PRICE are only a fallback for a service
+// with no price row for the applicant's state. Session-only cache, so a resumed
+// application always re-reads current prices.
+const masterPriceCache = new Map();
+let stateIdsByName = null; // lower-cased state_name -> StateID, loaded once
+async function loadStateIds() {
+  if (stateIdsByName) return stateIdsByName;
+  const rows = await getAllStates();
+  const map = new Map();
+  (Array.isArray(rows) ? rows : []).forEach((r) => {
+    const name = String(r.state_name || "").trim().toLowerCase();
+    const id = r.id ?? r.StateID;
+    if (name && id != null) map.set(name, id);
+  });
+  if (map.size) stateIdsByName = map;
+  return map;
+}
+const applicantStateId = (state) => {
+  const name = String(state?.leadContact?.state || "").trim().toLowerCase();
+  return name && stateIdsByName ? stateIdsByName.get(name) ?? null : null;
+};
+// { professionalFee, governmentFee } for this service in the applicant's state,
+// or null when the master has no price (caller falls back).
+function masterPriceFor(serviceId, state) {
+  const stateId = applicantStateId(state);
+  if (!serviceId || stateId == null) return null;
+  return masterPriceCache.get(`${serviceId}:${stateId}`) || null;
+}
+// Load master prices for the main service and every add-on with a ServiceID.
+async function ensureMasterPrices(flow, A, state) {
+  await loadStateIds();
+  const stateId = applicantStateId(state);
+  if (stateId == null) return;
+  const mainId = typeof flow.serviceIdFor === "function" ? flow.serviceIdFor(A) : flow.serviceId || null;
+  const addons = Array.isArray(A?.additionalServices) ? A.additionalServices : [];
+  const ids = [...new Set([mainId, ...addons.map((a) => ADDON_SERVICE_ID[a])].filter(Boolean))];
+  await Promise.all(ids.map(async (sid) => {
+    const key = `${sid}:${stateId}`;
+    if (masterPriceCache.has(key)) return;
+    const res = await getServicePrice({ ServiceId: sid, StateId: stateId }).catch(() => null);
+    const row = res?.success ? res.data : null;
+    if (!row) return;
+    // Vendor / contract fees are folded into the professional fee (they're
+    // GST-able too). The bulk API already zeroes GovernmentFee when the client
+    // pays it directly and reports it as ClientPaidGovtFee — add it back: the
+    // quote line carries the full govt. fee and the server strips it itself.
+    masterPriceCache.set(key, {
+      professionalFee: (Number(row.ProfessionalFee) || 0) + (Number(row.VendorFee) || 0) + (Number(row.ContractFee) || 0),
+      governmentFee: (Number(row.GovernmentFee) || 0) + (Number(row.ClientPaidGovtFee) || 0),
+    });
+  }));
+}
+// Price used for a line: master price when known, else the flow's fallback.
+const pricedLine = (serviceId, state, fallbackProfessional, fallbackGovt) => {
+  const m = masterPriceFor(serviceId, state);
+  return m ? [m.professionalFee, m.governmentFee] : [fallbackProfessional, fallbackGovt];
+};
 
 // Fee breakdown, with GST worked out the same way as every other quote in the
 // app (utils/gstCalc.js): per line, 18% of professional (+ vendor) fee — never
@@ -4249,9 +4334,14 @@ function feeLines(flow, A, state) {
   };
   const serviceId = typeof flow.serviceIdFor === "function" ? flow.serviceIdFor(A) : flow.serviceId || null;
   const addons = Array.isArray(A.additionalServices) ? A.additionalServices : [];
+  const [mainProfessional, mainGovt] = pricedLine(serviceId, state, flow.price, flow.govt);
   const lines = [
-    line(state?.serviceType || flow.name, serviceId, flow.price, flow.govt),
-    ...addons.map((a) => line(a, ADDON_SERVICE_ID[a] || null, ADDON_PRICE[a] || 999, 0)),
+    line(state?.serviceType || flow.name, serviceId, mainProfessional, mainGovt),
+    ...addons.map((a) => {
+      const addonId = ADDON_SERVICE_ID[a] || null;
+      const [professional, govt] = pricedLine(addonId, state, ADDON_PRICE[a] || 999, 0);
+      return line(a, addonId, professional, govt);
+    }),
   ];
   const sum = (k) => lines.reduce((s, l) => s + l[k], 0);
   const addonLines = lines.slice(1).map((l) => [l.name, l.professionalFee]);
@@ -4260,13 +4350,13 @@ function feeLines(flow, A, state) {
   // billed, so it's left out of the total. The lines still carry it: the
   // server strips it from the Quote/Deal itself and records it as
   // ClientPaidGovtFee — zeroing it here too would lose that amount.
-  const clientPaidGovt = serviceId && state?.govtPaidByClient?.[serviceId] ? Number(flow.govt) || 0 : 0;
+  const clientPaidGovt = serviceId && state?.govtPaidByClient?.[serviceId] ? Number(mainGovt) || 0 : 0;
   return {
     lines,
-    service: flow.price,
+    service: mainProfessional,
     addonLines,
     addonTotal: addonLines.reduce((s, l) => s + l[1], 0),
-    govt: flow.govt - clientPaidGovt,
+    govt: mainGovt - clientPaidGovt,
     clientPaidGovt,
     gst: sum("gstAmount"),
     cgst: sum("cgst"),
@@ -4290,7 +4380,7 @@ async function ensureGstInfo(state) {
 // ServiceID since the main service can change with the answers (business type).
 async function ensureGovtFeeFlag(flow, A, state) {
   const serviceId = typeof flow.serviceIdFor === "function" ? flow.serviceIdFor(A) : flow.serviceId || null;
-  if (!serviceId || !(Number(flow.govt) > 0)) return;
+  if (!serviceId) return;
   if (state.govtPaidByClient && serviceId in state.govtPaidByClient) return;
   const res = await getServiceById({ ServiceId: serviceId });
   state.govtPaidByClient = { ...state.govtPaidByClient, [serviceId]: Number(res?.data?.IsGovtFeePaidByClient) === 1 };
@@ -4549,6 +4639,7 @@ function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
   useEffect(() => {
     if (!state.gstInfo) ensureGstInfo(state).then(bump).catch(() => {});
     ensureGovtFeeFlag(flow, A, state).then(bump).catch(() => {});
+    ensureMasterPrices(flow, A, state).then(bump).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const f = feeLines(flow, A, state);
   // Anything other than a call back (incl. drafts saved with the old UPI /

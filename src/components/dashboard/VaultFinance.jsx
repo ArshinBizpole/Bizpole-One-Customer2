@@ -108,7 +108,7 @@ const VaultFinance = () => {
           icon={CreditCard}
           title="Invoices & Payments"
           link="All invoices"
-          onLinkClick={() => navigate("/dashboard/bizpoleone/orderdetails")}
+          onLinkClick={() => navigate("/dashboard/bizpoleone/billing")}
         />
         <div className="space-y-2">
           {invoices.length === 0 && <p className="text-sm text-gray-400">No invoices yet.</p>}
@@ -126,7 +126,8 @@ const VaultFinance = () => {
                 <p className="text-[11px] text-gray-500">{inv.meta}</p>
               </div>
               <button
-                onClick={() => navigate("/dashboard/bizpoleone/orderdetails")}
+                // These opened Order Details with no order (always "No Order Found").
+                onClick={() => navigate(inv.paid ? "/dashboard/bizpoleone/billing" : "/dashboard/bizpoleone/individual")}
                 className={`text-xs font-semibold hover:underline ${
                   inv.paid ? "text-yellow-700" : "text-red-600"
                 }`}
