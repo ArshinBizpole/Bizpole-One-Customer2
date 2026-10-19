@@ -2,7 +2,7 @@ import axiosInstance from "./axiosInstance";
 
 // ✅ Fetch all paginated service names
 export const getServices = async ({ page = 1, limit = 10, filter = "", categoryId = "" } = {}) => {
-  const params = { page, limit };
+  const params = { page, limit, activeOnly: 1 };
   if (filter) params.filter = filter;
   if (categoryId) params.categoryId = categoryId;
 
@@ -11,17 +11,17 @@ export const getServices = async ({ page = 1, limit = 10, filter = "", categoryI
 };
 
 // ✅ Fetch services for a specific category
-export const getServicesByCategory = async (categoryId, { page = 1, limit = 2 } = {}) => {
-  console.log({ categoryId });
-
+export const getServicesByCategory = async (categoryId, { page = 1, limit = 2, filter = "" } = {}) => {
   if (!categoryId) return { data: [], total: 0 };
   const params = { page, limit };
+  if (filter) params.filter = filter;
 
   const res = await axiosInstance.get(`/service-categories/${categoryId}`, { params });
   if (res.data?.data) {
-    const { Services, pagination } = res.data.data;
+    const { CategoryID, CategoryName, Services, pagination } = res.data.data;
     return {
-      data: Services || [],
+      // Services here don't carry their category — attach it so the card badge shows
+      data: (Services || []).map((s) => ({ ...s, Category: s.Category || { CategoryID, CategoryName } })),
       total: pagination?.total || (Services ? Services.length : 0)
     };
   }
@@ -30,7 +30,8 @@ export const getServicesByCategory = async (categoryId, { page = 1, limit = 2 } 
 
 // ✅ Fetch service categories
 export const getServiceCategories = async () => {
-  const res = await axiosInstance.get("/service-category");
+  // Server pages at 10 by default — ask for all so older categories aren't cut off
+  const res = await axiosInstance.get("/service-category", { params: { page: 1, limit: 100 } });
   return res.data;
 };
 
