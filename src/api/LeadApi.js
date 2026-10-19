@@ -11,10 +11,37 @@ export const createLead = async (payload) => {
 
 /**
  * Schedule a follow-up on a Lead.
- * @param {Object} payload - { leadId, followUpDate, remark }
+ * @param {Object} payload - { leadId, followUpDate (YYYY-MM-DD), followUpTime? (HH:MM), remark }
  */
-export const createLeadFollowUp = async ({ leadId, followUpDate, remark }) => {
-  const res = await axiosInstance.post("/followup/create", { leadId, followUpDate, remark });
+export const createLeadFollowUp = async ({ leadId, followUpDate, followUpTime, remark }) => {
+  const res = await axiosInstance.post("/followup/create", { leadId, followUpDate, followUpTime, remark });
+  return res.data;
+};
+
+/**
+ * Save corrected "Your details" to the signed-in customer's own Lead + Customer
+ * (the Customer's sign-in mobile is left as it is).
+ * @param {Object} payload - { leadId?, name?, email?, mobile?, state?, language? } — only what changed
+ */
+export const updateApplicationContact = async (payload) => {
+  const res = await axiosInstance.post("/website/application/contact", payload);
+  return res.data;
+};
+
+/**
+ * Edits made after the Deal / Quote were created, and the application's full
+ * answers — all on the signed-in customer's own records.
+ */
+export const updateApplicationDeal = async (payload) => {
+  const res = await axiosInstance.post("/website/application/deal", payload);
+  return res.data;
+};
+export const updateApplicationQuote = async (payload) => {
+  const res = await axiosInstance.post("/website/application/quote", payload);
+  return res.data;
+};
+export const saveApplicationAnswers = async (payload) => {
+  const res = await axiosInstance.post("/website/application/answers", payload);
   return res.data;
 };
 
@@ -70,5 +97,14 @@ export const uploadApplicationDocument = async ({ file, leadId, companyId, docLa
  */
 export const removeApplicationDocument = async ({ leadId, companyId, docLabel }) => {
   const res = await axiosInstance.post("/lead-generation/application-document/remove", leadId ? { leadId, docLabel } : { companyId, docLabel });
+  return res.data;
+};
+
+/**
+ * List the Documents-step files uploaded in the application flows for a company.
+ * @param {Object} params - { companyId }
+ */
+export const listApplicationDocuments = async ({ companyId }) => {
+  const res = await axiosInstance.post("/lead-generation/application-document/list", { companyId });
   return res.data;
 };

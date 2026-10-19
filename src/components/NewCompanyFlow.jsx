@@ -18,12 +18,13 @@ const NewCompanyFlow = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const flowId = location.state?.flowId || "newco";
-  const typeId = location.state?.type;
   const initialSet = { ...(location.state?.initialSet || {}) };
-  // Opened from the dashboard's company switcher — finish back there, with the
-  // newly registered company selected, instead of the public onboarding pages.
+  // Opened from the dashboard's company switcher — Cancel goes back there
+  // instead of the public services menu.
   const fromDashboard = location.state?.from === "dashboard";
 
+  // Finished application: on to the dashboard, with the newly registered
+  // company selected.
   const finishToDashboard = (submitted) => {
     const company = cachedCompany(submitted?.companyId);
     if (company) {
@@ -37,15 +38,16 @@ const NewCompanyFlow = () => {
   };
 
   return (
-    <div className="newco-theme min-h-screen bg-gray-50 py-4">
+    <div className="newco-theme min-h-screen bg-[#F6F7F9] py-4">
       <FlowRunner
         key={flowId}
         flowId={flowId}
         initialSet={initialSet}
-        homeLabel="What would you like to register?"
-        nextLabel="Continue to Account Setup →"
+        variant="newco"
+        homeLabel="Register your business"
+        nextLabel="Continue to Dashboard →"
         onExit={() => navigate(fromDashboard ? "/dashboard/bizpoleone" : "/startbusiness/services")}
-        onComplete={fromDashboard ? finishToDashboard : () => navigate("/startbusiness/about", { state: { type: typeId } })}
+        onComplete={finishToDashboard}
         onSkip={() => navigate("/dashboard/bizpoleone")}
       />
     </div>

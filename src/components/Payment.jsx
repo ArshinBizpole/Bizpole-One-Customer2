@@ -17,7 +17,7 @@ const Payment = () => {
           transition={{ delay: 0.2, duration: 0.6 }}
           className="p-8 md:p-12"
         >
-          <img src="/Images/logo.webp" alt="Bizpole Logo" className="h-13" /> <br />
+          <img src="/Images/image.png" alt="Bizpole Logo" className="h-13" /> <br />
 
           <div className="mt-6 flex justify-between items-center">
             <h3 className="text-lg font-semibold">Order No: #35264555</h3>

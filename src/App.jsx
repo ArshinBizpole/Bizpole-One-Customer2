@@ -1,7 +1,9 @@
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { SHOW_CUSTOMER_REFER_AND_EARN } from "./utils/featureFlags";
 import { useEffect } from "react";
 import AOS from "aos";
 import useAutoLogout from "./hooks/useAutoLogout";
+import useLegacyReferral from "./hooks/useLegacyReferral";
 
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -30,6 +32,7 @@ import BizpoleOneServices from "./pages/BizpoleOneServices";
 import BizpoleOneTasks from "./pages/BizpoleOneTasks";
 import Refunds from "./pages/Refunds";
 import SupportTickets from "./pages/SupportTickets";
+import Referrals from "./pages/Referrals";
 
 import ProfileLayout from "./pages/ProfileLayout";
 import ProfilePage from "./pages/ProfilePage";
@@ -45,6 +48,13 @@ import Services from "./pages/Services";
 import ServiceDetails from "./pages/ServiceDetails";
 import ProductList from "./pages/ProductView/ProductList";
 import Partners from "./pages/Partners";
+import TrademarkSearch from "./pages/TrademarkSearch";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsAndConditions from "./pages/TermsAndConditions";
+import CancellationRefundPolicy from "./pages/CancellationRefundPolicy";
+import AssociatePrivacyPolicy from "./pages/associate/AssociatePrivacyPolicy";
+import AssociateTermsAndConditions from "./pages/associate/AssociateTermsAndConditions";
+import AssociateReferralConductPolicy from "./pages/associate/AssociateReferralConductPolicy";
 
 
 import Plansandpricing from "./pages/Plansandpricing";
@@ -83,11 +93,19 @@ import CompanyDetailView from "./pages/associate/CompanyDetailView";
 import AssociateReceipts from "./pages/associate/AssociateReceipts";
 import AssociateInvoices from "./pages/associate/AssociateInvoices";
 import ExploreServices from "./pages/associate/ExploreServices";
+import AssociateReferrals from "./pages/associate/AssociateReferrals";
+
+// Referral & Affiliate Programme (public + affiliate portal)
+import ReferralLanding from "./pages/ReferralLanding";
+import AffiliateLanding from "./pages/affiliate/AffiliateLanding";
+import AffiliateLayout from "./pages/affiliate/AffiliateLayout";
+import AffiliateDashboard from "./pages/affiliate/AffiliateDashboard";
 
 function App() {
   const location = useLocation();
 
   useAutoLogout();
+  useLegacyReferral();
 
   useEffect(() => {
     AOS.init({ duration: 1000 });
@@ -102,6 +120,12 @@ function App() {
     // "/existing-companies",
     "/associate",
     "/dashboard",
+    "/r/",
+    "/affiliate/dashboard",
+
+    "/partner-privacy-policy",
+    "/partner-terms-and-conditions",
+    "/partner-referral-conduct-policy",
   ];
 
   const hideLayout = hideLayoutPaths.some((path) =>
@@ -145,6 +169,7 @@ function App() {
           <Route path="/services/:id" element={<ServiceDetails />} />
           <Route path="/products" element={<ProductList />} />
           <Route path="/partners" element={<Partners />} />
+          <Route path="/trademark-search" element={<TrademarkSearch />} />
           <Route path="/startbusiness/apply" element={<NewCompanyFlow />} />
           <Route path="/startbusiness/about" element={<Tellabout />} />
           <Route path="/startbusiness/subscriptions" element={<Subscription />} />
@@ -153,6 +178,20 @@ function App() {
           <Route path="/questions" element={<BusinessQuizWizard />} />
           {/* Sign-in link sent by the WhatsApp assistant (document upload) */}
           <Route path="/wa-login" element={<WhatsAppLogin />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+          <Route path="/cancellation-refund-policy" element={<CancellationRefundPolicy />} />
+          <Route path="/partner-privacy-policy" element={<AssociatePrivacyPolicy />} />
+          <Route path="/partner-terms-and-conditions" element={<AssociateTermsAndConditions />} />
+          <Route path="/partner-referral-conduct-policy" element={<AssociateReferralConductPolicy />} />
+
+          {/* Referral & Affiliate Programme */}
+          <Route path="/r/:code" element={<ReferralLanding />} />
+          <Route path="/affiliate" element={<AffiliateLanding />} />
+          {/* Affiliate portal: guarded by AffiliateLayout's own affiliateToken check, NOT ProtectedRoute */}
+          <Route path="/affiliate/dashboard" element={<AffiliateLayout />}>
+            <Route index element={<AffiliateDashboard />} />
+          </Route>
 
           {/* Profile */}
           <Route path="/profile" element={<ProfileLayout />}>
@@ -192,6 +231,11 @@ function App() {
                   <Route path="billing" element={<Invoiceprofile showRefundLink />} />
                   <Route path="refunds" element={<Refunds />} />
                   <Route path="support" element={<SupportTickets />} />
+                  <Route
+                    path="referrals"
+                    element={SHOW_CUSTOMER_REFER_AND_EARN ? <Referrals /> : <Navigate to="/dashboard/bizpoleone" replace />}
+                  />
+                  <Route path="trademark-search" element={<TrademarkSearch embedded />} />
                 </Route>
               </Route>
 
@@ -214,6 +258,7 @@ function App() {
                 <Route path="receipts" element={<AssociateReceipts />} />
                 <Route path="invoices" element={<AssociateInvoices />} />
                 <Route path="explore-services" element={<ExploreServices />} />
+                <Route path="referrals" element={<AssociateReferrals />} />
               </Route>
 
             </Route>

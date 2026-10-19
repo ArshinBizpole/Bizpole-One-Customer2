@@ -16,7 +16,8 @@ import {
     ChevronLeft,
     HelpCircle,
     Building2,
-    ArrowLeft
+    ArrowLeft,
+    Gift
 } from 'lucide-react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { getSecureItem } from '../utils/secureStorage';
@@ -64,6 +65,7 @@ const AssociateLayout = () => {
         { id: 'companies', path: '/associate/companies', icon: <Building2 className="w-5 h-5" />, label: 'Companies' },
         { id: 'receipts', path: '/associate/receipts', icon: <Receipt className="w-5 h-5" />, label: 'Receipts' },
         { id: 'explore-services', path: '/associate/explore-services', icon: <FileText className="w-5 h-5" />, label: 'Explore' },
+        { id: 'referrals', path: '/associate/referrals', icon: <Gift className="w-5 h-5" />, label: 'Refer & Earn' },
         // { id: 'invoices', path: '/associate/invoices', icon: <FileSpreadsheet className="w-5 h-5" />, label: 'Invoices' },
     ];
 

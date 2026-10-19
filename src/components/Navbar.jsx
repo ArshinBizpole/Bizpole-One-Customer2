@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { FaBars, FaTimes } from "react-icons/fa";
 import SigninModal from "./Modals/SigninModal";
+import ProfileMenu from "./ProfileMenu";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -10,18 +11,21 @@ export default function Navbar() {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showSignin, setShowSignin] = useState(false);
+  const [signinMode, setSigninMode] = useState("signin");
   const [hasToken, setHasToken] = useState(false);
 
   const navItems = [
     { label: "Services", path: "/services" },
     { label: "Product", path: "/products" },
     { label: "Bizpole One", path: "/bizpoleone" },
+    { label: "Trademark Search", path: "/trademark-search" },
     { label: "Partners", path: "/partners" },
   ];
 
   // Auto-open Signin Modal
   useEffect(() => {
-    if (location.state?.openSigninModal) {
+    if (location.state?.openSigninModal || location.state?.openSignupModal) {
+      setSigninMode(location.state?.openSignupModal ? "signup" : "signin");
       setShowSignin(true);
       window.history.replaceState({}, document.title);
     }
@@ -47,14 +51,8 @@ export default function Navbar() {
     };
   }, []);
 
-  // Referral tracking
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const ref = params.get("ref");
-    if (ref) {
-      localStorage.setItem("PartnerID", ref);
-    }
-  }, []);
+  // Legacy `?ref=` referral links are handled app-wide by useLegacyReferral (App.jsx) —
+  // they are resolved server-side into a scan token; nothing is copied into PartnerID.
 
   const handleNavigate = (path) => {
     navigate(path);
@@ -72,7 +70,7 @@ export default function Navbar() {
             className="cursor-pointer flex items-center"
           >
             <img
-              src="/Images/logo.webp"
+              src="/Images/image.png"
               alt="Bizpole Logo"
               className="h-10"
             />
@@ -111,14 +109,17 @@ export default function Navbar() {
           {/* RIGHT SIDE */}
           <div className="hidden md:flex items-center gap-3">
             {hasToken ? (
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => navigate("/dashboard/bizpoleone")}
-                className="px-5 py-2 rounded-full bg-black text-white text-sm font-medium shadow-md"
-              >
-                Dashboard →
-              </motion.button>
+              <>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => navigate("/dashboard/bizpoleone")}
+                  className="px-5 py-2 rounded-full bg-black text-white text-sm font-medium shadow-md"
+                >
+                  Dashboard →
+                </motion.button>
+                <ProfileMenu />
+              </>
             ) : (
               <>
                 {/* Sign In */}
@@ -144,13 +145,16 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* MOBILE BUTTON */}
-          <button
-            className="md:hidden text-black"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <FaTimes size={22} /> : <FaBars size={22} />}
-          </button>
+          {/* MOBILE: profile (when signed in) + menu button */}
+          <div className="md:hidden flex items-center gap-3">
+            {hasToken && <ProfileMenu />}
+            <button
+              className="text-black"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <FaTimes size={22} /> : <FaBars size={22} />}
+            </button>
+          </div>
         </div>
 
         {/* MOBILE MENU */}
@@ -212,7 +216,11 @@ export default function Navbar() {
       {/* SIGNIN MODAL */}
       <SigninModal
         isOpen={showSignin}
-        onClose={() => setShowSignin(false)}
+        initialMode={signinMode}
+        onClose={() => {
+          setShowSignin(false);
+          setSigninMode("signin");
+        }}
       />
     </>
   );

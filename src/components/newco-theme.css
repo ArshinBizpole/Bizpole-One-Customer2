@@ -10,31 +10,25 @@
   --brand-text: #92620a;
 }
 
-/* FlowRunner boxes itself into a fixed max-w-6xl (1152px) — fine for the Existing
-   Company blue flow, but on a wide monitor the New Company wizard reads as a small
-   card lost in a sea of empty gray. Let it use the full page width instead. */
-.newco-theme .max-w-6xl {
-  max-width: 100% !important;
+/* FlowRunner variant="newco" draws its own three-panel layout (rail, step card,
+   FlowStepGuide); these rules only fine-tune the shared form controls inside it. */
+.newco-theme .flow-optional {
+  display: inline !important;
 }
-
-/* Same problem vertically — the rail and the step card both shrink-wrap to their
-   own content, leaving a short card on top of a lot of empty gray page. Give both
-   panels real height, and pin "Cancel application" / the Back-Continue row to the
-   bottom of that taller box instead of floating right under the content. */
-.newco-theme .p-4.bg-white.rounded-xl.border.border-gray-200.shadow-sm,
-.newco-theme .p-5.bg-white.rounded-xl.border.border-gray-200.shadow-sm {
-  min-height: 74vh;
-  display: flex;
-  flex-direction: column;
+/* Yes / No choice: two compact cards instead of a full-width row. */
+.newco-theme .yn-grid {
+  max-width: 22rem;
 }
-.newco-theme .p-4.bg-white.rounded-xl.border.border-gray-200.shadow-sm > ul.space-y-0\.5 {
-  flex: 1;
+.newco-theme label.block.text-sm {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1f2937;
 }
-.newco-theme .p-4.bg-white.rounded-xl.border.border-gray-200.shadow-sm > button.w-full.text-xs.text-gray-400 {
-  margin-top: auto !important;
-}
-.newco-theme .p-5.bg-white.rounded-xl.border.border-gray-200.shadow-sm > div.border-t.border-gray-100 {
-  margin-top: auto !important;
+.newco-theme input.w-full.border,
+.newco-theme select.w-full.border,
+.newco-theme textarea.w-full.border {
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.5rem;
 }
 
 /* Primary solid buttons (bg-blue-600 + text-white together) */

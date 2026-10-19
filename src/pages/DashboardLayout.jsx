@@ -1,22 +1,19 @@
 import React, { useState, useEffect, createContext } from "react";
-import ConfirmMsg from "../components/ConfirmMsg";
+import ProfileMenu from "../components/ProfileMenu";
+import NotificationBell from "../components/NotificationBell";
+import GlobalSearch from "../components/GlobalSearch";
 import { setSecureItem, getSecureItem } from "../utils/secureStorage";
 import axiosInstance from "../api/axiosInstance";
 import { Outlet, NavLink } from "react-router-dom";
 import {
   BookOpen,
   Layers,
-  Bell,
   ChevronDown,
   Menu,
   X,
-  HelpCircle,
-  LogOut,
   FileText,
   Plus,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { clearStorageKeepingApplications } from "../utils/applicationPrefill";
 
 
 // Context to provide selected company and quotes
@@ -29,6 +26,19 @@ const DashboardLayout = () => {
   const [selectedCompany, setSelectedCompany] = useState("");
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+
+  // Close the company dropdown on a click outside it (or Esc).
+  useEffect(() => {
+    if (!showCompanyDropdown) return;
+    const onDown = (e) => { if (!e.target.closest("[data-company-dropdown]")) setShowCompanyDropdown(false); };
+    const onKey = (e) => { if (e.key === "Escape") setShowCompanyDropdown(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [showCompanyDropdown]);
   const [companies, setCompanies] = useState([]);
   const [quotes, setQuotes] = useState([]);
 
@@ -174,13 +184,7 @@ const DashboardLayout = () => {
 
 
 
-  const navigate = useNavigate();
 
-  const [showConfirm, setShowConfirm] = useState(false);
-  const handleLogout = () => {
-    clearStorageKeepingApplications();
-    navigate("/");
-  };
   // Handle company selection
   const handleCompanySelect = (company) => {
     setSelectedCompany(company.BusinessName);
@@ -264,18 +268,20 @@ const uniqueCompanies = Array.from(
         loadQuotesForCompany,
       }}
     >
-      <div className="min-h-screen flex flex-col bg-gray-50">
+      {/* Locked to the screen height: only the page content (main) scrolls, so the
+          sidebars stay in place. */}
+      <div className="h-screen overflow-hidden flex flex-col bg-gray-50">
         {/* ✅ Top Navbar */}
         <header className="bg-white px-6 py-3 flex justify-between items-center shadow-sm">
           {/* Logo */}
           <div className="flex items-center">
-            <img src="/Images/logo.webp" alt="Bizpole Logo" className="h-14" />
+            <img src="/Images/image.png" alt="Bizpole Logo" className="h-14" />
           </div>
 
           {/* Desktop Right Section */}
           <div className="hidden lg:flex items-center space-x-6">
             {/* Company Dropdown */}
-            <div className="relative">
+            <div className="relative" data-company-dropdown>
               <button
                 className="px-6 py-2 rounded-full font-semibold text-black bg-[#FFC42A40] hover:bg-[#FFC42A70] transition flex items-center gap-2"
                 onClick={() => setShowCompanyDropdown((prev) => !prev)}
@@ -309,64 +315,23 @@ const uniqueCompanies = Array.from(
             {/* Search + Icons Container */}
             <div className="flex items-center bg-white rounded-full shadow-md px-3 py-2 space-x-4">
               {/* Search Bar */}
-              <div className="flex items-center bg-[#FFC42A40] rounded-full px-3 py-1.5">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 text-gray-500 mr-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1010.5 18.5a7.5 7.5 0 006.15-3.85z"
-                  />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search"
-                  className="bg-transparent outline-none text-sm placeholder-gray-500 w-32 focus:w-44 transition-all"
-                />
-              </div>
+              <GlobalSearch />
 
               {/* Notifications */}
-              <button className="p-2 rounded-full hover:bg-gray-100 relative cursor-pointer">
-                <Bell size={22} className="text-gray-600" />
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
-              </button>
+              <NotificationBell />
 
               {/* Profile */}
-              <NavLink
-                to="/profile"
-                className="flex items-center cursor-pointer"
-              >
-                <img
-                  src="/Images/user.jpg"
-                  alt="Profile"
-                  className="w-9 h-9 rounded-full shadow"
-                />
-              </NavLink>
+              <ProfileMenu />
             </div>
           </div>
 
           {/* ✅ Mobile Right Section (Bell + User + Menu) */}
           <div className="flex items-center space-x-3 lg:hidden">
             {/* Notifications */}
-            <button className="p-2 rounded-full hover:bg-gray-100 relative cursor-pointer">
-              <Bell size={22} className="text-gray-600" />
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
-            </button>
+            <NotificationBell />
 
             {/* User Profile */}
-            <div className="flex items-center cursor-pointer">
-              <img
-                src="/Images/user.jpg"
-                alt="Profile"
-                className="w-9 h-9 rounded-full shadow"
-              />
-            </div>
+            <ProfileMenu />
 
             {/* Mobile Menu Button */}
             <button
@@ -382,7 +347,7 @@ const uniqueCompanies = Array.from(
         {isMobileMenuOpen && (
           <div className="lg:hidden bg-white shadow-md px-6 py-4 space-y-4">
             {/* Company Dropdown for Mobile */}
-            <div className="relative">
+            <div className="relative" data-company-dropdown>
               <button
                 className="w-full px-6 py-2 rounded-full font-semibold text-black bg-[#FFC42A40] hover:bg-[#FFC42A70] transition flex items-center justify-center gap-2"
                 onClick={() => setShowCompanyDropdown((prev) => !prev)}
@@ -485,37 +450,17 @@ const uniqueCompanies = Array.from(
             </div>
 
             {/* Search Bar */}
-            <div className="flex items-center bg-[#FFC42A40] rounded-full px-3 py-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-gray-500 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1010.5 18.5a7.5 7.5 0 006.15-3.85z"
-                />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search"
-                className="bg-transparent outline-none text-sm placeholder-gray-500 w-full"
-              />
-            </div>
+            <GlobalSearch />
           </div>
         )}
 
         {/* ✅ Main Section */}
-        <div className="flex flex-1 p-2">
+        <div className="flex flex-1 min-h-0 p-2">
           {/* Sidebar */}
           <div
             className={`bg-[#221e1e] text-white transition-all duration-300
             ${isSidebarOpen ? "w-60" : "w-16"}
-            flex flex-col justify-between rounded-xl shadow-md`}
+            flex flex-col justify-between rounded-xl shadow-md overflow-y-auto`}
           >
             {/* Sidebar Top */}
             <div>
@@ -563,42 +508,8 @@ const uniqueCompanies = Array.from(
               </nav>
             </div>
 
-            {/* Sidebar Bottom */}
-            <div className="p-4 border-t border-gray-700 flex flex-col space-y-2">
-              <NavLink
-                to="/help"
-                className="flex items-center gap-3 py-2 px-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white"
-              >
-                <HelpCircle size={isSidebarOpen ? 24 : 20} />
-                {isSidebarOpen && (
-                  <span className="text-sm font-medium">Help</span>
-                )}
-              </NavLink>
-              <button
-                onClick={() => setShowConfirm(true)}
-                className="flex items-center gap-3 py-2 px-3 rounded-lg text-red-500 hover:bg-gray-700 hover:text-red-400"
-              >
-                <LogOut size={isSidebarOpen ? 24 : 20} />
-                {isSidebarOpen && (
-                  <span className="text-sm font-medium">Logout</span>
-                )}
-              </button>
-              {/* Confirm Logout Modal - moved outside button for correct event handling */}
-              <ConfirmMsg
-                open={showConfirm}
-                title="Logout"
-                message="Do you want to logout?"
-                confirmText="Logout"
-                cancelText="Cancel"
-                onConfirm={() => {
-                  setShowConfirm(false);
-                  handleLogout();
-                }}
-                onCancel={() => setShowConfirm(false)}
-                showCancel={true}
-                variant="delete"
-              />
-            </div>
+            {/* Help / Logout removed from the sidebar — Log out now lives in
+                the header profile menu (ProfileMenu). */}
           </div>
 
           {/* Sidebar Bottom */}

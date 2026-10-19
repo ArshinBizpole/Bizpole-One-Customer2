@@ -11,9 +11,12 @@ import {
   Wrench,
   Receipt,
   LifeBuoy,
+  Gift,
+  SearchCheck,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { SHOW_CUSTOMER_REFER_AND_EARN } from "../utils/featureFlags";
 
 const BizpoleOneDashboardLayout = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -29,12 +32,12 @@ const BizpoleOneDashboardLayout = () => {
     location.pathname.startsWith("/dashboard/bizpoleone/individual");
 
   return (
-    <div className="flex flex-col md:flex-row bg-gray-50 max-h-[100vh] min-h-[89]">
+    <div className="flex flex-col md:flex-row bg-gray-50 h-full min-h-0">
       {/* Sidebar */}
       <motion.aside
         animate={{ width: isCollapsed ? "80px" : "260px" }}
         transition={{ type: "spring", stiffness: 200, damping: 20 }}
-        className="bg-white flex flex-col justify-between shadow-sm relative min-h-[60px] md:min-h-screen w-full md:w-auto"
+        className="bg-white flex flex-col justify-between shadow-sm relative min-h-[60px] md:h-full w-full md:w-auto"
       >
         {/* Collapse Button (hide on mobile) */}
         <button
@@ -44,8 +47,9 @@ const BizpoleOneDashboardLayout = () => {
           {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
         </button>
 
-        {/* Sidebar Top */}
-        <div className="p-4 flex-1">
+        {/* Sidebar Top — scrolls on its own if the menu is taller than the
+            screen (kept off the aside so the collapse button isn't clipped) */}
+        <div className="p-4 flex-1 min-h-0 overflow-y-auto">
           <nav>
             <ul className="space-y-2">
               {/* Dashboard */}
@@ -160,6 +164,23 @@ const BizpoleOneDashboardLayout = () => {
                 </NavLink>
               </li> */}
 
+              {/* Trademark Search — same page as the website's /trademark-search,
+                  with the customer's search history and report downloads */}
+              <li>
+                <NavLink
+                  to="/dashboard/bizpoleone/trademark-search"
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-3 rounded-lg font-medium transition-all ${isActive
+                      ? "bg-[#FFC42A] text-white shadow-inner"
+                      : "text-gray-600 hover:bg-gray-50"
+                    }`
+                  }
+                >
+                  <SearchCheck size={20} />
+                  {!isCollapsed && <span>Trademark Search</span>}
+                </NavLink>
+              </li>
+
               {/* Pricing & Plans */}
               <li>
                 <NavLink
@@ -207,6 +228,24 @@ const BizpoleOneDashboardLayout = () => {
                   {!isCollapsed && <span>Customer supports</span>}
                 </NavLink>
               </li>
+
+              {/* Refer & Earn */}
+              {SHOW_CUSTOMER_REFER_AND_EARN && (
+              <li>
+                <NavLink
+                  to="/dashboard/bizpoleone/referrals"
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-3 rounded-lg font-medium transition-all ${isActive
+                      ? "bg-[#FFC42A] text-white shadow-inner"
+                      : "text-gray-600 hover:bg-gray-50"
+                    }`
+                  }
+                >
+                  <Gift size={20} />
+                  {!isCollapsed && <span>Refer &amp; Earn</span>}
+                </NavLink>
+              </li>
+              )}
             </ul>
           </nav>
         </div>
@@ -249,7 +288,7 @@ const BizpoleOneDashboardLayout = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5 }}
-        className="flex-1 p-6 overflow-y-auto"
+        className="flex-1 min-h-0 p-6 overflow-y-auto"
       >
         <Outlet />
       </motion.main>
