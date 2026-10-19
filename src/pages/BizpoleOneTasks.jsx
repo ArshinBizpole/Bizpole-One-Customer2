@@ -1135,7 +1135,8 @@ const displayedUpcomingTasks =
                       <div>
                         <h4 className="font-medium text-gray-800">{s.ItemName || `Service ID: ${s.ServiceID}`}</h4>
                         <p className="text-xs text-gray-500">
-                          ServiceDetailID: {s.ServiceDetailID} | QuoteID: {s.QuoteID}
+                          Service ID: {s.ServiceCode || s.ServiceDetailID} | Quote ID: {s.QuoteCodeId || s.QuoteID}
+                          {s.OrderDate && ` | Order Date: ${new Date(s.OrderDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`}
                         </p>
                       </div>
                     </div>

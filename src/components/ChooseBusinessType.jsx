@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import HeroPhotoCard from "./HeroPhotoCard";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ChevronLeft } from "lucide-react";
@@ -295,19 +296,7 @@ const ChooseBusinessType = ({ onBack }) => {
             </svg>
 
             {/* Placeholder card / illustration slot */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-              style={{
-                position: "relative", zIndex: 2,
-                width: "70%", maxWidth: 260, height: "62%", maxHeight: 300,
-                borderRadius: 22,
-                background: "rgba(255,255,255,0.22)",
-                border: "1px solid rgba(255,255,255,0.35)",
-                backdropFilter: "blur(6px)",
-              }}
-            />
+            <HeroPhotoCard />
           </div>
         </div>
       </motion.div>

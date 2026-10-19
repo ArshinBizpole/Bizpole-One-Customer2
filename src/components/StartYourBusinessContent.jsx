@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import HeroPhotoCard from "./HeroPhotoCard";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import SigninModal from "./Modals/SigninModal";
@@ -120,19 +121,7 @@ const StartYourBusinessContent = ({ onNext }) => {
             </svg>
 
             {/* Centered glass placeholder card */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-              style={{
-                position: "relative", zIndex: 2,
-                width: "60%", maxWidth: 380, height: "55%", maxHeight: 440,
-                borderRadius: 22,
-                background: "rgba(255,255,255,0.22)",
-                border: "1px solid rgba(255,255,255,0.35)",
-                backdropFilter: "blur(6px)",
-              }}
-            />
+            <HeroPhotoCard />
           </div>
 
           {/* ════ RIGHT — WHITE PANEL ════ */}

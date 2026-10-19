@@ -1,3 +1,6 @@
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { PAGER_NAV_CLASS, PAGER_PAGE_CLASS, PAGER_ACTIVE_CLASS } from "./Pagination";
+
 
 // Modern DataTable component with updated design
 const DataTable = ({
@@ -102,18 +105,9 @@ const DataTable = ({
               <button
                 onClick={onPrev}
                 disabled={page === 1}
-                className={`
-                  inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
-                  ${page === 1
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-white text-gray-700 hover:bg-gray-100 hover:shadow-sm border border-gray-300'
-                  }
-                `}
+                className={PAGER_NAV_CLASS}
               >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                Previous
+                <ChevronLeft className="w-4 h-4" /> Previous
               </button>
 
               {/* Page Indicator */}
@@ -121,7 +115,7 @@ const DataTable = ({
                 <span className="text-sm text-gray-600">
                   Page
                 </span>
-                <span className="inline-flex items-center justify-center min-w-[2.5rem] px-3 py-1 text-sm font-semibold text-blue-600 bg-blue-50 rounded-lg border border-blue-200">
+                <span className={`${PAGER_PAGE_CLASS} ${PAGER_ACTIVE_CLASS} inline-flex items-center justify-center`}>
                   {page}
                 </span>
                 <span className="text-sm text-gray-600">
@@ -136,18 +130,9 @@ const DataTable = ({
               <button
                 onClick={onNext}
                 disabled={page === totalPages}
-                className={`
-                  inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
-                  ${page === totalPages
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-white text-gray-700 hover:bg-gray-100 hover:shadow-sm border border-gray-300'
-                  }
-                `}
+                className={PAGER_NAV_CLASS}
               >
-                Next
-                <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+                Next <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>

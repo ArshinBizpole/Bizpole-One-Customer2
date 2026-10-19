@@ -27,11 +27,6 @@ const IconFilter = () => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
   </svg>
 );
-const IconChevronDown = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-  </svg>
-);
 const IconChevronUp = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -93,8 +88,10 @@ const getCategoryIcon = (categoryName) => {
 };
 
 import { getAllStates } from "../api/States";
+import Pagination from "../components/Pagination";
+import StateSelect from "../components/StateSelect";
 
-const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price, onSelectState, stateId, setShowSigninModal, navigate }) => {
+const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price, onSelectState, stateId, stateName, setShowSigninModal, navigate }) => {
   const features = service.Features || [];
   const categoryName = service.Category?.CategoryName || service.CategoryName;
   // API descriptions sometimes come wrapped in literal quote characters — strip them for display
@@ -210,15 +207,23 @@ const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price, onSele
                   </div>
                 ) : (
                   <span className="text-xs text-red-400 font-medium">
-                    Not available in this state
+                    Not available in {stateName || "this state"}
                   </span>
                 )}
-                <button
-                  className="text-xs text-black underline flex-shrink-0"
-                  onClick={onSelectState}
-                >
-                  Change State
-                </button>
+                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                  {stateName && (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full px-2 py-0.5">
+                      <MapPin className="w-3 h-3 text-[#E6A82B]" />
+                      {stateName}
+                    </span>
+                  )}
+                  <button
+                    className="text-xs text-black underline"
+                    onClick={onSelectState}
+                  >
+                    Change State
+                  </button>
+                </div>
               </div>
 
               {/* Request Quote + Select together */}
@@ -477,6 +482,19 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
     }
   };
 
+  // Load the state list up front when a state is already chosen, so the cards
+  // can show its name (the modal would otherwise only load it on open).
+  useEffect(() => {
+    if (stateId && allStates.length === 0) {
+      getAllStates()
+        .then((states) => setAllStates(states || []))
+        .catch(() => setAllStates([]));
+    }
+  }, [stateId, allStates.length]);
+
+  const selectedStateName =
+    allStates.find((s) => String(s.id || s.StateID) === String(stateId))?.state_name || "";
+
   // Open modal and fetch states if needed
   const openStateModal = () => {
     setShowStateModal(true);
@@ -648,25 +666,12 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
                   <label className="block text-sm font-bold text-gray-900 mb-2">
                     Select your state <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative">
-                    <select
-                      value={selectedStateForModal}
-                      onChange={e => setSelectedStateForModal(e.target.value)}
-                      required
-                      className="w-full appearance-none pl-4 pr-14 py-3.5 rounded-2xl border border-gray-200 text-sm text-gray-700 focus:ring-1 focus:ring-[#f7d761] focus:border-[#f7d761] outline-none disabled:opacity-60"
-                      disabled={statesLoading}
-                    >
-                      <option value="">Choose your state</option>
-                      {allStates.map((state) => (
-                        <option key={state.id || state.StateID} value={state.id || state.StateID}>
-                          {state.state_name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute right-1.5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-[#F3C625] flex items-center justify-center pointer-events-none">
-                      <IconChevronDown />
-                    </div>
-                  </div>
+                  <StateSelect
+                    states={allStates}
+                    value={selectedStateForModal}
+                    onChange={setSelectedStateForModal}
+                    loading={statesLoading}
+                  />
                 </div>
 
                 <div className="flex gap-3">
@@ -1076,6 +1081,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
                         price={getBulkPrice(service.ServiceID)}
                         onSelectState={openStateModal}
                         stateId={stateId}
+                        stateName={selectedStateName}
                         bulkLoading={bulkLoading}
                         setShowSigninModal={(open) => { setSigninService(service); setShowSigninModal(open); }}
                         navigate={navigate}
@@ -1085,39 +1091,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
 
                   {/* Pagination */}
                   {totalPages > 1 && (
-                    <div className="flex items-center justify-center gap-2 mt-8">
-                      <button
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                        disabled={page === 1}
-                        className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-600 disabled:opacity-40 hover:border-[#F3C625] hover:text-[#F3C625] transition-all"
-                      >
-                        ← Previous
-                      </button>
-                      <div className="flex gap-1">
-                        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                          let pageNum = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= totalPages - 2 ? totalPages - 4 + i : page - 2 + i;
-                          return (
-                            <button
-                              key={pageNum}
-                              onClick={() => setPage(pageNum)}
-                              className={`w-9 h-9 rounded-xl text-sm font-semibold transition-all ${page === pageNum
-                                ? "bg-[#F3C625] text-white shadow-sm"
-                                : "bg-white text-gray-600 border border-gray-200 hover:border-[#F3C625]"
-                                }`}
-                            >
-                              {pageNum}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <button
-                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                        disabled={page === totalPages}
-                        className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-600 disabled:opacity-40 hover:border-[#F3C625] hover:text-[#F3C625] transition-all"
-                      >
-                        Next →
-                      </button>
-                    </div>
+                    <Pagination page={page} totalPages={totalPages} onPage={setPage} className="justify-center mt-8" />
                   )}
                 </motion.div>
               )}
