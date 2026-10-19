@@ -275,7 +275,7 @@ const uniqueCompanies = Array.from(
         <header className="bg-white px-6 py-3 flex justify-between items-center shadow-sm">
           {/* Logo */}
           <div className="flex items-center">
-            <img src="/Images/logo.webp" alt="Bizpole Logo" className="h-14" />
+            <img src="/Images/image.png" alt="Bizpole Logo" className="h-14" />
           </div>
 
           {/* Desktop Right Section */}

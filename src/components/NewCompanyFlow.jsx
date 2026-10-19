@@ -38,12 +38,13 @@ const NewCompanyFlow = () => {
   };
 
   return (
-    <div className="newco-theme min-h-screen bg-gray-50 py-4">
+    <div className="newco-theme min-h-screen bg-[#F6F7F9] py-4">
       <FlowRunner
         key={flowId}
         flowId={flowId}
         initialSet={initialSet}
-        homeLabel="What would you like to register?"
+        variant="newco"
+        homeLabel="Register your business"
         nextLabel="Continue to Dashboard →"
         onExit={() => navigate(fromDashboard ? "/dashboard/bizpoleone" : "/startbusiness/services")}
         onComplete={finishToDashboard}

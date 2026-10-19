@@ -124,7 +124,7 @@ const ProfileLayout = () => {
       <header className="bg-white px-6 py-3 flex justify-between items-center shadow-sm fixed top-0 left-0 right-0 z-50">
         {/* Logo */}
         <div className="flex items-center">
-          <img src="/Images/logo.webp" alt="Bizpole Logo" className="h-14" />
+          <img src="/Images/image.png" alt="Bizpole Logo" className="h-14" />
         </div>
 
         {/* Desktop Right Section */}
