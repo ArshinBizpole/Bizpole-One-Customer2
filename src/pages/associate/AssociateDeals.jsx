@@ -7,6 +7,7 @@ import DealsApi from '../../api/DealsApi';
 import { getSecureItem } from '../../utils/secureStorage';
 import { format } from 'date-fns';
 import axiosInstance from '../../api/axiosInstance';
+import Pagination from '../../components/Pagination';
 
 const getDealDataFromParams = (search) => {
     try {
@@ -701,22 +702,7 @@ const AssociateDeals = () => {
                 {!loading && filteredDeals.length > 0 && (
                     <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-white">
                         <div className="flex items-center gap-2 text-sm text-slate-500">
-                            <span>Page</span>
-                            <div className="flex gap-1">
-                                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(p => (
-                                    <button
-                                        key={p}
-                                        onClick={() => setCurrentPage(p)}
-                                        className={`w-7 h-7 rounded-full text-xs font-semibold transition-colors ${currentPage === p
-                                            ? 'bg-amber-400 text-white'
-                                            : 'text-slate-500 hover:bg-slate-100'
-                                            }`}
-                                    >
-                                        {p}
-                                    </button>
-                                ))}
-                            </div>
-                            <span>•</span>
+                            <span>Rows per page</span>
                             <select
                                 value={pageSize}
                                 onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
@@ -727,6 +713,7 @@ const AssociateDeals = () => {
                                 ))}
                             </select>
                         </div>
+                        <Pagination page={currentPage} totalPages={totalPages} onPage={setCurrentPage} />
                     </div>
                 )}
             </div>

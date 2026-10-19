@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
+import HeroPhotoCard from "./HeroPhotoCard";
 import { useEffect } from "react";
 import AOS from "aos";
 import "aos/dist/aos.css";
@@ -30,10 +31,7 @@ const BusinessPanel = ({ isRight, setIsRight }) => {
                 className="w-1/2 flex items-center justify-center bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 relative"
                 data-aos="fade-right"
               >
-                <motion.div
-                  layout
-                  className="w-72 h-96 rounded-2xl bg-white/20 backdrop-blur-md"
-                />
+                <HeroPhotoCard />
               </motion.div>
 
               {/* Content Right */}
@@ -99,10 +97,7 @@ const BusinessPanel = ({ isRight, setIsRight }) => {
                 className="w-1/2 flex items-center justify-center bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 relative"
                 data-aos="fade-left"
               >
-                <motion.div
-                  layout
-                  className="w-72 h-96 rounded-2xl bg-white/20 backdrop-blur-md"
-                />
+                <HeroPhotoCard />
               </motion.div>
             </>
           )}

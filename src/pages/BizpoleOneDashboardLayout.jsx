@@ -9,7 +9,6 @@ import {
   ChevronDown,
   Box,
   Wrench,
-  Receipt,
   LifeBuoy,
   Gift,
   SearchCheck,
@@ -28,7 +27,6 @@ const MOBILE_TABS = [
   { to: "/dashboard/bizpoleone/tasks", label: "My task", icon: ListChecks },
   { to: "/dashboard/bizpoleone/trademark-search", label: "Trademark Search", icon: SearchCheck },
   { to: "/dashboard/bizpoleone/pricing", label: "Pricing & Plans", icon: CreditCard },
-  { to: "/dashboard/bizpoleone/billing", label: "Billing and Invoice", icon: Receipt },
   { to: "/dashboard/bizpoleone/support", label: "Customer supports", icon: LifeBuoy },
   ...(SHOW_CUSTOMER_REFER_AND_EARN ? [{ to: "/dashboard/bizpoleone/referrals", label: "Refer & Earn", icon: Gift }] : []),
 ];
@@ -238,22 +236,6 @@ const BizpoleOneDashboardLayout = () => {
                 >
                   <CreditCard size={20} />
                   {!isCollapsed && <span>Pricing & Plans</span>}
-                </NavLink>
-              </li>
-
-              {/* Billing and Invoice */}
-              <li>
-                <NavLink
-                  to="/dashboard/bizpoleone/billing"
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-3 rounded-lg font-medium transition-all ${isActive
-                      ? "bg-[#FFC42A] text-white shadow-inner"
-                      : "text-gray-600 hover:bg-gray-50"
-                    }`
-                  }
-                >
-                  <Receipt size={20} />
-                  {!isCollapsed && <span>Billing and Invoice</span>}
                 </NavLink>
               </li>
 

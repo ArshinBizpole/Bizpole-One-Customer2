@@ -16,6 +16,18 @@ export const CartProvider = ({ children }) => {
     localStorage.setItem("SelectedServicePrices", JSON.stringify(cart));
   }, [cart]);
 
+  // Empty the cart on logout / session expiry (every path fires this event, see
+  // utils/authSession) so the next person on this browser doesn't inherit it.
+  useEffect(() => {
+    const onSessionCleared = () => {
+      localStorage.removeItem("SelectedServices");
+      localStorage.removeItem("AllServicesCache");
+      setCart({});
+    };
+    window.addEventListener("auth-session-cleared", onSessionCleared);
+    return () => window.removeEventListener("auth-session-cleared", onSessionCleared);
+  }, []);
+
   const addToCart = (serviceId, priceObj) => {
     setCart((prev) => ({ ...prev, [serviceId]: priceObj }));
   };
