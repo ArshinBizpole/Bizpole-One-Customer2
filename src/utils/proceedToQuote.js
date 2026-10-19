@@ -23,6 +23,48 @@ const PRICE_KEYS = ["ProfessionalFee", "VendorFee", "GovernmentFee", "GovtFee", 
 const hasPrice = (p) =>
   !!p && !p.priceMissing && PRICE_KEYS.some((k) => p[k] !== undefined && p[k] !== null && p[k] !== "");
 
+const escapeHtml = (s) =>
+  String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+// Shown in the new tab while the quote is created and the preview loads, so
+// the customer sees what's happening instead of an empty tab.
+const loadingPageHtml = (serviceNames) => `<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Preparing your quotation…</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#f7f7f8;color:#1f2937;font-family:Poppins,system-ui,-apple-system,"Segoe UI",sans-serif}
+  .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:16px}
+  .card{width:100%;max-width:420px;background:#fff;border-radius:20px;box-shadow:0 10px 30px rgba(0,0,0,.08);padding:32px 28px;text-align:center}
+  .spinner{width:56px;height:56px;margin:0 auto 20px;border-radius:50%;border:5px solid #fdf3c7;border-top-color:#F3C625;animation:spin .9s linear infinite}
+  h1{font-size:20px;margin:0 0 6px}
+  p.sub{font-size:13px;color:#6b7280;margin:0 0 22px}
+  ul.svc{list-style:none;margin:0 0 22px;padding:12px 14px;background:#fffbea;border:1px solid #fdeaa0;border-radius:12px;text-align:left}
+  ul.svc li{font-size:13px;font-weight:600;padding:4px 0}
+  ul.svc li:before{content:"\\2713";color:#d4a800;margin-right:8px}
+  ol.steps{list-style:none;margin:0;padding:0;text-align:left}
+  ol.steps li{display:flex;align-items:center;gap:10px;font-size:13px;color:#9ca3af;padding:6px 0;animation:on .4s forwards}
+  ol.steps li span{width:18px;height:18px;border-radius:50%;border:2px solid #e5e7eb;flex-shrink:0;animation:dot .4s forwards}
+  ol.steps li:nth-child(1),ol.steps li:nth-child(1) span{animation-delay:.2s}
+  ol.steps li:nth-child(2),ol.steps li:nth-child(2) span{animation-delay:1.4s}
+  ol.steps li:nth-child(3),ol.steps li:nth-child(3) span{animation-delay:2.8s}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes on{to{color:#1f2937}}
+  @keyframes dot{to{border-color:#F3C625;background:#F3C625}}
+</style></head>
+<body><div class="wrap"><div class="card">
+  <div class="spinner"></div>
+  <h1>Preparing your quotation</h1>
+  <p class="sub">This usually takes a few seconds. Please keep this tab open.</p>
+  ${serviceNames.length ? `<ul class="svc">${serviceNames.map((n) => `<li>${escapeHtml(n)}</li>`).join("")}</ul>` : ""}
+  <ol class="steps">
+    <li><span></span>Saving your selected services</li>
+    <li><span></span>Calculating fees and GST</li>
+    <li><span></span>Opening your quotation</li>
+  </ol>
+</div></div></body></html>`;
+
+/** Returns the new QuoteID once the quote is created, otherwise null. */
 export async function proceedToQuote({ cart, services = [] }) {
   // No made-up prices: if any selected service has no price for the chosen
   // state, tell the customer which and create no quote (checked before the
@@ -37,16 +79,24 @@ export async function proceedToQuote({ cart, services = [] }) {
       cache.find((s) => String(s.ServiceID) === String(sid))?.ServiceName ||
       `Service #${sid}`;
     toast.error(`Price isn't available yet for ${unpriced.map(nameOf).join(", ")} in your state. Remove it from your selection or contact us for a quote.`);
-    return;
+    return null;
   }
 
   // Open the tab synchronously, tied to this click, so the browser
   // doesn't block it — then redirect it once the quote is ready below.
   const previewTab = window.open("", "_blank");
   if (previewTab) {
-    previewTab.document.write(
-      '<title>Loading your quote…</title><body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;color:#666">Loading your quote…</body>'
-    );
+    let cache = [];
+    try { cache = JSON.parse(localStorage.getItem("AllServicesCache") || "[]"); } catch { cache = []; }
+    const serviceNames = Object.keys(cart || {})
+      .map((sid) =>
+        cart[sid]?.ServiceName ||
+        services.find((s) => String(s.ServiceID) === String(sid))?.ServiceName ||
+        cache.find((s) => String(s.ServiceID) === String(sid))?.ServiceName)
+      .filter(Boolean);
+    previewTab.document.open();
+    previewTab.document.write(loadingPageHtml(serviceNames));
+    previewTab.document.close();
   }
   try {
     const user = getSecureItem("user");
@@ -140,12 +190,14 @@ export async function proceedToQuote({ cart, services = [] }) {
       } else {
         window.open(url, "_blank");
       }
-    } else if (previewTab) {
-      previewTab.close();
+      return quoteId;
     }
+    if (previewTab) previewTab.close();
+    return null;
   } catch (err) {
     if (previewTab) previewTab.close();
     console.error("Error creating quote from cart:", err);
     toast.error(err?.response?.data?.message || "Failed to create quote. Please try again.");
+    return null;
   }
 }

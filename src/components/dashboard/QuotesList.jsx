@@ -19,16 +19,17 @@ const QUOTE_STATUS_MAP = {
   11: "Quote Expired",
 };
 
+// [pill classes, dot class]
 const statusStyles = {
-  "Quote Created": "bg-blue-100 text-blue-700",
-  "Quote Declined by Client": "bg-red-100 text-red-600",
-  Paid: "bg-green-100 text-green-700",
-  "Quote Modification Required": "bg-amber-100 text-amber-700",
-  "Quote Dropped": "bg-red-100 text-red-600",
-  "Quote Draft": "bg-amber-100 text-amber-700",
-  "Quote Approved": "bg-green-100 text-green-700",
-  "Order Created By Executive": "bg-blue-100 text-blue-700",
-  "Quote Expired": "bg-gray-200 text-gray-600",
+  "Quote Created": ["bg-blue-50 text-blue-700", "bg-blue-500"],
+  "Quote Declined by Client": ["bg-red-50 text-red-600", "bg-red-500"],
+  Paid: ["bg-green-50 text-green-700", "bg-green-500"],
+  "Quote Modification Required": ["bg-amber-50 text-amber-700", "bg-amber-500"],
+  "Quote Dropped": ["bg-red-50 text-red-600", "bg-red-500"],
+  "Quote Draft": ["bg-amber-50 text-amber-700", "bg-amber-500"],
+  "Quote Approved": ["bg-green-50 text-green-700", "bg-green-500"],
+  "Order Created By Executive": ["bg-blue-50 text-blue-700", "bg-blue-500"],
+  "Quote Expired": ["bg-gray-100 text-gray-600", "bg-gray-400"],
 };
 
 const normalizeStatus = (raw) => {
@@ -53,6 +54,16 @@ const sumServiceDetails = (details) => {
   }, 0);
 };
 
+// "GST Registration", or "GST Registration +2" for a multi-service quote.
+const serviceSummary = (details) => {
+  const names = (Array.isArray(details) ? details : []).map((d) => d.ItemName || d.ServiceName).filter(Boolean);
+  if (names.length === 0) return null;
+  return names.length > 1 ? `${names[0]} +${names.length - 1}` : names[0];
+};
+
+const fmtDate = (d) =>
+  d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+
 const openQuotePreview = (quoteId) => {
   const secret = import.meta.env.VITE_QUOTE_LINK_SECRET || "q3!9fKs7@pLzXr84$nmYtB!cVZdQ3";
   const encrypted = CryptoJS.AES.encrypt(String(quoteId), secret).toString();
@@ -63,10 +74,10 @@ const openQuotePreview = (quoteId) => {
 const QuotesList = () => {
   const navigate = useNavigate();
   const { quotes } = useContext(DashboardContext) || {};
-  const { companyId } = useSelectedCompany();
+  const { companyId, companyName } = useSelectedCompany();
   const [quoteStatuses, setQuoteStatuses] = useState({});
-  const [quoteAmounts, setQuoteAmounts] = useState({});
-  const [amountsLoading, setAmountsLoading] = useState(false);
+  const [quoteDetails, setQuoteDetails] = useState({}); // QuoteID -> { amount, service } | null
+  const [detailsLoading, setDetailsLoading] = useState(false);
 
   const companyQuotes = Array.isArray(quotes)
     ? quotes.filter((q) => String(q.CompanyID) === String(companyId))
@@ -94,104 +105,115 @@ const QuotesList = () => {
     };
   }, [quoteIdsKey]);
 
-  // Login-provided quote summaries have no pricing data — fetch each quote's
-  // full ServiceDetails to compute its actual total amount.
+  // Login-provided quote summaries have no pricing or service lines — fetch each
+  // quote's full ServiceDetails for its actual total and service names.
   useEffect(() => {
     const ids = quoteIdsKey ? quoteIdsKey.split(",").map(Number) : [];
     if (ids.length === 0) {
-      setQuoteAmounts({});
+      setQuoteDetails({});
       return;
     }
     let cancelled = false;
-    setAmountsLoading(true);
+    setDetailsLoading(true);
     Promise.all(
       ids.map((id) =>
         axiosInstance
           .get(`/getQuoteById/${id}`)
-          .then((res) => [id, sumServiceDetails(res.data?.data?.ServiceDetails)])
+          .then((res) => {
+            const details = res.data?.data?.ServiceDetails;
+            return [id, { amount: sumServiceDetails(details), service: serviceSummary(details) }];
+          })
           .catch(() => [id, null])
       )
     ).then((pairs) => {
       if (cancelled) return;
-      const map = {};
-      pairs.forEach(([id, amount]) => {
-        map[id] = amount;
-      });
-      setQuoteAmounts(map);
-      setAmountsLoading(false);
+      setQuoteDetails(Object.fromEntries(pairs));
+      setDetailsLoading(false);
     });
     return () => {
       cancelled = true;
     };
   }, [quoteIdsKey]);
 
+  const pending = <span className="text-gray-300">…</span>;
+
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm md:p-5">
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-100 text-yellow-600">
-            <FileText className="h-4 w-4" />
+    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-4 md:px-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
+            <FileText className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-gray-800">Quotes</h3>
-            <p className="text-xs text-gray-500">
+            <h3 className="text-base font-semibold text-gray-900">Quotes</h3>
+            <p className="text-xs text-gray-400">
               {companyQuotes.length} quote{companyQuotes.length !== 1 ? "s" : ""} available
             </p>
           </div>
         </div>
         <button
-          onClick={() => navigate("/startbusiness/choose", { state: { navigate: true } })}
-          className="flex shrink-0 items-center gap-1 text-xs font-semibold text-yellow-700 hover:underline"
+          onClick={() => navigate("/dashboard/bizpoleone/pricing")}
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-400 px-4 py-2 text-xs font-semibold text-gray-900 shadow-sm hover:bg-amber-500"
         >
-          <Plus className="h-3 w-3" /> New quote
+          <Plus className="h-4 w-4" /> New quote
         </button>
       </div>
 
       {companyQuotes.length === 0 ? (
-        <p className="py-6 text-center text-sm text-gray-400">
-          No quotes found for this company yet.
-        </p>
+        <p className="py-10 text-center text-sm text-gray-400">No quotes found for this company yet.</p>
       ) : (
-        <div className="max-h-80 divide-y divide-gray-100 overflow-y-auto">
-          {companyQuotes.map((quote, index) => {
-            const status = quoteStatuses[quote.QuoteID] || normalizeStatus(quote.QuoteStatus);
-            return (
-              <div
-                key={quote.QuoteID || index}
-                onClick={() => openQuotePreview(quote.QuoteID)}
-                className="flex cursor-pointer items-center justify-between gap-3 py-3 hover:bg-gray-50"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-gray-800">
-                    {quote.PackageName || quote.QuoteCodeId || `Quote ${index + 1}`}
-                  </p>
-                  <p className="mt-0.5 text-xs text-gray-500">
-                    Status:{" "}
-                    <span
-                      className={`rounded px-1.5 py-0.5 font-semibold ${statusStyles[status] || "bg-gray-100 text-gray-600"}`}
-                    >
-                      {status}
-                    </span>
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-gray-800">
-                      {quoteAmounts[quote.QuoteID] == null
-                        ? amountsLoading
-                          ? <span className="text-gray-300">…</span>
-                          : `₹${sumServiceDetails(quote.ServiceDetails).toLocaleString("en-IN")}`
-                        : `₹${quoteAmounts[quote.QuoteID].toLocaleString("en-IN")}`}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {quote.CreatedDate ? new Date(quote.CreatedDate).toLocaleDateString() : "Recent"}
-                    </p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-gray-300" />
-                </div>
-              </div>
-            );
-          })}
+        <div className="max-h-[420px] overflow-auto">
+          <table className="w-full min-w-[820px] text-sm">
+            <thead className="sticky top-0 bg-slate-50">
+              <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                <th className="px-6 py-3 font-semibold">Quote ID</th>
+                <th className="px-3 py-3 font-semibold">Service</th>
+                <th className="px-3 py-3 font-semibold">Company / Client</th>
+                <th className="px-3 py-3 font-semibold">Amount</th>
+                <th className="px-3 py-3 font-semibold">Valid Till</th>
+                <th className="px-3 py-3 font-semibold">Status</th>
+                <th className="px-6 py-3 text-right font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {companyQuotes.map((quote, index) => {
+                const status = quoteStatuses[quote.QuoteID] || normalizeStatus(quote.QuoteStatus);
+                const [pill, dot] = statusStyles[status] || ["bg-gray-100 text-gray-600", "bg-gray-400"];
+                const detail = quoteDetails[quote.QuoteID];
+                const waiting = detailsLoading && !detail;
+                const amount = detail ? detail.amount : sumServiceDetails(quote.ServiceDetails);
+                const service = detail?.service || serviceSummary(quote.ServiceDetails) || quote.PackageName || "—";
+                return (
+                  <tr key={quote.QuoteID || index} className="text-gray-700 hover:bg-gray-50/60">
+                    <td className="px-6 py-3.5 text-gray-500">
+                      {quote.QuoteCodeId || quote.QuoteCode || `#${quote.QuoteID}`}
+                    </td>
+                    <td className="px-3 py-3.5 font-semibold text-gray-900">{waiting ? pending : service}</td>
+                    <td className="px-3 py-3.5">{companyName || "—"}</td>
+                    <td className="px-3 py-3.5 font-semibold text-gray-900">
+                      {waiting ? pending : `₹${amount.toLocaleString("en-IN")}`}
+                    </td>
+                    <td className="px-3 py-3.5">{fmtDate(quote.endDate)}</td>
+                    <td className="px-3 py-3.5">
+                      <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold ${pill}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+                        {status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3.5 text-right">
+                      <button
+                        type="button"
+                        onClick={() => openQuotePreview(quote.QuoteID)}
+                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                      >
+                        View <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

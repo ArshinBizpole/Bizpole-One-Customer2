@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BadgeCheck, BookOpen, ChevronRight, Layers, LogOut, UserRound } from "lucide-react";
+import { BadgeCheck, BookOpen, ChevronRight, ExternalLink, Layers, LogOut, UserRound } from "lucide-react";
+import { JOURNL_URL, openExternal } from "../utils/externalLinks";
 import { getSecureItem } from "../utils/secureStorage";
 import { userPhoto } from "../utils/profilePhoto";
 import { clearStorageKeepingApplications } from "../utils/applicationPrefill";
@@ -41,8 +42,8 @@ export default function ProfileMenu() {
   const platforms = [
     { name: "Compass", desc: "Business Advisory & Consulting", logo: "/Images/platforms/compass.jpg", icon: Layers, path: "/dashboard/bizpoleone",
       badge: hasCompany ? { text: "Active", cls: "bg-green-50 text-green-700", dot: "bg-green-500" } : null },
-    { name: "Journl", desc: "Accounting & Bookkeeping", logo: "/Images/platforms/journl.jpg", icon: BookOpen, path: "/dashboard/books",
-      badge: { text: "Coming soon", cls: "bg-amber-50 text-amber-700", dot: "bg-amber-500" } },
+    // Its own site — opens in a new tab (href instead of an in-app path).
+    { name: "Journl", desc: "Accounting & Bookkeeping", logo: "/Images/platforms/journl.jpg", icon: BookOpen, href: JOURNL_URL },
   ];
 
   useEffect(() => {
@@ -145,7 +146,11 @@ export default function ProfileMenu() {
                   <button
                     key={p.name}
                     type="button"
-                    onClick={() => go(p.path)}
+                    onClick={() => {
+                      if (!p.href) return go(p.path);
+                      setOpen(false);
+                      openExternal(p.href);
+                    }}
                     className="w-full flex items-center gap-3 rounded-xl border border-gray-100 shadow-sm px-3 py-2.5 text-left hover:border-yellow-300 hover:bg-yellow-50/40"
                   >
                     <span className="w-9 h-9 flex-none rounded-lg bg-gray-50 flex items-center justify-center">
@@ -160,6 +165,7 @@ export default function ProfileMenu() {
                         <span className={`w-1.5 h-1.5 rounded-full ${p.badge.dot}`} /> {p.badge.text}
                       </span>
                     )}
+                    {p.href && <ExternalLink className="w-4 h-4 flex-none text-gray-400" aria-label="Opens in a new tab" />}
                   </button>
                 ))}
               </div>

@@ -1,118 +1,126 @@
 import { useRef, useState } from "react";
 import { motion, useInView, AnimatePresence, useScroll, useTransform } from "framer-motion";
 
+// Real client testimonials, as published on https://www.bizpole.in/ (photos copied
+// into public/Images/testimonials). No star ratings: the source shows none.
 const testimonials = [
   {
-    name: "Amelia Joseph",
-    role: "Chief Manager",
-    img: "https://randomuser.me/api/portraits/women/44.jpg",
-    text: "My vision came alive effortlessly. Their blend of casual and professional approach made the process a breeze. Creativity flowed, and the results were beyond my expectations.",
-    featured: true,
+    name: "Randeep Sudan",
+    role: "Multivertz Pte. Ltd.",
+    img: "/Images/testimonials/client_.png",
+    text: "Bizpole is a company with great expertise in the domain of company incorporation and compliance.",
   },
   {
-    name: "Jacob Joshua",
-    role: "Chief Manager",
-    img: "https://randomuser.me/api/portraits/men/32.jpg",
-    text: "I found the digital expertise I needed. Their creative-professional balance exceeded expectations. Friendly interactions, exceptional outcomes. For digital enchantment, it's got to be Bizpole!",
-    featured: false,
+    name: "Aju K Rajan",
+    role: "Avizakta Enterprises",
+    img: "/Images/testimonials/aju.png",
+    text: "Thank you so much Bizpole Team for all the support and assistance in getting a trademark for my Cakeshop.",
   },
   {
-    name: "Sarah Williams",
-    role: "CEO, TechVentures",
-    img: "https://randomuser.me/api/portraits/women/68.jpg",
-    text: "Embrace really nails it! Creative, approachable style. They're the place where artistry meets strategy. Thrilled with what we achieved together!",
-    featured: false,
+    name: "Navy George",
+    role: "Malayanma Vision",
+    img: "/Images/testimonials/navy.png",
+    text: "They have Affordable Prices and Great Customer Support. Truly a One Stop Solution for Business.",
   },
   {
-    name: "Marcus Chen",
-    role: "Founder, NovaBiz",
-    img: "https://randomuser.me/api/portraits/men/75.jpg",
-    text: "Working with the team was a transformative experience. They understood our vision instantly and delivered results that far exceeded what we imagined possible.",
-    featured: false,
+    name: "Kadavath Ahamed Reyas",
+    role: "Spice Producer Company",
+    img: "/Images/testimonials/riyas.png",
+    text: "Consulting Bizpole was one of the best decisions I took.",
   },
   {
-    name: "Priya Mehta",
-    role: "Director of Operations",
-    img: "https://randomuser.me/api/portraits/women/26.jpg",
-    text: "The platform simplifies everything. Our entire finance team was onboarded in a day. The dashboard is intuitive, beautiful, and genuinely saves us hours every week.",
-    featured: false,
+    name: "Ahmed Mohiuddin",
+    role: "SDA Services India Pvt Ltd",
+    img: "/Images/testimonials/Ahmed-Mohiuddin-SDA-SERVICES-INIDA-PVT-LTD-Photo.png",
+    text: "Their dedication and commitment to getting our company registered have been invaluable.",
   },
   {
-    name: "Liam Okafor",
-    role: "Head of Growth",
-    img: "https://randomuser.me/api/portraits/men/18.jpg",
-    text: "Outstanding execution across every touchpoint. The attention to detail and responsiveness of the team is unmatched. Highly recommend to any scaling business.",
-    featured: false,
+    name: "Anu Raag",
+    role: "Cute Voyages LLP",
+    img: "/Images/testimonials/Anu-Raag-Cute-Voyages-LLP-Photo.png",
+    text: "I like the service of bizpole and explaining and responding for every queries",
+  },
+  {
+    name: "Gourav Yadav",
+    role: "RK Manufacturers",
+    img: "/Images/testimonials/Gaurav-Yadav-Gaurav-RK-Manufacturers-Photo.png",
+    text: "The whole team of Bizpole is very supportive and they did a great work and provided the best service.",
+  },
+  {
+    name: "Harish Saras Vinayak",
+    role: "Vinayak Exports Private Limited",
+    img: "/Images/testimonials/S.-Harish-Saras-Vinayak-Exports-Private-Limited-Photo.png",
+    text: "I am extremely satisfied with the exceptional service provided by Bizpole and their staffs especially Ms. Saranya",
+  },
+  {
+    name: "Mohammed Ajmal",
+    role: "EYECO",
+    img: "/Images/testimonials/Mohammed-Ajmal-EYECO-Photo.png",
+    text: "Professional services, timely responses approached for trademark registration staff named Asma done a great job",
+  },
+  {
+    name: "Nilesh Kadam",
+    role: "Delpick",
+    img: "/Images/testimonials/Nilesh-Kadam-Delpick-Photo.png",
+    text: "They are offering flexible schedule as well payment structure while servicing, Perfect for newly startup companies like me",
+  },
+  {
+    name: "Sanka Suresh",
+    role: "VSS Technologies",
+    img: "/Images/testimonials/Sanka-Suresh-VSS-Technologies-Photo.png",
+    text: "I took Trademark Registration services from Bizpole Business Solution they completed the work within the time as they said",
+  },
+  {
+    name: "Tamil Arasi",
+    role: "Thanvitha Infra Projects Private Limited",
+    img: "/Images/testimonials/Tamil-Arasi-Thanvitha-Infra-Projects-Private-Limited-Photo.png",
+    text: "Saranya, the staff from Bangalore branch attended my queries with patience and she is so humble and kind.",
   },
 ];
 
-// ── Star Rating ──────────────────────────────────────────────────────────────
-function Stars({ count = 5 }) {
-  return (
-    <div className="flex gap-0.5">
-      {Array.from({ length: count }).map((_, i) => (
-        <svg key={i} width="14" height="14" viewBox="0 0 24 24" fill="#F5C518">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-        </svg>
-      ))}
-    </div>
-  );
-}
-
 // ── Single Card ──────────────────────────────────────────────────────────────
+// All cards share one size so the grid gaps stay even; only colour marks the featured one.
 function TestimonialCard({ item, index, active }) {
   const isFeatured = index === active;
-  const isNext = index === (active + 1) % testimonials.length;
 
   return (
-    <motion.div
-      layout
-      className={`relative flex-shrink-0 rounded-[20px] p-6 flex flex-col gap-4 cursor-pointer select-none
-        transition-all duration-500
+    <div
+      className={`relative h-full min-h-[260px] rounded-[24px] p-8 md:p-9 flex flex-col gap-6 cursor-pointer select-none
+        transition-colors duration-500
         ${isFeatured
-          ? "bg-[#F5C518] shadow-2xl shadow-[#F5C518]/30 w-99 md:w-108"
-          : "bg-[#e8e5de] w-80 md:w-80"
+          ? "bg-[#F5C518] shadow-2xl shadow-[#F5C518]/30"
+          : "bg-[#e8e5de]"
         }`}
-      style={{
-        opacity: isFeatured ? 1 : isNext ? 0.85 : 0.6,
-        scale: isFeatured ? 1 : 0.97,
-      }}
-      initial={{ opacity: 0, x: 40 }}
-      animate={{ opacity: isFeatured ? 1 : isNext ? 0.85 : 0.6, x: 0 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
     >
       {/* Quote mark */}
-      <div className={`absolute top-4 right-5 text-5xl font-serif leading-none select-none
+      <div className={`absolute top-5 right-7 text-7xl font-serif leading-none select-none
         ${isFeatured ? "text-[#1a1a1a]/15" : "text-[#1a1a1a]/10"}`}>
         "
       </div>
 
       {/* Author */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4 pr-10">
         <img
           src={item.img}
           alt={item.name}
-          className={`w-12 h-12 rounded-full object-cover ring-2
+          className={`w-16 h-16 rounded-full object-cover ring-2 flex-shrink-0
             ${isFeatured ? "ring-white/60" : "ring-white/40"}`}
         />
-        <div>
-          <div className={`font-bold text-sm leading-tight
-            ${isFeatured ? "text-[#1a1a1a]" : "text-[#1a1a1a]"}`}>
+        <div className="min-w-0">
+          <div className="font-bold text-lg leading-tight text-[#1a1a1a]">
             {item.name}
           </div>
-          <div className={`text-xs mt-0.5 ${isFeatured ? "text-[#1a1a1a]/60" : "text-[#1a1a1a]/50"}`}>
+          <div className={`text-sm mt-1 ${isFeatured ? "text-[#1a1a1a]/60" : "text-[#1a1a1a]/50"}`}>
             {item.role}
           </div>
         </div>
       </div>
 
-      <Stars />
-
       {/* Text */}
-      <p className={`text-sm leading-relaxed ${isFeatured ? "text-[#1a1a1a]/80" : "text-[#1a1a1a]/65"}`}>
+      <p className={`text-base md:text-[17px] leading-relaxed ${isFeatured ? "text-[#1a1a1a]/80" : "text-[#1a1a1a]/70"}`}>
         {item.text}
       </p>
-    </motion.div>
+    </div>
   );
 }
 
@@ -181,11 +189,8 @@ export default function ClientsSection() {
       `}</style>
 
       <section ref={sectionRef} className="cs-section py-20 md:py-28">
-        <div className="cs-grain" />
-        <div className="cs-blob w-96 h-96 bg-[#F5C518] opacity-[0.09] -top-20 -right-20" />
-        <div className="cs-blob w-72 h-72 bg-[#3B82F6] opacity-[0.05] bottom-0 left-10" />
 
-        <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-12">
+        <div className="relative z-10 max-w-[1600px] mx-auto px-6 md:px-12">
 
           {/* ── Header row ── */}
           <motion.div
@@ -261,12 +266,10 @@ export default function ClientsSection() {
             style={{ y: bgY }}
             className="relative"
           >
-            {/* Fade-out edge right */}
-            <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-[#f7f5f0] to-transparent z-10 pointer-events-none" />
-
+            {/* Equal-width columns + fixed gap = evenly spaced cards (2nd/3rd hide on small screens) */}
             <motion.div
               ref={trackRef}
-              className="cs-track flex justify-between gap-5 overflow-x-auto pb-4 cursor-grab active:cursor-grabbing"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 pb-4 cursor-grab active:cursor-grabbing"
               drag="x"
               dragConstraints={{ left: 0, right: 0 }}
               onDragStart={(_, info) => { dragStartX.current = info.point.x; }}
@@ -290,32 +293,13 @@ export default function ClientsSection() {
                     animate="center"
                     exit="exit"
                     transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                    className={`h-full ${index === 1 ? "hidden md:block" : ""} ${index === 2 ? "hidden lg:block" : ""}`}
                   >
                     <TestimonialCard item={item} index={index} active={0} />
                   </motion.div>
                 ))}
               </AnimatePresence>
             </motion.div>
-          </motion.div>
-
-          {/* ── Bottom summary bar ── */}
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-40px" }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="mt-14 pt-10 border-t border-[#1a1a1a]/8 grid grid-cols-3 gap-6 text-center"
-          >
-            {[
-              { val: "10K+", label: "Happy Clients" },
-              { val: "4.9★", label: "Average Rating" },
-              { val: "98%", label: "Satisfaction Rate" },
-            ].map((s) => (
-              <div key={s.label}>
-                <div className="cs-display text-2xl md:text-3xl text-[#1a1a1a]">{s.val}</div>
-                <div className="text-xs text-[#1a1a1a]/40 uppercase tracking-wider mt-1 font-medium">{s.label}</div>
-              </div>
-            ))}
           </motion.div>
 
         </div>

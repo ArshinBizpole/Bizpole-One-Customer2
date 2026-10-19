@@ -666,7 +666,7 @@ const displayedUpcomingTasks =
   // ---------- Reusable task row ----------
   const TaskRow = ({ task, disabled }) => (
     <div
-      className={`grid grid-cols-[24px_1fr_120px_110px_150px_150px] items-center gap-4 py-3 ${disabled ? "" : "cursor-pointer hover:bg-gray-50 rounded-lg"
+      className={`grid grid-cols-[24px_1fr_auto] md:grid-cols-[24px_1fr_120px_110px_150px_150px] items-center gap-3 md:gap-4 py-3 ${disabled ? "" : "cursor-pointer hover:bg-gray-50 rounded-lg"
         }`}
       onClick={() => {
         if (!disabled) setActiveFormTask(task);
@@ -686,7 +686,15 @@ const displayedUpcomingTasks =
         )}
       </div>
 
-      <div className={`text-sm truncate pr-2 ${disabled ? "text-gray-300" : "text-gray-800"}`}>{task.title}</div>
+      <div className="min-w-0 pr-2">
+        <div className={`text-sm truncate ${disabled ? "text-gray-300" : "text-gray-800"}`}>{task.title}</div>
+        {/* Phones: the Date / Assignee columns are hidden — show them here */}
+        {(task.date || task.assignee?.name) && (
+          <div className={`md:hidden text-xs truncate mt-0.5 ${disabled ? "text-gray-300" : "text-gray-500"}`}>
+            {[task.date, task.assignee?.name].filter(Boolean).join(" · ")}
+          </div>
+        )}
+      </div>
 
       <div>
         {task.status === "Disable" ? (
@@ -698,16 +706,16 @@ const displayedUpcomingTasks =
           </span>
         ) : (
           <span
-            className={`inline-block text-xs font-medium px-3 py-1 rounded-full ${getStatusStyles(task.status)}`}
+            className={`inline-block text-xs font-medium px-2.5 md:px-3 py-1 rounded-full whitespace-nowrap ${getStatusStyles(task.status)}`}
           >
             {task.status}
           </span>
         )}
       </div>
 
-      <div className={`text-xs ${disabled ? "text-gray-300" : "text-gray-500"}`}>{task.date || ""}</div>
+      <div className={`hidden md:block text-xs ${disabled ? "text-gray-300" : "text-gray-500"}`}>{task.date || ""}</div>
 
-      <div className="flex items-center pr-4">
+      <div className="hidden md:flex items-center pr-4">
         <div className={`w-full h-1.5 rounded-full overflow-hidden ${disabled ? "bg-indigo-50" : "bg-gray-100"}`}>
           <div
             className={`h-full rounded-full ${getProgressBarColor(task.status, disabled)}`}
@@ -716,7 +724,7 @@ const displayedUpcomingTasks =
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="hidden md:flex items-center gap-2 min-w-0">
         {task.assignee ? (
           <>
             {task.assignee.avatar ? (
@@ -770,7 +778,7 @@ const displayedUpcomingTasks =
     };
 
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-8 mb-8">
+      <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-8 mb-8">
         <button onClick={onBack} className="mb-4 text-gray-500 hover:text-gray-700 text-sm">
           ← Back to Tasks
         </button>
@@ -884,8 +892,8 @@ const displayedUpcomingTasks =
 
     return (
       <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl border border-gray-100">
-          <div className="px-8 pt-6 pb-4 border-b-2 border-yellow-400 flex items-center gap-3">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl border border-gray-100 max-h-[90vh] overflow-y-auto">
+          <div className="px-5 sm:px-8 pt-6 pb-4 border-b-2 border-yellow-400 flex items-center gap-3">
             <h2 className="text-lg font-semibold text-gray-900">{config.title}</h2>
             {task.status === "Not Approved" && (
               <span className="text-xs font-medium text-red-500 bg-red-50 border border-dashed border-red-300 px-3 py-1 rounded-full underline decoration-dotted decoration-red-400 underline-offset-2">
@@ -894,7 +902,7 @@ const displayedUpcomingTasks =
             )}
           </div>
 
-          <form onSubmit={handleSubmit} className="px-8 py-6">
+          <form onSubmit={handleSubmit} className="px-5 sm:px-8 py-6">
             {task.status === "Not Approved" && config.rejectionMessage && (
               <div className="mb-6 text-sm text-gray-700 leading-relaxed">
                 {config.rejectionMessage}
@@ -1030,7 +1038,7 @@ const displayedUpcomingTasks =
     };
 
     return (
-      <div className="bg-white rounded-lg border border-red-400 p-8 mb-8">
+      <div className="bg-white rounded-lg border border-red-400 p-4 sm:p-8 mb-8">
         <button onClick={onBack} className="mb-4 text-gray-500 hover:text-gray-700 text-sm">
           ← Back to Tasks
         </button>
@@ -1086,16 +1094,16 @@ const displayedUpcomingTasks =
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-0 sm:p-2 md:p-6 bg-gray-50 min-h-screen">
       {/* Header */}
-      <div className="flex items-center gap-12 mb-10">
+      <div className="flex flex-wrap items-center gap-3 sm:gap-12 mb-6 md:mb-10">
         <h1 className="text-2xl font-bold text-gray-900">Task</h1>
-        <div className="relative">
+        <div className="relative min-w-0 max-w-full">
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="bg-yellow-400 hover:bg-[#F3C625] text-white text-base font-small pl-5 pr-4 py-2.5 rounded-lg shadow-sm flex items-center gap-2"
+            className="bg-yellow-400 hover:bg-[#F3C625] text-white text-sm sm:text-base font-small pl-4 sm:pl-5 pr-3 sm:pr-4 py-2.5 rounded-lg shadow-sm flex items-center gap-2 max-w-full"
           >
-            <span>{selectedService?.ItemName || "Choose Services"}</span>
+            <span className="truncate">{selectedService?.ItemName || "Choose Services"}</span>
             <span className="w-5 h-5 bg-white rounded-full flex items-center justify-center text-gray-600 text-[10px] font-semibold">
               {companyServices?.services?.length || 0}
             </span>
@@ -1103,7 +1111,7 @@ const displayedUpcomingTasks =
           </button>
 
           {isDropdownOpen && (
-            <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+            <div className="absolute top-full left-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 z-10">
               <div className="p-3 border-b border-gray-200">
                 <h3 className="font-semibold text-gray-800">Select a Service</h3>
               </div>
@@ -1143,7 +1151,7 @@ const displayedUpcomingTasks =
 
       {/* Summary card */}
       {companyServices && companyServices.services?.length === 0 ? null : (
-        <div className="mb-4 p-8 border-b border-[#F3C625]">
+        <div className="mb-4 p-4 sm:p-8 border-b border-[#F3C625]">
           {selectedService?.ItemName && (
             <h2 className="text-base font-semibold text-gray-800 mb-3">{selectedService.ItemName}</h2>
           )}
@@ -1153,7 +1161,7 @@ const displayedUpcomingTasks =
           ) : tasksError ? (
             <div className="py-4 text-red-500">{tasksError}</div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-2">
               <div>
                 <p className="text-xs text-gray-500 mb-1.5">Total Tasks Completed</p>
                 <p className="text-base font-semibold text-gray-800">{totalTasksCompleted}</p>
@@ -1201,9 +1209,9 @@ const displayedUpcomingTasks =
       )}
 
       {/* Navigation Tabs */}
-      <div className=" mt-8 mb-6 border border-gray-200 rounded-xl">
-        <div className="flex items-center justify-between p-2">
-          <div className="flex space-x-8">
+      <div className="mt-6 md:mt-8 mb-6 border border-gray-200 rounded-xl">
+        <div className="flex flex-wrap items-center justify-between gap-2 p-2">
+          <div className="flex gap-6 md:gap-8 overflow-x-auto whitespace-nowrap max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {["Todo Task", "Documents", "Deliverables", "Internal Task"].map((tab) => (
               <button
                 key={tab}
@@ -1277,13 +1285,13 @@ const displayedUpcomingTasks =
           {/* Current Task */}
           <div className="mb-10">
             <h3 className="text-base font-semibold text-gray-800 mb-3">Current Task</h3>
-            <div className="grid grid-cols-[24px_1fr_120px_110px_150px_150px] gap-4 pb-3 mb-1 text-sm font-normal text-gray-400  border-b border-gray-200">
+            <div className="grid grid-cols-[24px_1fr_auto] md:grid-cols-[24px_1fr_120px_110px_150px_150px] gap-3 md:gap-4 pb-3 mb-1 text-sm font-normal text-gray-400  border-b border-gray-200">
               <div />
               <div>All</div>
               <div>Status</div>
-              <div>Date</div>
-              <div>Progress</div>
-              <div>Assignee</div>
+              <div className="hidden md:block">Date</div>
+              <div className="hidden md:block">Progress</div>
+              <div className="hidden md:block">Assignee</div>
             </div>
           {loadingTasks ? (
     <div>Loading...</div>
@@ -1305,13 +1313,13 @@ const displayedUpcomingTasks =
               <span className="text-xs font-medium text-yellow-500 border-b-2 border-yellow-400 pb-2">All</span>
               <span className="w-3.5 h-3.5 rounded-full bg-yellow-400" />
             </div>
-            <div className="grid grid-cols-[24px_1fr_120px_110px_150px_150px] gap-4 pb-2 mb-1 text-xs font-medium text-gray-300 border-b border-gray-50">
+            <div className="grid grid-cols-[24px_1fr_auto] md:grid-cols-[24px_1fr_120px_110px_150px_150px] gap-3 md:gap-4 pb-2 mb-1 text-xs font-medium text-gray-300 border-b border-gray-50">
               <div />
               <div>Task</div>
               <div>Status</div>
-              <div>Date</div>
-              <div>Progress</div>
-              <div>Assignee</div>
+              <div className="hidden md:block">Date</div>
+              <div className="hidden md:block">Progress</div>
+              <div className="hidden md:block">Assignee</div>
             </div>
      {loadingTasks ? (
   <div className="py-6 text-gray-500 text-sm">
@@ -1346,7 +1354,7 @@ const displayedUpcomingTasks =
           </div>
         </div>
       ) : activeTab === "Documents" ? (
-        <div className="bg-white rounded-lg p-8 mb-8">
+        <div className="bg-white rounded-lg p-4 sm:p-8 mb-8">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Uploaded</h3>
           {loadingDocuments && <p className="text-gray-600">Loading documents...</p>}
           {documentsError && <p className="text-red-500">{documentsError}</p>}
@@ -1355,9 +1363,9 @@ const displayedUpcomingTasks =
               {verifiedFields.map((field) => (
                 <div
                   key={field.fieldRows_id}
-                  className="flex items-center justify-between border border-yellow-400 rounded-full px-5 py-3"
+                  className="flex items-center justify-between border border-yellow-400 rounded-full px-4 sm:px-5 py-3 gap-2"
                 >
-                  <span className="text-sm text-gray-700 truncate max-w-lg">{field.field_key}</span>
+                  <span className="text-sm text-gray-700 truncate min-w-0 max-w-lg">{field.field_key}</span>
                   {field.field_type === "File" ? (
                     <a
                       href={field.field_text}
@@ -1383,7 +1391,7 @@ const displayedUpcomingTasks =
                       </svg>
                     </a>
                   ) : (
-                    <span className="ml-4 text-gray-800 font-semibold">{field.field_text}</span>
+                    <span className="ml-2 sm:ml-4 text-gray-800 font-semibold truncate max-w-[50%] text-right">{field.field_text}</span>
                   )}
                 </div>
               ))}
@@ -1396,7 +1404,7 @@ const displayedUpcomingTasks =
           )}
         </div>
       ) : activeTab === "Deliverables" ? (
-        <div className="bg-white rounded-lg  p-8 mb-8">
+        <div className="bg-white rounded-lg p-4 sm:p-8 mb-8">
           <h3 className="text-lg font-semibold text-gray-800 mb-6">Uploaded</h3>
           {loadingDeliverables && <p className="text-gray-600">Loading deliverables...</p>}
           {deliverablesError && <p className="text-red-500">{deliverablesError}</p>}
@@ -1407,9 +1415,9 @@ const displayedUpcomingTasks =
                 return (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between border border-yellow-400 rounded-full px-5 py-3"
+                    className="flex items-center justify-between border border-yellow-400 rounded-full px-4 sm:px-5 py-3 gap-2"
                   >
-                    <span className="text-sm text-gray-700 truncate max-w-lg">{item.label}</span>
+                    <span className="text-sm text-gray-700 truncate min-w-0 max-w-lg">{item.label}</span>
                     {isFile ? (
                       <a
                         href={item.value}
@@ -1435,7 +1443,7 @@ const displayedUpcomingTasks =
                         </svg>
                       </a>
                     ) : (
-                      <span className="ml-4 text-gray-800 font-semibold">{item.value}</span>
+                      <span className="ml-2 sm:ml-4 text-gray-800 font-semibold truncate max-w-[50%] text-right">{item.value}</span>
                     )}
                   </div>
                 );
@@ -1448,7 +1456,7 @@ const displayedUpcomingTasks =
 
         </div>
       ) : activeTab === "Internal Task" ? (
-        <div className="bg-white rounded-lg p-8 mb-8">
+        <div className="bg-white rounded-lg p-4 sm:p-8 mb-8">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Internal Task</h3>
           {loadingExternalTasks ? (
             <p className="text-gray-600">Loading task progress...</p>
@@ -1459,9 +1467,9 @@ const displayedUpcomingTasks =
               {externalTasks.map((task) => (
                 <div
                   key={task.TaskID}
-                  className="flex items-center justify-between border border-gray-200 rounded-full px-5 py-3"
+                  className="flex items-center justify-between border border-gray-200 rounded-full px-4 sm:px-5 py-3 gap-2"
                 >
-                  <span className="text-sm text-gray-700 truncate max-w-lg">{task.TaskName}</span>
+                  <span className="text-sm text-gray-700 truncate min-w-0 max-w-lg">{task.TaskName}</span>
                   <span
                     className={`ml-4 flex-shrink-0 text-xs font-medium px-3 py-1 rounded-full ${getExternalTaskStatusStyles(task.status)}`}
                   >
