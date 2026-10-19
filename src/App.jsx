@@ -70,6 +70,7 @@ import { getSecureItem, setSecureItem } from "./utils/secureStorage";
 import { CartProvider } from "./context/CartContext";
 import GlobalCart from "./components/Cart/GlobalCart";
 import InvoicePreview from "./pages/InvoicePreview";
+import WhatsAppLogin from "./pages/WhatsAppLogin";
 
 
 // Associate Dashboard
@@ -111,6 +112,8 @@ function App() {
 
   // Hide Navbar & Footer for these paths
   const hideLayoutPaths = [
+    "/payments",
+    "/wa-login",
     "/quiz",
     "/profile",
     // "/existing-companies",
@@ -171,6 +174,8 @@ function App() {
           <Route path="/startbusiness/subscriptions" element={<Subscription />} />
           <Route path="/quiz" element={<Quiz />} />
           <Route path="/questions" element={<BusinessQuizWizard />} />
+          {/* Sign-in link sent by the WhatsApp assistant (document upload) */}
+          <Route path="/wa-login" element={<WhatsAppLogin />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
           <Route path="/cancellation-refund-policy" element={<CancellationRefundPolicy />} />

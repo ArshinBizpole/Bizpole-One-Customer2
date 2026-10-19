@@ -42,3 +42,14 @@ export const verifyOtp = async (phone, otp) => {
 };
 
 
+
+// Sign in with the one-tap link sent on WhatsApp (document upload links).
+// Returns { token, user, companyId, redirectPath, redirectState }.
+export const magicLogin = async (token) => {
+  try {
+    const response = await axiosInstance.post("/whatsapp-bot/magic-login", { token });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
