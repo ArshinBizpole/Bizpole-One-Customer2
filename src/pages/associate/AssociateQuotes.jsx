@@ -10,6 +10,7 @@ import AddDealModal from '../../components/Modals/AddDealModal';
 import CryptoJS from "crypto-js";
 import { downloadQuote } from '../../components/associate/quote/downloadQuote';
 import { getClientBaseUrl } from '../../utils/clientBaseUrl';
+import Pagination from '../../components/Pagination';
 
 const STATUS_TABS = [
     { key: 'all', label: 'All' },
@@ -715,29 +716,7 @@ const AssociateQuotes = () => {
             {/* Pagination */}
             {!loading && filteredQuotes.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 24 }}>
-                    <span style={{ fontSize: 13, color: '#6B7280' }}>Page</span>
-                    <button
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                        disabled={page === 1}
-                        style={{
-                            width: 28, height: 28, borderRadius: 6, border: '1px solid #E5E7EB',
-                            background: '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer',
-                            color: '#6B7280', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}
-                    >‹</button>
-                    <span style={{
-                        width: 32, height: 32, borderRadius: 6, background: '#F5A623',
-                        color: '#fff', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}>{page}</span>
-                    <button
-                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                        disabled={page === totalPages || totalPages === 0}
-                        style={{
-                            width: 28, height: 28, borderRadius: 6, border: '1px solid #E5E7EB',
-                            background: '#fff', cursor: (page === totalPages || totalPages === 0) ? 'not-allowed' : 'pointer',
-                            color: '#6B7280', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}
-                    >›</button>
+                    <Pagination page={page} totalPages={totalPages} onPage={setPage} />
                     <select
                         value={pageSize}
                         onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}

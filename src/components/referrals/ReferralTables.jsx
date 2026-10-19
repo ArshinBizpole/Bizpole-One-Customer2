@@ -3,6 +3,7 @@ import { Users, ScrollText } from "lucide-react";
 import { getMyLedger, getMyReferrals } from "../../api/ReferralApi";
 import { Card, StatusPill } from "./ReferralUi";
 import { formatDate, formatINR, humanize } from "./format";
+import Pagination from "../Pagination";
 
 const PAGE_SIZE = 10;
 
@@ -45,24 +46,7 @@ const Pager = ({ page, pages, setPage, total }) =>
       <span>
         Page {page} of {pages} · {total} total
       </span>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          className="rounded-lg border border-gray-200 px-3 py-1 disabled:opacity-40"
-          disabled={page <= 1}
-          onClick={() => setPage(page - 1)}
-        >
-          Previous
-        </button>
-        <button
-          type="button"
-          className="rounded-lg border border-gray-200 px-3 py-1 disabled:opacity-40"
-          disabled={page >= pages}
-          onClick={() => setPage(page + 1)}
-        >
-          Next
-        </button>
-      </div>
+      <Pagination page={page} totalPages={pages} onPage={setPage} />
     </div>
   ) : null;
 
