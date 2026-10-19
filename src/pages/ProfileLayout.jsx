@@ -1,5 +1,7 @@
 // src/layouts/ProfileLayout.jsx
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
+import GlobalSearch from "../components/GlobalSearch";
+import NotificationBell from "../components/NotificationBell";
 import { setSecureItem, getSecureItem } from "../utils/secureStorage";
 import {
   LayoutGrid,
@@ -8,7 +10,6 @@ import {
   Folder,
   Briefcase,
   MessageSquare,
-  Bell,
   Menu,
   X,
   ChevronDown,
@@ -52,6 +53,10 @@ const ProfileLayout = () => {
   }, [showCompanyDropdown]);
   const [companies, setCompanies] = useState([]);
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  // Refunds is reached from the Invoice page, so keep the Invoice tile lit there
+  const isTileActive = (path, isActive) =>
+    isActive || (path === "invoice" && pathname.startsWith("/profile/refunds"));
 
 
   // Load user and company data from secureStorage (robust parse)
@@ -175,24 +180,10 @@ const ProfileLayout = () => {
           {/* Search + Notifications + Profile */}
           <div className="flex items-center bg-white rounded-full shadow-md px-3 py-2 space-x-4">
             {/* Search */}
-            <div className="flex items-center bg-[#FFC42A40] rounded-full px-3 py-1.5">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-gray-500 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1010.5 18.5a7.5 7.5 0 006.15-3.85z" />
-              </svg>
-              <input type="text" placeholder="Search" className="bg-transparent outline-none text-sm placeholder-gray-500 w-32 focus:w-44 transition-all" />
-            </div>
+            <GlobalSearch />
 
-            {/* Bell */}
-            <button className="p-2 rounded-full hover:bg-gray-100 relative cursor-pointer">
-              <Bell size={22} className="text-gray-600" />
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
-            </button>
+            {/* Notifications */}
+            <NotificationBell />
 
             {/* Profile */}
             <ProfileMenu />
@@ -201,10 +192,7 @@ const ProfileLayout = () => {
 
         {/* Mobile Right Section */}
         <div className="flex items-center space-x-3 lg:hidden">
-          <button className="p-2 rounded-full hover:bg-gray-100 relative cursor-pointer">
-            <Bell size={22} className="text-gray-600" />
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
-          </button>
+          <NotificationBell />
           <ProfileMenu />
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 rounded hover:bg-gray-100">
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -262,13 +250,13 @@ const ProfileLayout = () => {
                 to={path}
                 end={name === "Profile"}
                 className={({ isActive }) =>
-                  `relative flex items-center justify-center bg-white py-8 px-2 text-sm font-medium transition ${isActive ? "text-gray-600 font-semibold " : "text-gray-400 hover:text-gray-600"
+                  `relative flex items-center justify-center bg-white py-8 px-2 text-sm font-medium transition ${isTileActive(path, isActive) ? "text-gray-600 font-semibold " : "text-gray-400 hover:text-gray-600"
                   }`
                 }
               >
                 {({ isActive }) => (
                   <>
-                    {isActive && (
+                    {isTileActive(path, isActive) && (
                       <span className="absolute top-3 left-3 w-2 h-2 bg-red-500 rounded-full"></span>
                     )}
                     {name}

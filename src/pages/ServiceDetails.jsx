@@ -24,11 +24,11 @@ import {
   FaRupeeSign,
   // FaPlus,
   FaCheck,
-  FaPhoneAlt,
-  FaChevronDown
+  FaPhoneAlt
 } from "react-icons/fa";
 // import { HiOutlineLocationMarker, HiOutlineCheckCircle } from "react-icons/hi";
 import { HiOutlineLocationMarker } from "react-icons/hi";
+import StateSelect from "../components/StateSelect";
 const parsePriceResponse = (res) => {
   if (Array.isArray(res?.data)) return res.data[0] || null;
   if (typeof res?.data === 'object') return res.data;
@@ -795,25 +795,12 @@ const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
                       <label className="block text-sm font-bold text-gray-900 mb-2">
                         Select your state <span className="text-red-500">*</span>
                       </label>
-                      <div className="relative">
-                        <select
-                          value={selectedStateForModal}
-                          onChange={(e) => setSelectedStateForModal(e.target.value)}
-                          required
-                          className="w-full appearance-none pl-4 pr-14 py-3.5 rounded-2xl border border-gray-200 text-sm text-gray-700 focus:ring-1 focus:ring-[#f7d761] focus:border-[#f7d761] outline-none disabled:opacity-60"
-                          disabled={statesLoading}
-                        >
-                          <option value="">{statesLoading ? "Loading states..." : "Choose your state"}</option>
-                          {allStates.map((state) => (
-                            <option key={state.id || state.StateID} value={state.id || state.StateID}>
-                              {state.state_name}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-[#F3C625] flex items-center justify-center pointer-events-none">
-                          <FaChevronDown className="text-gray-900" size={12} />
-                        </div>
-                      </div>
+                      <StateSelect
+                        states={allStates}
+                        value={selectedStateForModal}
+                        onChange={setSelectedStateForModal}
+                        loading={statesLoading}
+                      />
                     </div>
 
                     {/* Modal Actions */}

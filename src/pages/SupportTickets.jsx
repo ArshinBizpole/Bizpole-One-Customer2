@@ -1,4 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Search, ChevronDown, ArrowUpDown, ArrowUp, ArrowDown, Plus } from "lucide-react";
+import Pagination from "../components/Pagination";
 import { getAllOrdersByCompany } from "../api/Orders/Order";
 import {
   createSupportTicket,
@@ -15,10 +17,22 @@ import { getSecureItem } from "../utils/secureStorage";
 import ServiceCatalogPicker from "../components/SupportTickets/ServiceCatalogPicker";
 
 const STATUS_STYLES = {
-  Open: "bg-orange-100 text-orange-700",
-  InProgress: "bg-blue-100 text-blue-700",
-  Resolved: "bg-green-100 text-green-700",
-  Closed: "bg-gray-200 text-gray-700",
+  Open: "bg-blue-50 text-blue-600 border-blue-200",
+  InProgress: "bg-amber-50 text-amber-700 border-amber-200",
+  Resolved: "bg-green-50 text-green-600 border-green-200",
+  Closed: "bg-gray-50 text-gray-600 border-gray-200",
+};
+
+const PAGE_SIZE = 10;
+
+// "2025-11-08 09:24 AM"
+const formatDateTime = (value) => {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  const pad = (n) => String(n).padStart(2, "0");
+  const h = d.getHours() % 12 || 12;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(h)}:${pad(d.getMinutes())} ${d.getHours() < 12 ? "AM" : "PM"}`;
 };
 
 const STATUS_LABEL = {
@@ -85,6 +99,13 @@ const SupportTickets = () => {
   const [checkingQuote, setCheckingQuote] = useState(false);
   const [selectedService, setSelectedService] = useState(null);
 
+  // --- Ticket list: search / filter / sort / paging (client-side) ---------
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [sort, setSort] = useState({ key: "CreatedAt", dir: "desc" });
+  const [page, setPage] = useState(1);
+  const [detailTicket, setDetailTicket] = useState(null);
+
   // Only the latest load may update state: on a reload this runs once for the
   // previously stored company and again after the dashboard settles on the
   // real one, and the older response mustn't land last.
@@ -95,7 +116,7 @@ const SupportTickets = () => {
     let nextTickets = [];
     let nextOrders = [];
     try {
-      const tRes = await getMyTickets({ page: 1, limit: 50 });
+      const tRes = await getMyTickets({ page: 1, limit: 200 });
       nextTickets = tRes.data || [];
     } catch {
       nextTickets = [];
@@ -119,6 +140,41 @@ const SupportTickets = () => {
     window.addEventListener("company-switched", loadAll);
     return () => window.removeEventListener("company-switched", loadAll);
   }, []);
+
+  const categoryLabel = (c) => CATEGORY_LABEL[c] || c || "—";
+
+  const visibleTickets = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const filtered = tickets.filter((t) => {
+      if (statusFilter && t.Status !== statusFilter) return false;
+      if (!q) return true;
+      return [t.TicketCode, categoryLabel(t.Category), t.Subject, t.OrderCodeId]
+        .some((v) => String(v || "").toLowerCase().includes(q));
+    });
+    const valueOf = (t) => {
+      if (sort.key === "CreatedAt") return new Date(t.CreatedAt).getTime() || 0;
+      if (sort.key === "Category") return categoryLabel(t.Category).toLowerCase();
+      if (sort.key === "Status") return (STATUS_LABEL[t.Status] || t.Status || "").toLowerCase();
+      return String(t[sort.key] || "").toLowerCase();
+    };
+    return [...filtered].sort((a, b) => {
+      const va = valueOf(a);
+      const vb = valueOf(b);
+      if (va < vb) return sort.dir === "asc" ? -1 : 1;
+      if (va > vb) return sort.dir === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [tickets, search, statusFilter, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(visibleTickets.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageTickets = visibleTickets.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  // Back to page 1 whenever the result set changes shape
+  useEffect(() => setPage(1), [search, statusFilter, tickets]);
+
+  const toggleSort = (key) =>
+    setSort((prev) => (prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
 
   const openModal = () => {
     const user = readStoredUser();
@@ -554,68 +610,184 @@ const SupportTickets = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-1">
-        <h1 className="text-2xl font-bold text-gray-900">Support</h1>
+    <div className="p-4 sm:p-6">
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Customer Support</h1>
+          <p className="text-sm text-gray-500 mt-1">Manage and track all customer support requests</p>
+        </div>
         <button
           onClick={openModal}
-          className="px-4 py-2 text-sm font-semibold rounded-lg bg-yellow-400 hover:bg-yellow-500 text-gray-900"
+          className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg bg-yellow-400 hover:bg-yellow-500 text-gray-900 shrink-0"
         >
-          Raise a Ticket
+          <Plus className="w-4 h-4" /> New Ticket
         </button>
       </div>
-      <p className="text-sm text-gray-500 mb-6">
-        Raise a support request and track its status until it's resolved.
-      </p>
 
-      <h2 className="text-lg font-semibold text-gray-800 mb-3">My Support Tickets</h2>
-      {loading ? (
-        <div className="text-gray-400 py-6">Loading…</div>
-      ) : tickets.length === 0 ? (
-        <div className="text-gray-400 py-6">
-          No support tickets yet. Click “Raise a Ticket” to create one.
+      {/* Search + status filter */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1 max-w-xl">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search tickets..."
+            className="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+          />
         </div>
-      ) : (
-        <div className="space-y-3">
-          {tickets.map((t) => (
-            <div
-              key={t.TicketID}
-              className="bg-white border border-gray-200 rounded-xl px-5 py-4 shadow-sm"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-sm text-gray-700">{t.TicketCode}</span>
-                  <span
-                    className={`text-xs font-medium px-3 py-1 rounded-lg ${
-                      STATUS_STYLES[t.Status] || "bg-gray-100 text-gray-600"
-                    }`}
+        <div className="relative sm:w-44">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full appearance-none border border-gray-200 rounded-lg pl-3 pr-8 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
+          >
+            <option value="">All Statuses</option>
+            {Object.keys(STATUS_LABEL).map((s) => (
+              <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+            ))}
+          </select>
+          <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
+      </div>
+
+      {/* Tickets table */}
+      {/* Fixed height for PAGE_SIZE rows (h-12 each + header) so the footer
+          below always sits in the same spot, however many rows this page has. */}
+      <div className="bg-white border border-gray-200 rounded-xl flex flex-col">
+        <div className="overflow-x-auto min-h-[528px]">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="h-12 border-b border-gray-100 text-left text-gray-700">
+              {[
+                { key: "TicketCode", label: "Ticket ID" },
+                { key: "Category", label: "Category" },
+                { key: "Status", label: "Status" },
+                { key: "Subject", label: "Subject" },
+                { key: "CreatedAt", label: "Created At" },
+              ].map((col) => (
+                <th key={col.key} className="px-5 font-medium whitespace-nowrap">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort(col.key)}
+                    className="inline-flex items-center gap-1.5 hover:text-gray-900"
                   >
-                    {STATUS_LABEL[t.Status] || t.Status}
-                  </span>
-                </div>
-                <span className="text-xs text-gray-400">
-                  {CATEGORY_LABEL[t.Category] || t.Category}
+                    {col.label}
+                    {sort.key !== col.key ? (
+                      <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
+                    ) : sort.dir === "asc" ? (
+                      <ArrowUp className="w-3.5 h-3.5" />
+                    ) : (
+                      <ArrowDown className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={5} className="px-5 py-10 text-center text-gray-400">Loading…</td></tr>
+            ) : pageTickets.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-5 py-10 text-center text-gray-400">
+                  {tickets.length === 0
+                    ? "No support tickets yet. Click “New Ticket” to create one."
+                    : "No tickets match your search."}
+                </td>
+              </tr>
+            ) : (
+              pageTickets.map((t) => (
+                <tr
+                  key={t.TicketID}
+                  onClick={() => setDetailTicket(t)}
+                  className="h-12 border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                >
+                  <td className="px-5 py-3 font-medium text-gray-900 whitespace-nowrap">{t.TicketCode}</td>
+                  <td className="px-5 py-3 text-gray-700 whitespace-nowrap">{categoryLabel(t.Category)}</td>
+                  <td className="px-5 py-3">
+                    <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-md border ${STATUS_STYLES[t.Status] || "bg-gray-50 text-gray-600 border-gray-200"}`}>
+                      {STATUS_LABEL[t.Status] || t.Status}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 text-gray-700 max-w-xs truncate" title={t.Subject}>{t.Subject || "—"}</td>
+                  <td className="px-5 py-3 text-gray-500 whitespace-nowrap">{formatDateTime(t.CreatedAt)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+        </div>
+
+        {/* Pagination — always shown, pinned to the bottom of the card */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3 border-t border-gray-100">
+          <span className="text-sm text-gray-500">
+            {visibleTickets.length === 0
+              ? "Showing 0 tickets"
+              : `Showing ${(currentPage - 1) * PAGE_SIZE + 1} to ${Math.min(currentPage * PAGE_SIZE, visibleTickets.length)} of ${visibleTickets.length} tickets`}
+          </span>
+          <Pagination page={currentPage} totalPages={totalPages} onPage={setPage} />
+        </div>
+      </div>
+
+      {/* Ticket detail */}
+      {detailTicket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="fixed inset-0 bg-black/40" onClick={() => setDetailTicket(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <h3 className="text-base font-semibold text-gray-900">{detailTicket.TicketCode}</h3>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-md border ${STATUS_STYLES[detailTicket.Status] || "bg-gray-50 text-gray-600 border-gray-200"}`}>
+                  {STATUS_LABEL[detailTicket.Status] || detailTicket.Status}
                 </span>
               </div>
-              <div className="font-medium text-gray-900">{t.Subject}</div>
-              {t.Description && (
-                <div className="text-sm text-gray-600 mt-1">{t.Description}</div>
-              )}
-              {t.OrderCodeId && (
-                <div className="text-xs text-gray-400 mt-1">Order: {t.OrderCodeId}</div>
-              )}
-              {(t.Status === "Resolved" || t.Status === "Closed") && t.ResolutionNotes && (
-                <div className="text-sm text-green-700 mt-2 bg-green-50 rounded-lg px-3 py-2">
-                  <span className="text-gray-500">Resolution:</span> {t.ResolutionNotes}
+              <button
+                onClick={() => setDetailTicket(null)}
+                className="text-gray-400 hover:text-red-500 text-2xl font-bold leading-none"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4 text-sm">
+              <div>
+                <div className="text-xs font-semibold text-gray-500 mb-1">Subject</div>
+                <div className="text-gray-900 font-medium">{detailTicket.Subject || "—"}</div>
+              </div>
+              {detailTicket.Description && (
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 mb-1">Details</div>
+                  <div className="text-gray-700 whitespace-pre-line">{detailTicket.Description}</div>
                 </div>
               )}
-              {t.CreatedAt && (
-                <div className="text-xs text-gray-400 mt-2">
-                  Raised on {new Date(t.CreatedAt).toLocaleDateString()}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 mb-1">Category</div>
+                  <div className="text-gray-700">{categoryLabel(detailTicket.Category)}</div>
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 mb-1">Priority</div>
+                  <div className="text-gray-700 capitalize">{detailTicket.Priority || "—"}</div>
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 mb-1">Order</div>
+                  <div className="text-gray-700">{detailTicket.OrderCodeId || "—"}</div>
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 mb-1">Created At</div>
+                  <div className="text-gray-700">{formatDateTime(detailTicket.CreatedAt)}</div>
+                </div>
+              </div>
+              {(detailTicket.Status === "Resolved" || detailTicket.Status === "Closed") && detailTicket.ResolutionNotes && (
+                <div className="bg-green-50 rounded-lg px-3 py-2">
+                  <div className="text-xs font-semibold text-gray-500 mb-1">
+                    Resolution{detailTicket.ResolvedOn ? ` · ${formatDateTime(detailTicket.ResolvedOn)}` : ""}
+                  </div>
+                  <div className="text-green-700">{detailTicket.ResolutionNotes}</div>
                 </div>
               )}
             </div>
-          ))}
+          </div>
         </div>
       )}
 

@@ -23,8 +23,8 @@ const PAGES = [
   { title: "Individual services", to: "/dashboard/bizpoleone/individual", keywords: "orders services paid amount pay balance" },
   { title: "My task", to: "/dashboard/bizpoleone/tasks", keywords: "tasks action required upload forms pending" },
   { title: "Pricing & Plans", to: "/dashboard/bizpoleone/pricing", keywords: "price pricing plans packages buy" },
-  { title: "Billing and Invoice", to: "/dashboard/bizpoleone/billing", keywords: "invoice bill billing payment receipt download gst invoice" },
-  { title: "Refunds", to: "/dashboard/bizpoleone/refunds", keywords: "refund money back cancel" },
+  { title: "Billing and Invoice", to: "/profile/invoice?tab=overview", keywords: "invoice bill billing payment receipt download gst invoice" },
+  { title: "Refunds", to: "/profile/refunds", keywords: "refund money back cancel" },
   { title: "Customer supports", to: "/dashboard/bizpoleone/support", keywords: "support help ticket complaint issue call back" },
   { title: "My Files", to: "/profile/files", keywords: "files documents pan aadhaar photo certificate download deliverables" },
   { title: "Calendar", to: "/profile/calendar", keywords: "calendar call back events schedule" },
@@ -174,7 +174,7 @@ const GlobalSearch = ({ variant = "header", placeholder = "Search" }) => {
         items: (mine.invoices || []).map((i) => ({
           title: i.code || `Invoice #${i.id}`,
           sub: [i.service, i.orderCode, fmtDate(i.date)].filter(Boolean).join(" · "),
-          go: () => navigate("/dashboard/bizpoleone/billing"),
+          go: () => navigate("/profile/invoice?tab=invoices"),
         })),
       },
       {

@@ -8,6 +8,7 @@ import {
   FiX,
   FiAlertCircle,
   FiDownload,
+  FiHelpCircle,
 
 } from 'react-icons/fi';
 import { getCompanyInvoices, getCompanyOrders } from '../api/Companyinvoice';
@@ -15,7 +16,8 @@ import { getCompanyIdFromStorage } from '../api/Orders/Order';
 import CryptoJS from "crypto-js";
 import { ProfileCompanyContext } from './ProfileLayout';
 import useSelectedCompany from '../hooks/useSelectedCompany';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import Pagination from '../components/Pagination';
 
 const INVOICES_PER_PAGE = 10;
 
@@ -37,18 +39,25 @@ const writeInvoiceView = (patch) => {
   }
 };
 
-// showRefundLink: set true when this page is rendered outside the Profile section
-// (e.g. the dashboard's "Billing and Invoice" tab), where a subtle way to reach
-// Refunds is needed since Refunds no longer has its own sidebar entry there.
-const InvoiceProfile = ({ showRefundLink = false }) => {
+const TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'invoices', label: 'Invoices' },
+];
+
+const InvoiceProfile = () => {
   const navigate = useNavigate();
+  // ?tab=invoices etc. — set by the old dashboard Billing link / global search that now land here
+  const [searchParams] = useSearchParams();
+  const isTab = (id) => TABS.some((t) => t.id === id);
+  const urlTab = isTab(searchParams.get('tab')) ? searchParams.get('tab') : null;
+  const savedTab = isTab(readInvoiceView().tab) ? readInvoiceView().tab : null;
   // Outside the Profile section there's no ProfileCompanyContext.Provider, so fall
   // back to the dashboard's selected company (useSelectedCompany re-reads it on
   // "company-switched", so switching companies in the header reloads invoices).
   const { selectedCompanyId: contextCompanyId } = useContext(ProfileCompanyContext) || {};
   const { companyId: dashboardCompanyId } = useSelectedCompany();
   const selectedCompanyId = contextCompanyId || dashboardCompanyId || getCompanyIdFromStorage();
-  const [activeTab, setActiveTab] = useState(() => readInvoiceView().tab || 'overview');
+  const [activeTab, setActiveTab] = useState(() => urlTab || savedTab || 'overview');
   const [expandedFaq, setExpandedFaq] = useState(null);
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -310,22 +319,18 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
         {/* Heading */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-semibold text-gray-900">Invoice</h1>
-          {showRefundLink && (
-            <button
-              onClick={() => navigate('/dashboard/bizpoleone/refunds')}
-              className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
-            >
-              Need a refund?
-            </button>
-          )}
+          <button
+            onClick={() => navigate('/profile/refunds')}
+            className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900 transition-colors"
+          >
+            <FiHelpCircle className="w-4 h-4" />
+            <span className="underline underline-offset-2">Need a refund?</span>
+          </button>
         </div>
 
         {/* Tabs */}
         <div className="flex items-center gap-6 border-b border-gray-200 mb-8">
-          {[
-            { id: 'overview', label: 'Overview' },
-            { id: 'invoices', label: 'Invoices' },
-          ].map((tab) => (
+          {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -399,7 +404,10 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
                     <span className="w-5 h-5 bg-yellow-400 rounded-sm inline-block" />
                     <h3 className="text-sm font-medium text-gray-900">You're on the Plus plan</h3>
                   </div>
-                  <button className="text-xs font-medium text-gray-500 hover:text-gray-700 underline">
+                  <button
+                    onClick={() => navigate('/dashboard/bizpoleone/pricing')}
+                    className="text-xs font-medium text-gray-500 hover:text-gray-700 underline"
+                  >
                     View plans
                   </button>
                 </div>
@@ -527,34 +535,7 @@ const InvoiceProfile = ({ showRefundLink = false }) => {
                     <span className="text-xs text-gray-500">
                       Showing {pageStart + 1}–{Math.min(pageStart + INVOICES_PER_PAGE, invoices.length)} of {invoices.length}
                     </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setCurrentPage(safePage - 1)}
-                        disabled={safePage === 1}
-                        className="text-xs font-medium text-gray-700 border border-gray-300 rounded-md px-3 py-1.5 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                      >
-                        Previous
-                      </button>
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          className={`text-xs font-medium rounded-md w-8 py-1.5 transition-colors ${page === safePage
-                            ? 'bg-yellow-400 text-gray-900'
-                            : 'text-gray-700 hover:bg-gray-50'
-                            }`}
-                        >
-                          {page}
-                        </button>
-                      ))}
-                      <button
-                        onClick={() => setCurrentPage(safePage + 1)}
-                        disabled={safePage === totalPages}
-                        className="text-xs font-medium text-gray-700 border border-gray-300 rounded-md px-3 py-1.5 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                      >
-                        Next
-                      </button>
-                    </div>
+                    <Pagination page={safePage} totalPages={totalPages} onPage={setCurrentPage} />
                   </div>
                 )}
               </div>

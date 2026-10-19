@@ -1449,7 +1449,7 @@ export const RULES = {
   account: { re: /^[0-9]{9,18}$/, msg: "Enter a valid account number (9–18 digits)" },
   personName: { re: /^[A-Za-z][A-Za-z .']*$/, msg: "Name can contain only letters, spaces, dots and apostrophes" },
   panName: { re: /^[A-Z][A-Z .'&/,()-]*$/, msg: "Name as per PAN cannot contain numbers" },
-  bankName: { re: /^[A-Za-z][A-Za-z .&-]*$/, msg: "Bank name can contain only letters" },
+  bankName: { re: /^[A-Za-z0-9][A-Za-z0-9 .&-]*$/, msg: "Bank name can contain only letters, numbers, spaces, dots, & and -" },
   gstin: { re: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[A-Z0-9]{1}Z[A-Z0-9]{1}$/, msg: "Enter a valid 15-character GSTIN" },
 };
 // Puts a typed value into the form its pattern needs (capitals for IDs,
@@ -1467,7 +1467,7 @@ const INPUT_FORMAT = {
   // Name exactly as printed on the PAN card — always capitals, no digits. A
   // firm/company PAN name can carry "&", "/", brackets etc. ("M/S A & SONS").
   panName: (v) => v.toUpperCase().replace(/[^A-Z .'&/,()-]/g, "").slice(0, 100),
-  bankName: (v) => v.replace(/[^A-Za-z .&-]/g, "").slice(0, 100),
+  bankName: (v) => v.replace(/[^A-Za-z0-9 .&-]/g, "").slice(0, 100),
 };
 // Answers worked out from other answers rather than typed — recomputed by
 // FlowRunner whenever any answer changes.

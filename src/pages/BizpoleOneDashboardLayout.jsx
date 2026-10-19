@@ -9,7 +9,6 @@ import {
   ChevronDown,
   Box,
   Wrench,
-  Receipt,
   LifeBuoy,
   Gift,
   SearchCheck,
@@ -194,22 +193,6 @@ const BizpoleOneDashboardLayout = () => {
                 >
                   <CreditCard size={20} />
                   {!isCollapsed && <span>Pricing & Plans</span>}
-                </NavLink>
-              </li>
-
-              {/* Billing and Invoice */}
-              <li>
-                <NavLink
-                  to="/dashboard/bizpoleone/billing"
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-3 rounded-lg font-medium transition-all ${isActive
-                      ? "bg-[#FFC42A] text-white shadow-inner"
-                      : "text-gray-600 hover:bg-gray-50"
-                    }`
-                  }
-                >
-                  <Receipt size={20} />
-                  {!isCollapsed && <span>Billing and Invoice</span>}
                 </NavLink>
               </li>
 

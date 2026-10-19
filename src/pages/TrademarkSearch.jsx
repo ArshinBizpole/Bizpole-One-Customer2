@@ -15,6 +15,7 @@ import { LeadCaptureModal, requireVerifiedCustomer } from "../components/Exixist
 import TrademarkReport from "../components/Trademark/TrademarkReport";
 import { saveElementAsPdf } from "../utils/elementToPdf";
 import "../components/newco-theme.css";
+import { PAGER_NAV_CLASS, PAGER_PAGE_CLASS, PAGER_ACTIVE_CLASS } from "../components/Pagination";
 
 const PAGE_SIZE = 10;
 const TRADEMARK_SERVICE_ID = 344;
@@ -712,17 +713,17 @@ export default function TrademarkSearch({ embedded = false }) {
                 <button
                   disabled={!hasPrev || loading}
                   onClick={() => runSearch(submitted, page - 1)}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-white text-sm disabled:opacity-40"
+                  className={PAGER_NAV_CLASS}
                 >
-                  <FaChevronLeft /> Previous
+                  <FaChevronLeft className="w-3 h-3" /> Previous
                 </button>
-                <span className="text-sm text-gray-600">Page {page + 1}</span>
+                <span className={`${PAGER_PAGE_CLASS} ${PAGER_ACTIVE_CLASS} inline-flex items-center justify-center`}>{page + 1}</span>
                 <button
                   disabled={!hasNext || loading}
                   onClick={() => runSearch(submitted, page + 1)}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-white text-sm disabled:opacity-40"
+                  className={PAGER_NAV_CLASS}
                 >
-                  Next <FaChevronRight />
+                  Next <FaChevronRight className="w-3 h-3" />
                 </button>
               </div>
             )}
