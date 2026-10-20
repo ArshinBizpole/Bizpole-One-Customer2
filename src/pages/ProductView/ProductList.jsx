@@ -1,6 +1,6 @@
 // 📁 src/components/ProductList.jsx
-import React, { useEffect, useRef, useState, useCallback } from "react";
-import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
+import React from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 function arrayBufferToBase64(buffer) {
@@ -8,158 +8,6 @@ function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
   for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
   return window.btoa(binary);
-}
-
-// ── Ripple Component ──────────────────────────────────────────────────────────
-function Ripple({ x, y, id, onDone }) {
-  return (
-    <motion.span
-      key={id}
-      style={{
-        position: "fixed",
-        left: x,
-        top: y,
-        translateX: "-50%",
-        translateY: "-50%",
-        borderRadius: "50%",
-        background: "radial-gradient(circle, rgba(245,197,24,0.35) 0%, rgba(245,197,24,0.08) 60%, transparent 100%)",
-        pointerEvents: "none",
-        zIndex: 9998,
-        width: 8,
-        height: 8,
-      }}
-      animate={{ width: 260, height: 260, opacity: [1, 0.5, 0] }}
-      initial={{ width: 8, height: 8, opacity: 1 }}
-      transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
-      onAnimationComplete={onDone}
-    />
-  );
-}
-
-// ── Custom Cursor ─────────────────────────────────────────────────────────────
-function CustomCursor() {
-  const cursorX = useMotionValue(-100);
-  const cursorY = useMotionValue(-100);
-  const dotX = useMotionValue(-100);
-  const dotY = useMotionValue(-100);
-
-  // Outer ring — lagging spring
-  const springX = useSpring(cursorX, { stiffness: 120, damping: 18, mass: 0.6 });
-  const springY = useSpring(cursorY, { stiffness: 120, damping: 18, mass: 0.6 });
-
-  // Inner dot — snappy
-  const dotSpringX = useSpring(dotX, { stiffness: 500, damping: 30 });
-  const dotSpringY = useSpring(dotY, { stiffness: 500, damping: 30 });
-
-  const [hovered, setHovered] = useState(false);
-  const [clicked, setClicked] = useState(false);
-  const [ripples, setRipples] = useState([]);
-  const rippleId = useRef(0);
-
-  useEffect(() => {
-    const move = (e) => {
-      cursorX.set(e.clientX);
-      cursorY.set(e.clientY);
-      dotX.set(e.clientX);
-      dotY.set(e.clientY);
-    };
-
-    const down = (e) => {
-      setClicked(true);
-      // Spawn ripple
-      const id = ++rippleId.current;
-      setRipples(prev => [...prev, { x: e.clientX, y: e.clientY, id }]);
-    };
-
-    const up = () => {
-      setClicked(false);
-    };
-
-    const over = (e) => {
-      const el = e.target;
-      const isInteractive =
-        el.tagName === "BUTTON" ||
-        el.tagName === "A" ||
-        el.closest("button") ||
-        el.closest("a") ||
-        el.tagName === "IMG" ||
-        el.closest("[data-cursor-hover]") ||
-        window.getComputedStyle(el).cursor === "pointer";
-      setHovered(!!isInteractive);
-    };
-
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mousedown", down);
-    window.addEventListener("mouseup", up);
-    window.addEventListener("mouseover", over);
-
-    return () => {
-      window.removeEventListener("mousemove", move);
-      window.removeEventListener("mousedown", down);
-      window.removeEventListener("mouseup", up);
-      window.removeEventListener("mouseover", over);
-    };
-  }, [cursorX, cursorY, dotX, dotY]);
-
-  const removeRipple = useCallback((id) => {
-    setRipples(prev => prev.filter(r => r.id !== id));
-  }, []);
-
-  return (
-    <>
-      {/* Ripples */}
-      <AnimatePresence>
-        {ripples.map(r => (
-          <Ripple key={r.id} x={r.x} y={r.y} id={r.id} onDone={() => removeRipple(r.id)} />
-        ))}
-      </AnimatePresence>
-
-      {/* Outer ring */}
-      <motion.div
-        style={{
-          position: "fixed",
-          left: springX,
-          top: springY,
-          translateX: "-50%",
-          translateY: "-50%",
-          pointerEvents: "none",
-          zIndex: 9999,
-          borderRadius: "50%",
-          border: `2px solid ${hovered ? "#F5C518" : "rgba(245,197,24,0.6)"}`,
-          background: hovered ? "rgba(245,197,24,0.08)" : "transparent",
-          mixBlendMode: "normal",
-        }}
-        animate={{
-          width: clicked ? 28 : hovered ? 48 : 38,
-          height: clicked ? 28 : hovered ? 48 : 38,
-          borderColor: hovered ? "#F5C518" : "rgba(245,197,24,0.6)",
-          opacity: clicked ? 0.5 : 1,
-        }}
-        transition={{ type: "spring", stiffness: 260, damping: 22 }}
-      />
-
-      {/* Inner dot */}
-      <motion.div
-        style={{
-          position: "fixed",
-          left: dotSpringX,
-          top: dotSpringY,
-          translateX: "-50%",
-          translateY: "-50%",
-          pointerEvents: "none",
-          zIndex: 9999,
-          borderRadius: "50%",
-          background: "#F5C518",
-        }}
-        animate={{
-          width: clicked ? 14 : hovered ? 6 : 8,
-          height: clicked ? 14 : hovered ? 6 : 8,
-          opacity: hovered ? 0.5 : 1,
-        }}
-        transition={{ type: "spring", stiffness: 400, damping: 28 }}
-      />
-    </>
-  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -179,14 +27,6 @@ const ProductList = () => {
 
   return (
     <>
-      <style>{`
-        /* Hide default cursor globally on this page */
-        .product-page, .product-page * { cursor: none !important; }
-      `}</style>
-
-      {/* Custom cursor — rendered outside scroll flow */}
-      <CustomCursor />
-
       <div className="product-page mt-4">
         {/* ── Header ── */}
         <section className="pt-24 pb-4 px-4 text-center bg-[#f4f4f2]">

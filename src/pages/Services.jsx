@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import SigninModal from "../components/Modals/SigninModal";
 import ServiceDetails from "./ServiceDetails";
 import PackagePlans from "../components/PackagePlans";
-import { Building2, FileText, Scale, CheckCircle2, Wallet, Globe2, Tag, Sparkles, Briefcase, Receipt, FileCheck2, DollarSign, ShoppingCart, MapPin, ArrowRight, X, Loader2 } from "lucide-react";
+import { Building2, FileText, Scale, CheckCircle2, Wallet, Globe2, Tag, Sparkles, Briefcase, Receipt, FileCheck2, DollarSign, ShoppingCart, MapPin, ArrowRight, X, Loader2, SearchX } from "lucide-react";
 // Icons
 const IconSearch = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,7 +91,9 @@ import { getAllStates } from "../api/States";
 import Pagination from "../components/Pagination";
 import StateSelect from "../components/StateSelect";
 
-const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price, onSelectState, stateId, stateName, setShowSigninModal, navigate }) => {
+const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price: fetchedPrice, priceLoading, onSelectState, stateId, setShowSigninModal, navigate }) => {
+  // While loading, treat as no price so Request Quote / Select stay disabled
+  const price = priceLoading ? null : fetchedPrice;
   const features = service.Features || [];
   const categoryName = service.Category?.CategoryName || service.CategoryName;
   // API descriptions sometimes come wrapped in literal quote characters — strip them for display
@@ -197,7 +199,15 @@ const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price, onSele
           ) : (
             <div className="flex-1 flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                {price ? (
+                {priceLoading ? (
+                  <div className="flex flex-col gap-1.5" aria-live="polite">
+                    <span className="flex items-center gap-1.5 text-xs text-gray-400 font-medium">
+                      <Loader2 size={14} strokeWidth={2.5} className="animate-spin text-[#F3C625]" />
+                      Fetching price…
+                    </span>
+                    <div className="h-2.5 w-24 bg-gray-100 rounded animate-pulse" />
+                  </div>
+                ) : price ? (
                   <div className="flex flex-col justify-left text-xs">
                     <div className="flex justify-left text-lg font-bold text-green-700 mb-1">
                       <span className="mr-1">₹</span>
@@ -393,6 +403,8 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [filter, setFilter] = useState("");
+  // Debounced copy of `filter` that actually drives the fetch
+  const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const { cart, addToCart, removeFromCart, clearCart } = useContext(CartContext);
   // selectedServices is now derived from cart keys
@@ -410,6 +422,8 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
   const [stateId, setStateId] = useState(() => localStorage.getItem("StateID"));
   const [bulkPrices, setBulkPrices] = useState({});
   const [bulkLoading, setBulkLoading] = useState(false);
+  // The state + services the current bulkPrices were fetched for
+  const [pricedFor, setPricedFor] = useState({ stateId: null, ids: new Set() });
   const [showStateModal, setShowStateModal] = useState(false);
   const [allStates, setAllStates] = useState([]);
   const [showSigninModal, setShowSigninModal] = useState(false);
@@ -430,8 +444,16 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
       .finally(() => setCategoriesLoading(false));
   }, []);
 
+  // Search hits the server — wait until typing pauses instead of one request per keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(filter.trim()), 350);
+    return () => clearTimeout(t);
+  }, [filter]);
+
   // Fetch services
   useEffect(() => {
+    // A slower, older response (previous search/page) must not overwrite the latest one
+    let stale = false;
     setLoading(true);
     const updateAllServicesCache = (data) => {
       try {
@@ -445,28 +467,31 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
       } catch (err) { console.log(err); }
     };
     if (selectedCategory) {
-      ServicesApi.getServicesByCategory(selectedCategory, { page, limit })
+      ServicesApi.getServicesByCategory(selectedCategory, { page, limit, filter: search })
         .then((res) => {
+          if (stale) return;
           setServices(res.data || []);
           updateAllServicesCache(res.data || []);
           const total = res.total || 0;
           setTotalCount(total);
           setTotalPages(Math.max(1, Math.ceil(total / limit)));
         })
-        .catch(() => { setServices([]); setTotalPages(1); })
-        .finally(() => setLoading(false));
+        .catch(() => { if (!stale) { setServices([]); setTotalCount(0); setTotalPages(1); } })
+        .finally(() => { if (!stale) setLoading(false); });
     } else {
-      ServicesApi.getServices({ page, limit, filter })
+      ServicesApi.getServices({ page, limit, filter: search })
         .then((res) => {
+          if (stale) return;
           setServices(res.data || []);
           updateAllServicesCache(res.data || []);
           setTotalPages(res.pagination?.totalPages || 1);
-          setTotalCount(res.pagination?.total || res.data?.length || 0);
+          setTotalCount(res.pagination?.total ?? res.data?.length ?? 0);
         })
-        .catch(() => setServices([]))
-        .finally(() => setLoading(false));
+        .catch(() => { if (!stale) { setServices([]); setTotalCount(0); setTotalPages(1); } })
+        .finally(() => { if (!stale) setLoading(false); });
     }
-  }, [page, limit, filter, selectedCategory]);
+    return () => { stale = true; };
+  }, [page, limit, search, selectedCategory]);
 
 
 
@@ -511,6 +536,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
   // Fetch bulk prices when services or stateId changes
   useEffect(() => {
     if (stateId && services.length > 0) {
+      let stale = false;
       const serviceIds = services.map(s => s.ServiceID);
       setBulkLoading(true);
       axios.post("service-price-currency/bulk", {
@@ -519,6 +545,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
         isIndividual: 1
       })
         .then(res => {
+          if (stale) return;
           const priceMap = {};
           if (res.data && res.data.data) {
             res.data.data.forEach(item => {
@@ -527,10 +554,20 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
           }
           setBulkPrices(priceMap);
         })
-        .catch(() => setBulkPrices({}))
-        .finally(() => setBulkLoading(false));
+        .catch(() => { if (!stale) setBulkPrices({}); })
+        .finally(() => {
+          if (stale) return;
+          setPricedFor({ stateId, ids: new Set(serviceIds) });
+          setBulkLoading(false);
+        });
+      return () => { stale = true; };
     }
   }, [stateId, services]);
+
+  // Until this service's price has been fetched for the current state, show a loader —
+  // not "Not available in this state".
+  const isPriceLoading = (serviceId) =>
+    bulkLoading || String(pricedFor.stateId) !== String(stateId) || !pricedFor.ids.has(serviceId);
 
   const handleLearnMore = (serviceId) => {
     if (embedded) {
@@ -1054,7 +1091,9 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
                   animate={{ opacity: 1, scale: 1 }}
                   className="text-center py-24 bg-white rounded-2xl border border-gray-100"
                 >
-                  <div className="text-5xl mb-4">🔍</div>
+                  <div className="w-16 h-16 rounded-2xl bg-[#FDF4D6] flex items-center justify-center mx-auto mb-4">
+                    <SearchX size={28} strokeWidth={2} className="text-[#d4a80f]" />
+                  </div>
                   <h3 className="text-xl font-bold text-gray-700 mb-2">No services found</h3>
                   <p className="text-gray-400 text-sm mb-4">
                     {filter || selectedCategory ? "Try adjusting your filters" : "No services available"}
@@ -1081,8 +1120,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
                         price={getBulkPrice(service.ServiceID)}
                         onSelectState={openStateModal}
                         stateId={stateId}
-                        stateName={selectedStateName}
-                        bulkLoading={bulkLoading}
+                        priceLoading={isPriceLoading(service.ServiceID)}
                         setShowSigninModal={(open) => { setSigninService(service); setShowSigninModal(open); }}
                         navigate={navigate}
                       />
