@@ -6,6 +6,7 @@ import { DashboardContext } from "../../pages/DashboardLayout";
 import useSelectedCompany from "../../hooks/useSelectedCompany";
 import QuoteStatusApi from "../../api/QuoteStatusApi";
 import axiosInstance from "../../api/axiosInstance";
+import { getClientBaseUrl } from "../../utils/clientBaseUrl";
 
 const QUOTE_STATUS_MAP = {
   1: "Quote Created",
@@ -67,7 +68,7 @@ const fmtDate = (d) =>
 const openQuotePreview = (quoteId) => {
   const secret = import.meta.env.VITE_QUOTE_LINK_SECRET || "q3!9fKs7@pLzXr84$nmYtB!cVZdQ3";
   const encrypted = CryptoJS.AES.encrypt(String(quoteId), secret).toString();
-  const url = `${import.meta.env.VITE_CLIENT_BASE_URL}/quotes/saved-preview/${encodeURIComponent(encrypted)}`;
+  const url = `${getClientBaseUrl()}/quotes/saved-preview/${encodeURIComponent(encrypted)}`;
   window.open(url, "_blank");
 };
 

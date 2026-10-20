@@ -7,6 +7,7 @@ import CryptoJS from "crypto-js";
 import QuoteStatusApi from "../api/QuoteStatusApi";
 import { FileText, Plus } from "lucide-react";
 import { getSecureItem } from "../utils/secureStorage";
+import { getClientBaseUrl } from "../utils/clientBaseUrl";
 
 const ComplianceDashboard = () => {
   const navigate = useNavigate();
@@ -113,7 +114,7 @@ const ComplianceDashboard = () => {
       return;
     }
     const encrypted = encrypt(targetQuoteId);
-    const url = `${import.meta.env.VITE_CLIENT_BASE_URL}/quotes/saved-preview/${encodeURIComponent(encrypted)}`;
+    const url = `${getClientBaseUrl()}/quotes/saved-preview/${encodeURIComponent(encrypted)}`;
     // const url = `http://dev.bizpoleindia.in/quotes/saved-preview/${encodeURIComponent(encrypted)}`;
     window.open(url, "_blank");
   };

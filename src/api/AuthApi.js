@@ -11,13 +11,14 @@ export const loginWithPhone = async (phone) => {
 };
 
 // `referralToken` = stored referral scan token (see utils/referralAttribution); omitted when absent.
-// state: the customer's state — saved on the Customer and used to pick the
-// franchisee serving it (the server no longer assumes Kerala / franchisee 1).
-export const signupWithPhone = async (name, email, phone, referralToken, state) => {
+// state / language: the customer's state and preferred language — saved on the
+// Customer and used to route their Lead to a BDE (as for a Facebook lead).
+export const signupWithPhone = async (name, email, phone, referralToken, state, language) => {
   try {
     const body = { name, email, phone };
     if (referralToken) body.referralToken = referralToken;
     if (state) body.state = state;
+    if (language) body.language = language;
     const response = await axiosInstance.post("/website-signup", body);
     return response.data;
   } catch (error) {

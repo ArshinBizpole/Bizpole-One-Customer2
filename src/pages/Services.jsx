@@ -91,7 +91,7 @@ import { getAllStates } from "../api/States";
 import Pagination from "../components/Pagination";
 import StateSelect from "../components/StateSelect";
 
-const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price: fetchedPrice, priceLoading, onSelectState, stateId, setShowSigninModal, navigate }) => {
+const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price: fetchedPrice, priceLoading, onSelectState, stateId, stateName, setShowSigninModal, navigate }) => {
   // While loading, treat as no price so Request Quote / Select stay disabled
   const price = priceLoading ? null : fetchedPrice;
   const features = service.Features || [];
@@ -1120,6 +1120,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
                         price={getBulkPrice(service.ServiceID)}
                         onSelectState={openStateModal}
                         stateId={stateId}
+                        stateName={selectedStateName}
                         priceLoading={isPriceLoading(service.ServiceID)}
                         setShowSigninModal={(open) => { setSigninService(service); setShowSigninModal(open); }}
                         navigate={navigate}

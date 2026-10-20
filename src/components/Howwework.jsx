@@ -1,5 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  AnimatePresence,
   motion,
   useInView,
   useScroll,
@@ -7,15 +8,43 @@ import {
   useSpring,
 } from "framer-motion";
 
-const BIZPOLE_YOUTUBE = "https://www.youtube.com/@bizpole3483";
+// "How to use Bizpole One" walkthrough (built in bizpole-one-customer-ad-video, served from public/videos).
+const HOWTO_VIDEO = {
+  landscape: { src: "/videos/bizpole-one-how-to-use.mp4", poster: "/videos/bizpole-one-how-to-use-poster.jpg" },
+  portrait: { src: "/videos/bizpole-one-how-to-use-vertical.mp4", poster: "/videos/bizpole-one-how-to-use-vertical-poster.jpg" },
+  captions: "/videos/bizpole-one-how-to-use.en.vtt",
+  // Card thumbnail with a clear centre for the play button.
+  thumb: "/videos/bizpole-one-how-to-use-thumb.jpg",
+};
 
 const Howwework = () => {
   const sectionRef = useRef(null);
   const leftRef = useRef(null);
   const rightRef = useRef(null);
-  // No demo video yet — the play button opens Bizpole's YouTube channel.
-  const openVideos = () => window.open(BIZPOLE_YOUTUBE, "_blank", "noopener,noreferrer");
+  const [videoOpen, setVideoOpen] = useState(false);
+  // Portrait screens (phones) get the 9:16 cut so the video fills the modal.
+  const [portrait, setPortrait] = useState(false);
+  const openVideos = () => {
+    setPortrait(window.innerHeight > window.innerWidth);
+    setVideoOpen(true);
+  };
+  const closeVideo = () => setVideoOpen(false);
   const [hoveringPlay, setHoveringPlay] = useState(false);
+
+  // Close on Escape and lock page scroll while the video modal is open.
+  useEffect(() => {
+    if (!videoOpen) return;
+    const onKey = (e) => e.key === "Escape" && setVideoOpen(false);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [videoOpen]);
+
+  const video = portrait ? HOWTO_VIDEO.portrait : HOWTO_VIDEO.landscape;
 
   const leftInView = useInView(leftRef, { once: true, margin: "-80px" });
   const rightInView = useInView(rightRef, { once: true, margin: "-80px" });
@@ -108,7 +137,7 @@ const Howwework = () => {
           display: flex; align-items: center; justify-content: center;
         }
         .modal-inner {
-          width: 90vw; max-width: 900px;
+          width: 90vw; max-width: 1100px;
           aspect-ratio: 16/9;
           background: #111;
           border-radius: 20px;
@@ -128,6 +157,17 @@ const Howwework = () => {
           z-index: 10;
         }
         .modal-close:hover { background: rgba(255,255,255,0.2); }
+        .modal-inner.is-portrait {
+          width: min(92vw, calc(86vh * 9 / 16)); max-width: none;
+          aspect-ratio: 9/16;
+        }
+        .modal-inner .modal-close {
+          background: rgba(17,17,17,0.6);
+        }
+        .modal-inner .modal-close:hover { background: rgba(17,17,17,0.8); }
+        .modal-inner video {
+          width: 100%; height: 100%; display: block; background: #FFF6EC;
+        }
       `}</style>
 
       <section ref={sectionRef} className="hww-section py-20 md:py-28">
@@ -162,9 +202,16 @@ const Howwework = () => {
                 whileHover={{ scale: 1.015 }}
                 transition={{ duration: 0.4 }}
                 onClick={openVideos}
+                role="button"
+                aria-label="Play the How to use Bizpole One video"
               >
-                {/* Label */}
-               
+                {/* Video poster */}
+                <img
+                  src={HOWTO_VIDEO.thumb}
+                  alt=""
+                  loading="lazy"
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                />
 
                 {/* Decorative lines */}
                 {[20, 40, 60, 80].map((x) => (
@@ -265,6 +312,39 @@ const Howwework = () => {
           </div>
         </div>
       </section>
+
+      {/* ── Video modal ── */}
+      <AnimatePresence>
+        {videoOpen && (
+          <motion.div
+            className="modal-backdrop"
+            onClick={closeVideo}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="How to use Bizpole One"
+          >
+            <motion.div
+              className={`modal-inner${portrait ? " is-portrait" : ""}`}
+              onClick={(e) => e.stopPropagation()}
+              initial={{ scale: 0.92, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <button className="modal-close" onClick={closeVideo} aria-label="Close video">
+                ✕
+              </button>
+              <video src={video.src} poster={video.poster} controls autoPlay playsInline preload="auto">
+                <track kind="captions" src={HOWTO_VIDEO.captions} srcLang="en" label="English" />
+              </video>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 };
