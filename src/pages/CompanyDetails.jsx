@@ -17,6 +17,11 @@ import {
 import { motion } from "framer-motion";
 import { getCompanyDetails } from "../api/CompanyApi";
 import { updateMyCompanyDetails } from "../api/CompanyChangeApi";
+import { createCustomerCompany } from "../api/LeadApi";
+import { getSecureItem } from "../utils/secureStorage";
+import { getAllStates } from "../api/States";
+import { STATES } from "../components/ExixistingCompany/existingCompanyData";
+import { districtsFor } from "../utils/districts";
 import { ToastContainer, toast } from "react-toastify";
 import { DOB_MAX, dobError } from "../utils/dob";
 import "react-toastify/dist/ReactToastify.css";
@@ -35,6 +40,9 @@ const ViewField = ({ label, value, valueClassName = "" }) => (
   </div>
 );
 
+// Red star after a mandatory field's label.
+const Req = () => <span className="text-red-500 ml-0.5">*</span>;
+
 const EditField = ({
   label,
   value,
@@ -43,9 +51,10 @@ const EditField = ({
   placeholder = "",
   textarea = false,
   max,
+  required = false,
 }) => (
   <div>
-    <label className="block text-xs text-gray-500 mb-1.5">{label}</label>
+    <label className="block text-xs text-gray-500 mb-1.5">{label}{required && <Req />}</label>
     {textarea ? (
       <textarea
         value={value || ""}
@@ -84,6 +93,29 @@ const EditSelect = ({ label, value, onChange, options }) => (
   </div>
 );
 
+// Address dropdown with a "Select…" placeholder. A saved value that isn't in
+// the list (entered before these were dropdowns) is kept as an option.
+const AddressSelect = ({ label, value, onChange, options, required = false }) => {
+  const opts = value && !options.includes(value) ? [value, ...options] : options;
+  return (
+    <div>
+      <label className="block text-xs text-gray-500 mb-1.5">{label}{required && <Req />}</label>
+      <select
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 transition bg-white"
+      >
+        <option value="">Select…</option>
+        {opts.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+};
+
 const RadioOption = ({ label, selected, onClick }) => (
   <button
     type="button"
@@ -108,9 +140,9 @@ const RadioOption = ({ label, selected, onClick }) => (
 // columns must be one of these literal classes — Tailwind needs static strings, not interpolated ones
 const COLS_CLASS = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-3" };
 
-const RadioGroup = ({ label, options, value, onChange, columns = 2 }) => (
+const RadioGroup = ({ label, options, value, onChange, columns = 2, required = false }) => (
   <div>
-    <label className="block text-xs text-gray-500 mb-1.5">{label}</label>
+    <label className="block text-xs text-gray-500 mb-1.5">{label}{required && <Req />}</label>
     <div className={`grid ${COLS_CLASS[columns] || "grid-cols-2"} gap-3`}>
       {options.map((opt) => (
         <RadioOption
@@ -171,7 +203,9 @@ const ErrorScreen = ({ error }) => (
 /* ---------- Main component ---------- */
 
 const CompanyDetails = () => {
-  const { selectedCompanyId } = useContext(ProfileCompanyContext);
+  const { selectedCompanyId, companiesReady, addCompany } = useContext(ProfileCompanyContext);
+  // No company on this account yet — the form opens empty and Save creates one.
+  const isAdding = companiesReady && !selectedCompanyId;
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -185,6 +219,19 @@ const CompanyDetails = () => {
 
   const directorRef = useRef(null);
 
+  // State options — same as the Start New Company address step: the live
+  // DB list (so the saved name matches indiastates.state_name), with the
+  // static STATES list as the fallback.
+  const [stateNames, setStateNames] = useState(STATES);
+  useEffect(() => {
+    getAllStates()
+      .then((rows) => {
+        const names = Array.isArray(rows) ? rows.map((r) => r.state_name).filter(Boolean) : [];
+        if (names.length) setStateNames([...names, "Other"]);
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     // Reset all state immediately so stale data from the previous company isn't visible
     setCompany(null);
@@ -195,7 +242,14 @@ const CompanyDetails = () => {
     setCompanyForm({});
     setDirectorForm({});
 
-    if (!selectedCompanyId) return;
+    if (!selectedCompanyId) {
+      if (companiesReady) {
+        setCompanyForm({ country: "India" });
+        setIsEditingCompany(true);
+        setLoading(false);
+      }
+      return;
+    }
 
     const fetchCompany = async () => {
       setLoading(true);
@@ -214,7 +268,7 @@ const CompanyDetails = () => {
       }
     };
     fetchCompany();
-  }, [selectedCompanyId]);
+  }, [selectedCompanyId, companiesReady]);
 
   const primaryDirector =
     company?.Customers?.find((c) => c.PrimaryCustomer === 1) ||
@@ -241,7 +295,7 @@ const CompanyDetails = () => {
       district:          company?.District || "",
       city:              company?.City || "",
       state:             company?.State || "",
-      country:           company?.Country || "India",
+      country:           "India",
       pincode:           company?.PinCode || "",
     });
     setIsEditingCompany(true);
@@ -249,7 +303,84 @@ const CompanyDetails = () => {
 
   const cancelEditCompany = () => setIsEditingCompany(false);
 
+  // First company for this customer — created and linked to their account.
+  // Mandatory fields (marked *) — first one missing, as a message, or null.
+  const missingRequired = () => {
+    const f = companyForm;
+    const blank = (v) => !String(v ?? "").trim();
+    if (blank(f.businessType)) return "Please select the type of business";
+    if (blank(f.businessName)) return "Please enter the name of your business";
+    if (blank(f.addressLine1)) return "Please enter address line 1";
+    if (blank(f.state)) return "Please select the state";
+    if (blank(f.district)) return "Please select the district";
+    if (blank(f.city)) return "Please enter the city / town";
+    if (!/^[1-9]\d{5}$/.test(String(f.pincode || ""))) return "Please enter a valid 6-digit pincode";
+    return null;
+  };
+
+  const handleAddCompany = async () => {
+    const missing = missingRequired();
+    if (missing) return toast.error(missing);
+    const name = companyForm.businessName.trim();
+    let user = null;
+    try {
+      const raw = getSecureItem("user");
+      user = typeof raw === "string" ? JSON.parse(raw) : raw;
+    } catch { /* handled below */ }
+    if (!user?.CustomerID) return toast.error("Please sign in again to add your company");
+    setSaving(true);
+    try {
+      const res = await createCustomerCompany({
+        customer: {
+          name: `${user.FirstName || ""} ${user.LastName || ""}`.trim() || user.Email || "Customer",
+          mobile: user.Mobile,
+          email: user.Email,
+          state: user.State,
+          existingCustomerId: user.CustomerID,
+        },
+        company: {
+          name,
+          constitutionCategory: companyForm.businessType || null,
+          pan: companyForm.pan || null,
+          cin: companyForm.cin || null,
+          gst: companyForm.gstNumber || null,
+          sector: companyForm.sector || null,
+          businessNature: companyForm.businessActivity || null,
+          email: companyForm.companyEmail || null,
+          mobile: companyForm.companyMobile || null,
+          website: companyForm.website || null,
+          addressLine1: companyForm.addressLine1 || null,
+          addressLine2: companyForm.addressLine2 || null,
+          district: companyForm.district || null,
+          city: companyForm.city || null,
+          state: companyForm.state || null,
+          pincode: companyForm.pincode || null,
+          country: companyForm.country || "India",
+        },
+        franchiseeId: user.FranchiseeID,
+      });
+      const companyId = res?.data?.companyId;
+      if (!companyId) throw new Error(res?.message || "Failed to add company");
+      // Founding date isn't part of the create call — saved straight after.
+      if (companyForm.foundingDate) {
+        await updateMyCompanyDetails(companyId, { CompanyFoundingDate: companyForm.foundingDate }).catch(() => {});
+      }
+      toast.success("Company added");
+      addCompany({ CompanyID: companyId, BusinessName: name });
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || err.message || "Failed to add company");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSaveCompany = async () => {
+    const missing = missingRequired();
+    if (missing) {
+      toast.error(missing);
+      return false;
+    }
     const next = {
       ConstitutionCategory: companyForm.businessType,
       BusinessName:         companyForm.businessName,
@@ -316,7 +447,7 @@ const CompanyDetails = () => {
   };
 
   const handleContinueToDirector = async () => {
-    await handleSaveCompany();
+    if ((await handleSaveCompany()) === false) return;
     startEditDirector();
     setTimeout(
       () =>
@@ -361,7 +492,7 @@ const CompanyDetails = () => {
 
   if (loading) return <LoadingScreen />;
   if (error) return <ErrorScreen error={error} />;
-  if (!company) return <ErrorScreen error="No company data available" />;
+  if (!company && !isAdding) return <ErrorScreen error="No company data available" />;
 
   return (
     <div className=" bg-gray-50 p-4 md:p-6 lg:p-8">
@@ -403,21 +534,25 @@ const CompanyDetails = () => {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">
-                    Company Details
+                    {isAdding ? "Add your company details" : "Company Details"}
                   </h1>
                   <p className="text-sm text-gray-500 mt-0.5">
-                    Manage your business information and settings
+                    {isAdding
+                      ? "No company is linked to your account yet — add it here"
+                      : "Manage your business information and settings"}
                   </p>
                 </div>
                 <div className="flex gap-3">
+                  {!isAdding && (
+                    <button
+                      onClick={cancelEditCompany}
+                      className="flex items-center gap-1.5 border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium px-4 py-2.5 rounded-lg text-sm transition"
+                    >
+                      <X size={14} /> Cancel
+                    </button>
+                  )}
                   <button
-                    onClick={cancelEditCompany}
-                    className="flex items-center gap-1.5 border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium px-4 py-2.5 rounded-lg text-sm transition"
-                  >
-                    <X size={14} /> Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveCompany}
+                    onClick={isAdding ? handleAddCompany : handleSaveCompany}
                     disabled={saving}
                     className="flex items-center gap-1.5 bg-yellow-400 hover:bg-yellow-500 text-black font-medium px-4 py-2.5 rounded-lg text-sm transition disabled:opacity-50"
                   >
@@ -427,8 +562,9 @@ const CompanyDetails = () => {
               </div>
               <div className="flex items-start gap-2 bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm rounded-lg px-4 py-3">
                 <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
-                You are currently editing your company details. Don't forget to
-                save your changes.
+                {isAdding
+                  ? "Fill in your company details and click Save Changes. Fields marked * are required."
+                  : "You are currently editing your company details. Don't forget to save your changes."}
               </div>
             </div>
           )}
@@ -444,7 +580,6 @@ const CompanyDetails = () => {
                 <div className="space-y-4">
                   <ViewField label="Type of Business"   value={company?.ConstitutionCategory} />
                   <ViewField label="Name of Business"   value={company?.BusinessName} />
-                  <ViewField label="Company Code"       value={company?.CompanyCode} />
                   <ViewField label="Date of Founding"   value={company?.CompanyFoundingDate} />
                   <ViewField label="PAN of the Entity"  value={company?.CompanyPAN} />
                   <ViewField label="CIN/LLPIN"          value={company?.CIN} />
@@ -454,6 +589,7 @@ const CompanyDetails = () => {
               ) : (
                 <div className="space-y-4">
                   <RadioGroup
+                    required
                     label="Type of Business"
                     options={["Pvt Ltd", "LLP", "OPC", "Sole proprietor"]}
                     value={companyForm.businessType}
@@ -461,14 +597,10 @@ const CompanyDetails = () => {
                     columns={2}
                   />
                   <EditField
+                    required
                     label="Name of Business"
                     value={companyForm.businessName}
                     onChange={(e) => setCompanyForm({ ...companyForm, businessName: e.target.value })}
-                  />
-                  <EditField
-                    label="Company Code"
-                    value={companyForm.companyCode}
-                    onChange={(e) => setCompanyForm({ ...companyForm, companyCode: e.target.value })}
                   />
                   <EditField
                     label="Date of Founding"
@@ -512,8 +644,6 @@ const CompanyDetails = () => {
                   <ViewField label="Company Email"   value={company?.CompanyEmail} />
                   <ViewField label="Company Mobile"  value={company?.CompanyMobile} />
                   <ViewField label="Website"         value={company?.Website} />
-                  <ViewField label="Status"          value={company?.Status} />
-                  <ViewField label="Franchise"       value={company?.FranchiseName} />
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -554,18 +684,19 @@ const CompanyDetails = () => {
                 <ViewField label="Address Line 1" value={company?.AddressLine1} />
                 <ViewField label="Address Line 2" value={company?.AddressLine2} />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <ViewField label="District"     value={company?.District} />
-                  <ViewField label="City"         value={company?.City} />
+                  <ViewField label="Country"      value={company?.Country} />
+                  <ViewField label="State"        value={company?.State} />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <ViewField label="State"        value={company?.State} />
-                  <ViewField label="Pin Code"     value={company?.PinCode} />
+                  <ViewField label="District"     value={company?.District} />
+                  <ViewField label="City / Town"  value={company?.City} />
                 </div>
-                <ViewField label="Country"        value={company?.Country} />
+                <ViewField label="Pincode"        value={company?.PinCode} />
               </div>
             ) : (
               <div className="space-y-4">
                 <EditField
+                  required
                   label="Address Line 1"
                   placeholder="House No, Building, Street"
                   value={companyForm.addressLine1}
@@ -578,39 +709,65 @@ const CompanyDetails = () => {
                   onChange={(e) => setCompanyForm({ ...companyForm, addressLine2: e.target.value })}
                 />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <EditField
-                    label="District"
-                    value={companyForm.district}
-                    onChange={(e) => setCompanyForm({ ...companyForm, district: e.target.value })}
+                  {/* Country is fixed to India, as in Start New Company. */}
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1.5">Country<Req /></label>
+                    <input
+                      value="India"
+                      readOnly
+                      tabIndex={-1}
+                      className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-700 bg-gray-100 cursor-not-allowed"
+                    />
+                  </div>
+                  <AddressSelect
+                    required
+                    label="State"
+                    value={companyForm.state}
+                    options={stateNames}
+                    // Changing the State clears a District picked for the old one.
+                    onChange={(v) => setCompanyForm({ ...companyForm, state: v, district: v === companyForm.state ? companyForm.district : "" })}
                   />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {districtsFor(companyForm.state).length ? (
+                    <AddressSelect
+                      required
+                      label="District"
+                      value={companyForm.district}
+                      options={districtsFor(companyForm.state)}
+                      onChange={(v) => setCompanyForm({ ...companyForm, district: v })}
+                    />
+                  ) : (
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1.5">District<Req /></label>
+                      <input
+                        value={companyForm.district || ""}
+                        onChange={(e) => setCompanyForm({ ...companyForm, district: e.target.value })}
+                        disabled={!companyForm.state}
+                        placeholder={companyForm.state ? "Enter district" : "Select a state first"}
+                        className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 transition disabled:bg-gray-100"
+                      />
+                    </div>
+                  )}
                   <EditField
-                    label="City"
+                    required
+                    label="City / Town"
                     value={companyForm.city}
                     onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })}
                   />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <EditField
-                    label="State"
-                    value={companyForm.state}
-                    onChange={(e) => setCompanyForm({ ...companyForm, state: e.target.value })}
-                  />
-                  <EditField
-                    label="Pin Code"
-                    value={companyForm.pincode}
-                    onChange={(e) => setCompanyForm({ ...companyForm, pincode: e.target.value })}
-                  />
-                </div>
                 <EditField
-                  label="Country"
-                  value={companyForm.country}
-                  onChange={(e) => setCompanyForm({ ...companyForm, country: e.target.value })}
+                  required
+                  label="Pincode"
+                  placeholder="6 digits"
+                  value={companyForm.pincode}
+                  onChange={(e) => setCompanyForm({ ...companyForm, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) })}
                 />
               </div>
             )}
           </Card>
 
-          {isEditingCompany && (
+          {isEditingCompany && !isAdding && (
             <div className="flex justify-center mt-6">
               <button
                 onClick={handleContinueToDirector}
@@ -623,6 +780,7 @@ const CompanyDetails = () => {
         </section>
 
         {/* ===================== Director/Promoter Details ===================== */}
+        {!isAdding && (
         <section ref={directorRef}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div className="flex items-center gap-3">
@@ -816,6 +974,7 @@ const CompanyDetails = () => {
             </Card>
           </div>
         </section>
+        )}
       </div>
     </div>
   );
