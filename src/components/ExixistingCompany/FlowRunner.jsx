@@ -1,3 +1,4 @@
+import { getClientBaseUrl } from "../../utils/clientBaseUrl";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Home } from "lucide-react";
@@ -1985,7 +1986,7 @@ async function createQuoteForApplicationStep(flow, state, A) {
 function quoteApprovalUrl(quoteId) {
   const secret = import.meta.env.VITE_QUOTE_LINK_SECRET || "q3!9fKs7@pLzXr84$nmYtB!cVZdQ3";
   const encrypted = CryptoJS.AES.encrypt(String(quoteId), secret).toString();
-  return `${import.meta.env.VITE_CLIENT_BASE_URL}/quotes/saved-preview/${encodeURIComponent(encrypted)}`;
+  return `${getClientBaseUrl()}/quotes/saved-preview/${encodeURIComponent(encrypted)}`;
 }
 function openQuoteForApproval(state, tab) {
   if (!state.quoteId) {
@@ -2556,7 +2557,7 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
         if (/not found/i.test(err?.message || "")) {
           mode = "signup";
           // Referral scan token (if any) rides along so the server can attribute the signup.
-          await signupWithPhone(form.name.trim(), form.email.trim(), form.mobile.trim(), getReferralToken(), form.state);
+          await signupWithPhone(form.name.trim(), form.email.trim(), form.mobile.trim(), getReferralToken(), form.state, form.language);
         } else {
           throw err;
         }
@@ -2672,7 +2673,7 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-1">Verify it's you</h3>
             <p className="text-xs text-gray-500 mb-4">
-              {accountMode === "login" ? "Welcome back — " : ""}We've emailed a 4-digit code to <b>{form.email}</b>.
+              {accountMode === "login" ? "Welcome back — " : ""}We've sent a 4-digit code to <b>{form.email}</b> and <b>+91 {form.mobile}</b>.
             </p>
             <div className="flex gap-3 justify-center mb-3">
               {[0, 1, 2, 3].map((i) => (
