@@ -669,13 +669,13 @@ const PartnerSignupModal = ({ isOpen, onClose, onSwitchToLogin }) => {
 
                             {/* Description */}
                             <p className="text-center text-sm text-gray-500 mb-1 leading-relaxed">
-                                We Will send you a one time password on
+                                We have sent a one time password to your
                             </p>
                             <p className="text-center text-sm text-gray-500 mb-1">
-                                this{" "}<span className="font-bold text-gray-800">Mobile Number</span>
+                                <span className="font-bold text-gray-800">Email and Mobile Number</span>
                             </p>
                             <p className="text-center font-bold text-gray-900 mb-8 text-sm">
-                                +91 - {formData.mobile || "XXXXXXXXXX"}
+                                {formData.email} · +91 - {formData.mobile || "XXXXXXXXXX"}
                             </p>
 
                             {/* OTP Inputs — circular style */}
