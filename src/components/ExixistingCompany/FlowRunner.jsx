@@ -2490,12 +2490,10 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
   const [submitting, setSubmitting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState("");
-  // True when sign-up hit "account already exists" — e.g. the email is already
-  // registered under a different mobile number. Surfaces a Sign In link instead
-  // of just leaving them stuck on a dead-end error.
-  const [accountExists, setAccountExists] = useState(false);
   const [otpValues, setOtpValues] = useState(["", "", "", ""]);
   const [timer, setTimer] = useState(30);
+  // "Already have an account? Sign in" swaps this form for the site Sign In.
+  const [showSignIn, setShowSignIn] = useState(false);
 
   useEffect(() => {
     getAllStates().then(setStates).catch(() => setStates([]));
@@ -2547,7 +2545,6 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
     if (!form.state) return setError("Please select your state.");
     if (!form.language) return setError("Please select your preferred language.");
     setError("");
-    setAccountExists(false);
     setSubmitting(true);
     try {
       // Try signing in first (in case they already have an account from an
@@ -2572,22 +2569,17 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
     } catch (err) {
       const msg = err?.message || "Couldn't send a verification code. Please check your details and try again.";
       setError(msg);
-      // Signup hit the backend's "Mobile OR Email already registered" guard —
-      // most likely this email is already on file under a different mobile
-      // number. Offer a way to switch to signing in instead of a dead end.
-      setAccountExists(/already exists/i.test(msg));
     } finally {
       setSubmitting(false);
     }
   }
 
-  // Lets them retry as a sign-in: clears the mobile field (their existing
-  // account may be under a different number than the one just tried) and
-  // keeps name/email filled in.
-  function switchToSignIn() {
-    setError("");
-    setAccountExists(false);
-    set("mobile", "");
+  // Signed in through the site Sign In — re-run the gate, which now finds the
+  // token and raises the Lead from the signed-in account before continuing.
+  function finishSignIn() {
+    const run = state.leadGate?.run;
+    state.leadGate = null;
+    requireVerifiedCustomer(state, bump, () => run && run());
   }
 
   // Raises the Lead the same way the form used to (for sales/CRM tracking),
@@ -2650,6 +2642,17 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
     } catch (err) {
       setError(err?.message || "Couldn't resend the code.");
     }
+  }
+
+  if (showSignIn) {
+    return (
+      <SigninModal
+        initialValue={form.mobile}
+        onSuccess={finishSignIn}
+        onClose={closeModal}
+        onSignup={() => setShowSignIn(false)}
+      />
+    );
   }
 
   return (
@@ -2753,14 +2756,15 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
               </div>
             </div>
             <ErrorText msg={error} />
-            {accountExists && (
-              <button type="button" onClick={switchToSignIn} className="mt-1 text-xs text-blue-600 font-semibold hover:underline">
-                Already have an account? Sign in instead
-              </button>
-            )}
             <button type="submit" disabled={submitting} className="mt-4 w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-60">
               {submitting ? "Signing up…" : "Sign Up"}
             </button>
+            <p className="mt-3 text-xs text-gray-500 text-center">
+              Already have an account?{" "}
+              <button type="button" onClick={() => setShowSignIn(true)} className="text-blue-600 font-semibold hover:underline">
+                Sign in
+              </button>
+            </p>
           </form>
         )}
       </div>

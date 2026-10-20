@@ -52,6 +52,9 @@ const ProfileLayout = () => {
     };
   }, [showCompanyDropdown]);
   const [companies, setCompanies] = useState([]);
+  // Set once the saved companies have been read, so a page can tell "no
+  // company on this account" apart from "not loaded yet".
+  const [companiesReady, setCompaniesReady] = useState(false);
   const navigate = useNavigate();
   const { pathname } = useLocation();
   // Refunds is reached from the Invoice page, so keep the Invoice tile lit there
@@ -114,7 +117,31 @@ const ProfileLayout = () => {
     } catch (err) {
       console.log("Error parsing user data in ProfileLayout:", err);
     }
+    setCompaniesReady(true);
   }, []);
+
+  // A company just added from Company Details (customer had none yet) — add it
+  // to the dropdown and the saved user, and select it.
+  const addCompany = (company) => {
+    const companyName = company.BusinessName || "";
+    setCompanies((prev) => [...prev, company]);
+    setSelectedCompany(companyName);
+    setSelectedCompanyId(company.CompanyID);
+    setSecureItem("selectedCompany", JSON.stringify({ CompanyID: company.CompanyID, CompanyName: companyName }));
+    setSecureItem("CompanyId", company.CompanyID.toString());
+    try {
+      const rawUser = getSecureItem("user");
+      const parsedUser = rawUser && typeof rawUser === "string" ? JSON.parse(rawUser) : rawUser;
+      if (parsedUser) {
+        const updated = { ...parsedUser, Companies: [...(parsedUser.Companies || []), company] };
+        setSecureItem("user", JSON.stringify(updated));
+        setUser(updated);
+      }
+    } catch (err) {
+      console.log("Error saving new company to user data:", err);
+    }
+    window.dispatchEvent(new Event("company-switched"));
+  };
 
   // Handle logout
 
@@ -302,7 +329,7 @@ const ProfileLayout = () => {
 
       {/* ===== Main Content ===== */}
       <main className="flex-1 p-8 overflow-y-auto mt-[76px]">
-        <ProfileCompanyContext.Provider value={{ selectedCompanyId, selectedCompanyName: selectedCompany }}>
+        <ProfileCompanyContext.Provider value={{ selectedCompanyId, selectedCompanyName: selectedCompany, companiesReady, addCompany }}>
           <Outlet />
         </ProfileCompanyContext.Provider>
       </main>
