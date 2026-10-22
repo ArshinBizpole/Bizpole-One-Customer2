@@ -54,6 +54,7 @@ import CancellationRefundPolicy from "./pages/CancellationRefundPolicy";
 import AssociatePrivacyPolicy from "./pages/associate/AssociatePrivacyPolicy";
 import AssociateTermsAndConditions from "./pages/associate/AssociateTermsAndConditions";
 import AssociateReferralConductPolicy from "./pages/associate/AssociateReferralConductPolicy";
+import AssociateCancellationRefundPolicy from "./pages/associate/AssociateCancellationRefundPolicy";
 
 
 import Plansandpricing from "./pages/Plansandpricing";
@@ -125,6 +126,7 @@ function App() {
     "/partner-privacy-policy",
     "/partner-terms-and-conditions",
     "/partner-referral-conduct-policy",
+    "/partner-cancellation-refund-policy",
   ];
 
   const hideLayout = hideLayoutPaths.some((path) =>
@@ -182,6 +184,7 @@ function App() {
           <Route path="/partner-privacy-policy" element={<AssociatePrivacyPolicy />} />
           <Route path="/partner-terms-and-conditions" element={<AssociateTermsAndConditions />} />
           <Route path="/partner-referral-conduct-policy" element={<AssociateReferralConductPolicy />} />
+          <Route path="/partner-cancellation-refund-policy" element={<AssociateCancellationRefundPolicy />} />
 
           {/* Referral & Affiliate Programme */}
           <Route path="/r/:code" element={<ReferralLanding />} />
