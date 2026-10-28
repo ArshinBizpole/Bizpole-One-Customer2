@@ -2474,6 +2474,35 @@ function LeadDetailsBody({ state, errors, bump }) {
    applicant was trying to run resumes automatically right after.
 --------------------------------------------------------------------------- */
 // title/subtitle override the details form's heading (e.g. the Trademark Search page).
+// Sign-in / sign-up modal look — same as the portal's SigninModal: centred bold
+// title, roomy inputs with a yellow focus ring, and the yellow pill "next"
+// button whose white knob slides right on hover.
+const authInputCls = "w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100 transition-all";
+const authLinkCls = "font-semibold underline cursor-pointer text-gray-800 hover:text-yellow-600 transition-colors";
+function AuthNextButton({ busy, label }) {
+  return (
+    <button
+      type="submit"
+      disabled={busy}
+      aria-label={label}
+      className="group relative mx-auto block bg-yellow-400 rounded-full w-20 h-12 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-60"
+    >
+      <span className={`absolute top-1 left-1 w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center transition-transform duration-300 group-hover:translate-x-8 ${busy ? "translate-x-8" : ""}`}>
+        {busy ? (
+          <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-800 rounded-full animate-spin" />
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path d="M5 12h14m-7-7l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </span>
+    </button>
+  );
+}
+function AuthLabel({ children }) {
+  return <label className="block text-sm font-medium text-gray-700 mb-2 text-left">{children}<span className="text-red-500 ml-0.5">*</span></label>;
+}
+
 export function LeadCaptureModal({ state, bump, title, subtitle }) {
   const [states, setStates] = useState([]);
   // Already entered on a "leadDetails" Step 1 (Lead raised, just not verified
@@ -2494,6 +2523,13 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
   // registered under a different mobile number. Surfaces a Sign In link instead
   // of just leaving them stuck on a dead-end error.
   const [accountExists, setAccountExists] = useState(false);
+  // Details-form view: "signup" (the full form) or "signin" (mobile only, for an
+  // existing account — their details come from the account once verified).
+  const [view, setView] = useState("signup");
+  // Sign-in box: email address or mobile number, as on the portal's Sign In.
+  const [loginId, setLoginId] = useState("");
+  // What the code was sent for — verified and resent against the same value.
+  const [otpTo, setOtpTo] = useState("");
   const [otpValues, setOtpValues] = useState(["", "", "", ""]);
   const [timer, setTimer] = useState(30);
 
@@ -2560,12 +2596,13 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
         if (/not found/i.test(err?.message || "")) {
           mode = "signup";
           // Referral scan token (if any) rides along so the server can attribute the signup.
-          await signupWithPhone(form.name.trim(), form.email.trim(), form.mobile.trim(), getReferralToken(), form.state, form.language);
+          await signupWithPhone(form.name.trim(), form.email.trim(), form.mobile.trim(), getReferralToken(), form.state, form.language, state.serviceType);
         } else {
           throw err;
         }
       }
       setAccountMode(mode);
+      setOtpTo(form.mobile.trim());
       setOtpValues(["", "", "", ""]);
       setTimer(30);
       setPhase("otp");
@@ -2581,13 +2618,49 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
     }
   }
 
-  // Lets them retry as a sign-in: clears the mobile field (their existing
-  // account may be under a different number than the one just tried) and
-  // keeps name/email filled in.
+  // Switches to the Sign In view. After "account already exists" the email
+  // just typed is prefilled (their account may be under a different mobile).
   function switchToSignIn() {
     setError("");
+    setLoginId(accountExists ? form.email.trim() : "");
     setAccountExists(false);
-    set("mobile", "");
+    setView("signin");
+  }
+
+  // Sign in to an existing account with its email or mobile — the code goes to
+  // the email + mobile on that account. Stays in this modal (and on this page):
+  // once verified, the gated action carries on as after a sign-up.
+  async function submitSignIn(e) {
+    e.preventDefault();
+    const raw = loginId.trim();
+    const isEmail = raw.includes("@");
+    const mobile = raw.replace(/[\s-]/g, "").replace(/^(\+?91|0)(?=\d{10}$)/, "");
+    if (isEmail ? !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw) : !/^[6-9]\d{9}$/.test(mobile)) {
+      return setError("Please enter a valid email address or 10-digit mobile number.");
+    }
+    const id = isEmail ? raw : mobile;
+    setError("");
+    setSubmitting(true);
+    try {
+      await loginWithPhone(id);
+      // The other contact details come from the account once verified.
+      setForm((f) => ({ ...f, mobile: isEmail ? "" : mobile, email: isEmail ? raw : "" }));
+      setAccountMode("login");
+      setOtpTo(id);
+      setOtpValues(["", "", "", ""]);
+      setTimer(30);
+      setPhase("otp");
+    } catch (err) {
+      if (/not found/i.test(err?.message || "")) {
+        setError(`No account with this ${isEmail ? "email" : "mobile number"} yet — please sign up.`);
+        setForm((f) => (isEmail ? { ...f, email: raw } : { ...f, mobile }));
+        setView("signup");
+      } else {
+        setError(err?.message || "Couldn't send a verification code. Please try again.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   // Raises the Lead the same way the form used to (for sales/CRM tracking),
@@ -2597,16 +2670,20 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
   async function completeLeadCapture(user) {
     if (user?.CustomerID) state.customerId = user.CustomerID;
     state.otpVerified = true;
+    // Signed in with just a mobile: name / email / state come from the account.
+    const me = signedInContact() || {};
+    const contact = { ...form };
+    Object.keys(contact).forEach((k) => { if (!String(contact[k] || "").trim() && me[k]) contact[k] = me[k]; });
     // Lead already raised by the no-OTP Details step — keep it, just refresh
     // the contact details in case they were corrected here.
     if (state.leadCaptured && (state.leadContact?.leadId || state.leadContact?.direct)) {
-      state.leadContact = { ...state.leadContact, ...form };
+      state.leadContact = { ...state.leadContact, ...contact };
       syncAuthFromContact(state, state.leadContact);
       resaveContact(state);
       setPhase("done");
       return;
     }
-    await raiseLead(state, form);
+    await raiseLead(state, contact);
     setPhase("done");
   }
 
@@ -2620,7 +2697,7 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
       setIsVerifying(true);
       setError("");
       try {
-        const tokenData = await verifyOtp(form.mobile.trim(), next.join(""));
+        const tokenData = await verifyOtp(otpTo, next.join(""));
         if (tokenData?.token) {
           localStorage.setItem("token", tokenData.token);
           notifyTokenSet();
@@ -2645,7 +2722,7 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
     if (timer > 0) return;
     setError("");
     try {
-      await loginWithPhone(form.mobile.trim());
+      await loginWithPhone(otpTo);
       setTimer(30);
     } catch (err) {
       setError(err?.message || "Couldn't resend the code.");
@@ -2653,26 +2730,33 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[92vh] overflow-y-auto p-8">
         <button
           type="button"
           onClick={closeModal}
           aria-label="Close"
-          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl leading-none"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
         >
-          &times;
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
         </button>
         {phase === "done" && (
-          <Note variant="ok" title="Signed in!" body="Continuing with your check now." />
+          <div className="flex flex-col items-center gap-2 py-6 text-center">
+            <h2 className="text-2xl font-bold text-green-600">Signed in!</h2>
+            <p className="text-sm text-gray-600">Continuing with your check now.</p>
+          </div>
         )}
         {phase === "otp" && (
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Verify it's you</h3>
-            <p className="text-xs text-gray-500 mb-4">
-              {accountMode === "login" ? "Welcome back — " : ""}We've sent a 4-digit code to <b>{form.email}</b> and <b>+91 {form.mobile}</b>.
+          <div className="flex flex-col items-center text-center">
+            <h2 className="text-2xl font-bold text-gray-800 mb-3">OTP Verification</h2>
+            <p className="text-sm text-gray-600 leading-relaxed mb-6">
+              {accountMode === "login" ? "Welcome back! " : ""}We have sent a one time password to your registered{" "}
+              <span className="font-bold text-gray-800">Email and Mobile Number</span> for<br />
+              <span className="font-semibold text-gray-800">{otpTo.includes("@") ? otpTo : `+91 ${otpTo}`}</span>
             </p>
-            <div className="flex gap-3 justify-center mb-3">
+            <div className="flex gap-3 justify-center mb-4">
               {[0, 1, 2, 3].map((i) => (
                 <input
                   key={i}
@@ -2686,81 +2770,112 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
                   onKeyDown={(e) => {
                     if (e.key === "Backspace" && !otpValues[i] && i > 0) document.getElementById(`gate-otp-${i - 1}`)?.focus();
                   }}
-                  className="w-12 h-12 text-center text-lg font-semibold border-2 border-gray-200 rounded-lg focus:border-blue-400 focus:outline-none"
+                  className="w-14 h-14 border-2 border-yellow-400 rounded-full text-center text-xl font-semibold outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100 transition-all"
                 />
               ))}
             </div>
-            {isVerifying && <p className="text-xs text-blue-600 text-center mb-2">Verifying…</p>}
+            {isVerifying && <p className="text-sm text-yellow-500 font-semibold mb-2">Verifying...</p>}
             <ErrorText msg={error} />
-            <p className="text-xs text-gray-500 text-center mt-3">
+            <p className="text-lg font-mono text-gray-600 mt-2">{`00:${String(Math.max(timer, 0)).padStart(2, "0")}`}</p>
+            <p className="text-sm text-gray-600 mt-2">
+              Didn't receive the OTP?{" "}
               {timer > 0 ? (
-                `Resend code in 00:${String(timer).padStart(2, "0")}`
+                <span className="text-gray-400 font-semibold">Resend in {timer}s</span>
               ) : (
-                <button type="button" onClick={handleResend} className="text-blue-600 font-semibold hover:underline">Resend code</button>
+                <button type="button" onClick={handleResend} className="text-yellow-500 font-semibold hover:text-yellow-600 transition-colors">Resend OTP</button>
               )}
             </p>
             <button
               type="button"
               onClick={() => { setPhase("details"); setOtpValues(["", "", "", ""]); setError(""); }}
-              className="mt-3 w-full text-xs text-gray-400 hover:text-gray-600"
+              className="mt-4 text-sm text-gray-500 hover:text-gray-800 underline"
             >
-              ← Use a different number
+              ← Change {otpTo.includes("@") ? "email" : "number"}
             </button>
           </div>
         )}
-        {phase === "details" && (
-          <form onSubmit={submitDetails}>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">
-              {title || (state.leadGate?.reason === "documents" ? "Sign up to upload your documents" : "Sign in to check that…")}
-            </h3>
-            <p className="text-xs text-gray-500 mb-4">{subtitle || "We'll verify your mobile with a code emailed to you, so your application is saved to your own account."}</p>
-            <div className="space-y-3">
+        {phase === "details" && view === "signin" && (
+          <form onSubmit={submitSignIn} className="flex flex-col items-center gap-6 text-center">
+            <h2 className="text-2xl font-bold text-gray-800">Sign In</h2>
+            <div className="w-full">
+              <label className="block text-sm font-medium text-gray-700 mb-2 text-left">Email Address / Phone Number</label>
+              <input
+                className={authInputCls}
+                value={loginId}
+                onChange={(e) => setLoginId(e.target.value)}
+                placeholder="abc@xyz.com"
+                autoFocus
+              />
+              <ErrorText msg={error} />
+            </div>
+            <AuthNextButton busy={submitting} label="Send code" />
+            <p className="text-sm text-gray-600 leading-relaxed">
+              We Will send you a one time password <br />
+              on this <span className="font-bold text-gray-800">Mobile Number</span>
+            </p>
+            <p className="text-sm text-gray-600">
+              Don't Have An Account ?{" "}
+              <button type="button" onClick={() => { setError(""); setView("signup"); }} className={authLinkCls}>
+                Sign up
+              </button>
+            </p>
+          </form>
+        )}
+        {phase === "details" && view === "signup" && (
+          <form onSubmit={submitDetails} className="flex flex-col items-center gap-5 text-center">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800">
+                {title || (state.leadGate?.reason === "documents" ? "Sign up to upload your documents" : "Sign Up")}
+              </h2>
+              <p className="text-sm text-gray-600 mt-2">{subtitle || "We'll verify your mobile with a code emailed to you, so your application is saved to your own account."}</p>
+            </div>
+            <div className="w-full space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name<span className="text-red-500 ml-0.5">*</span></label>
-                <input className={inputCls()} value={form.name} onChange={(e) => set("name", sanitize.personName(e.target.value))} placeholder="Your full name" />
+                <AuthLabel>Name</AuthLabel>
+                <input className={authInputCls} value={form.name} onChange={(e) => set("name", sanitize.personName(e.target.value))} placeholder="Your Name" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Mobile<span className="text-red-500 ml-0.5">*</span></label>
+                <AuthLabel>Phone Number</AuthLabel>
                 <MobileInput
-                  className={inputCls()}
+                  className={authInputCls}
                   value={form.mobile}
                   onChange={(v) => set("mobile", v)}
                   india={isIndia(form.country)}
-                  placeholder="10-digit mobile number"
+                  placeholder="Enter your phone number"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email<span className="text-red-500 ml-0.5">*</span></label>
-                <input className={inputCls()} type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="you@example.com" />
+                <AuthLabel>Email Address</AuthLabel>
+                <input className={authInputCls} type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="abc@xyz.com" />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Country<span className="text-red-500 ml-0.5">*</span></label>
-                <input className={inputCls() + " bg-gray-100 cursor-not-allowed"} value="India" readOnly tabIndex={-1} />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <AuthLabel>State</AuthLabel>
+                  <select className={authInputCls + " bg-white"} value={form.state} onChange={(e) => set("state", e.target.value)}>
+                    <option value="">Select State</option>
+                    {withStaticStates(states).map((s) => <option key={s.id || s.state_code || s.state_name} value={s.state_name}>{s.state_name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <AuthLabel>Language</AuthLabel>
+                  <select className={authInputCls + " bg-white"} value={form.language} onChange={(e) => set("language", e.target.value)}>
+                    <option value="">Select</option>
+                    {languagesForState(form.state).map((l) => <option key={l} value={l.toLowerCase()}>{l}</option>)}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">State<span className="text-red-500 ml-0.5">*</span></label>
-                <select className={inputCls()} value={form.state} onChange={(e) => set("state", e.target.value)}>
-                  <option value="">Select State</option>
-                  {withStaticStates(states).map((s) => <option key={s.id || s.state_code || s.state_name} value={s.state_name}>{s.state_name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Language<span className="text-red-500 ml-0.5">*</span></label>
-                <select className={inputCls()} value={form.language} onChange={(e) => set("language", e.target.value)}>
-                  <option value="">Select Language</option>
-                  {languagesForState(form.state).map((l) => <option key={l} value={l.toLowerCase()}>{l}</option>)}
-                </select>
-              </div>
+              <ErrorText msg={error} />
             </div>
-            <ErrorText msg={error} />
-            {accountExists && (
-              <button type="button" onClick={switchToSignIn} className="mt-1 text-xs text-blue-600 font-semibold hover:underline">
-                Already have an account? Sign in instead
+            <AuthNextButton busy={submitting} label="Sign up" />
+            <p className="text-sm text-gray-600 leading-relaxed">
+              We will send an OTP to your <span className="font-bold text-gray-800">Email and Mobile Number</span>
+            </p>
+            <p className="text-sm text-gray-600">
+              Already have an account?{" "}
+              <button type="button" onClick={switchToSignIn} className={authLinkCls}>
+                Sign in
               </button>
-            )}
-            <button type="submit" disabled={submitting} className="mt-4 w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-60">
-              {submitting ? "Signing up…" : "Sign Up"}
-            </button>
+            </p>
           </form>
         )}
       </div>
