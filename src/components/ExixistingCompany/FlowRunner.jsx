@@ -2532,6 +2532,8 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
   const [otpTo, setOtpTo] = useState("");
   const [otpValues, setOtpValues] = useState(["", "", "", ""]);
   const [timer, setTimer] = useState(30);
+  // "Already have an account? Sign in" swaps this form for the site Sign In.
+  const [showSignIn, setShowSignIn] = useState(false);
 
   useEffect(() => {
     getAllStates().then(setStates).catch(() => setStates([]));
@@ -2583,7 +2585,6 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
     if (!form.state) return setError("Please select your state.");
     if (!form.language) return setError("Please select your preferred language.");
     setError("");
-    setAccountExists(false);
     setSubmitting(true);
     try {
       // Try signing in first (in case they already have an account from an
@@ -2609,10 +2610,6 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
     } catch (err) {
       const msg = err?.message || "Couldn't send a verification code. Please check your details and try again.";
       setError(msg);
-      // Signup hit the backend's "Mobile OR Email already registered" guard —
-      // most likely this email is already on file under a different mobile
-      // number. Offer a way to switch to signing in instead of a dead end.
-      setAccountExists(/already exists/i.test(msg));
     } finally {
       setSubmitting(false);
     }
@@ -2727,6 +2724,17 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
     } catch (err) {
       setError(err?.message || "Couldn't resend the code.");
     }
+  }
+
+  if (showSignIn) {
+    return (
+      <SigninModal
+        initialValue={form.mobile}
+        onSuccess={finishSignIn}
+        onClose={closeModal}
+        onSignup={() => setShowSignIn(false)}
+      />
+    );
   }
 
   return (
