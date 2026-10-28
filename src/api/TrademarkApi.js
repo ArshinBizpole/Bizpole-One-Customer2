@@ -50,6 +50,12 @@ export const getTrademarkSearchHistoryEntry = async (id) => {
   return data.data;
 };
 
+// A report opened from the CRM: `t` is its signed link token (no sign-in).
+export const getSharedTrademarkReport = async (t) => {
+  const { data } = await api.get("/api/trademark/shared-report", { params: { t } });
+  return data.data;
+};
+
 // A registry logo image re-served by our API (server: /api/trademark/image) —
 // MarkSimpl's S3 sends no CORS headers, so the PDF renderer can't read it directly.
 export const fetchTrademarkImage = async (url) => {

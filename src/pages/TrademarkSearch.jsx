@@ -26,17 +26,17 @@ const PAGE_SIZE = 10;
 const TRADEMARK_SERVICE_ID = 344;
 
 const SEARCH_TYPES = [
-  { value: "WORD_MARK", label: "Brand name", placeholder: "e.g. Bizpole" },
+  { value: "WORD_MARK", label: "Brand name", placeholder: "Enter your brand name (e.g. Bizpole)" },
   { value: "PROPRIETOR_NAME", label: "Owner", placeholder: "e.g. Bizpole India Pvt Ltd" },
   { value: "APPLICATION_NUMBER", label: "Application no.", placeholder: "e.g. 5123456" },
   { value: "IMAGE", label: "Logo", placeholder: "Upload your logo (PNG or JPG, up to 2 MB)" },
 ];
 
 const HIGHLIGHTS = [
-  { icon: FiDatabase, title: "Official Database", text: "Data from Indian Trademark Registry", tone: "bg-blue-50 text-blue-600" },
-  { icon: HiOutlineShieldCheck, title: "Up to date", text: "Latest trademark records", tone: "bg-emerald-50 text-emerald-600" },
-  { icon: FiZap, title: "Fast & Accurate", text: "Get results in seconds", tone: "bg-yellow-50 text-yellow-500" },
-  { icon: FiLock, title: "Trusted Information", text: "For reference only", tone: "bg-orange-50 text-orange-500" },
+  { icon: FiDatabase, title: "Official Database", text: "Data from Indian Trademark Registry" },
+  { icon: HiOutlineShieldCheck, title: "Up to date", text: "Latest trademark records" },
+  { icon: FiZap, title: "Fast & Accurate", text: "Get results in seconds" },
+  { icon: FiLock, title: "Trusted Information", text: "For reference only" },
 ];
 
 const LOGO_TYPES = ["image/png", "image/jpeg"];
@@ -48,12 +48,12 @@ const INPUT_ERROR = /^(Enter at least|Choose your logo|Logo must)/;
 const typeLabel = (value) =>
   value === "COMPOSITE" ? "Name + logo" : SEARCH_TYPES.find((t) => t.value === value)?.label || value;
 // Local calendar date as YYYY-MM-DD (the report's date format).
-const localDate = (d) => new Date(d).toLocaleDateString("en-CA");
-const fileSafe = (s) => String(s || "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "search";
+export const localDate = (d) => new Date(d).toLocaleDateString("en-CA");
+export const fileSafe = (s) => String(s || "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "search";
 
 // The off-screen report's images are lazy-loaded, so they never load on their
 // own; force them and wait (bounded) before the PDF snapshot.
-async function waitForImages(el) {
+export async function waitForImages(el) {
   const imgs = Array.from(el.querySelectorAll("img"));
   imgs.forEach((img) => { img.loading = "eager"; });
   await Promise.all(
@@ -72,7 +72,7 @@ async function waitForImages(el) {
 // PDF page furniture as in the report format: a running header band on pages
 // 2+, the confidentiality footer + page numbers on every page. Registry logos
 // come through our API so they aren't blank in the PDF.
-const pdfOptions = (reportRef) => ({
+export const pdfOptions = (reportRef) => ({
   resolveImage: (src) => (src.includes("binbash.ai/media/trademarks/") ? fetchTrademarkImage(src) : null),
   runningHeader: { logo: "/Images/image.png", left: "Bizpole One", right: `Trademark Search Report${reportRef ? `  ·  Ref: ${reportRef}` : ""}` },
   footer: "Bizpole One  |  Trademark Search Report  ·  Confidential · Advisory opinion only, not a guarantee of registration",
@@ -234,9 +234,9 @@ export default function TrademarkSearch({ embedded = false }) {
       last.saved = true;
       setUnlocked(true);
     } catch (err) {
+      // Over the limit: no popup — the "free searches used" banner replaces the form.
       if (err.response?.data?.limitReached) {
         markLimitReached(err);
-        setError(err.response.data.message);
       } else {
         setUnlocked(true); // couldn't save it to the history, but they did sign in
       }
@@ -265,7 +265,7 @@ export default function TrademarkSearch({ embedded = false }) {
       if (!unlocked && data?.results?.length) askToSignIn();
     } catch (err) {
       if (err.response?.data?.limitReached) markLimitReached(err);
-      setError(err.response?.data?.message || "Could not search trademarks right now. Please try again.");
+      else setError(err.response?.data?.message || "Could not search trademarks right now. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -397,52 +397,57 @@ export default function TrademarkSearch({ embedded = false }) {
         // No overflow-hidden here: it would clip the class dropdown, which opens
         // below the section. Only the decorative layer is clipped.
         className={`relative z-20 ${embedded ? "border border-gray-200 rounded-2xl" : ""}`}
-        style={{ background: "linear-gradient(180deg, #FFF6DA 0%, #FFFBEF 45%, #FFFFFF 100%)" }}
+        style={{ backgroundColor: "#FFFBEF" }}
       >
-        {/* Warm glow behind the illustration + yellow sweeps behind the search bar */}
+        {/* Background art (India map, skyline, yellow sweeps) + a fade into the
+            page below so the results don't start on a hard edge. */}
         <div aria-hidden="true" className={`absolute inset-0 overflow-hidden pointer-events-none ${embedded ? "rounded-2xl" : ""}`}>
-        <div
-          aria-hidden="true"
-          className="absolute -top-24 right-0 w-[60%] h-[120%] pointer-events-none"
-          style={{ background: "radial-gradient(closest-side, rgba(255,214,90,0.45), rgba(255,214,90,0) 70%)" }}
-        />
-        <svg
-          aria-hidden="true"
-          className="absolute bottom-0 left-0 w-full h-[45%] pointer-events-none"
-          viewBox="0 0 1440 320"
-          preserveAspectRatio="none"
-        >
-          <path d="M0 210 C 320 120, 620 300, 960 190 S 1360 90, 1440 130 L1440 320 L0 320 Z" fill="#FFE9A8" opacity="0.55" />
-          <path d="M0 250 C 360 170, 700 330, 1040 230 S 1380 170, 1440 190 L1440 320 L0 320 Z" fill="#FFD966" opacity="0.45" />
-          <path d="M0 300 C 400 240, 760 330, 1100 290 S 1400 270, 1440 280 L1440 320 L0 320 Z" fill="#FFFFFF" />
-        </svg>
+          <div
+            className="absolute inset-0 bg-no-repeat bg-cover bg-[position:70%_top]"
+            style={{ backgroundImage: "url('/Images/trbg.jpeg')" }}
+          />
+          {!embedded && (
+            <div
+              className="absolute inset-x-0 bottom-0 h-24"
+              style={{ background: "linear-gradient(180deg, rgba(249,250,251,0) 0%, #F9FAFB 100%)" }}
+            />
+          )}
         </div>
 
         <div
           className={`relative z-10 ${
             // Dashboard: fill the content area (it already pads the page) — no side gutters.
-            embedded ? "w-full px-4 sm:px-6 lg:px-8 py-8 md:py-10" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 pt-10 md:pt-12 pb-10"
+            // Sizes are in px: the site's root font is 13px, so rem classes render
+            // the hero noticeably smaller than the design.
+            embedded ? "w-full px-4 sm:px-6 lg:px-8 py-8 md:py-10" : "max-w-[1490px] mx-auto px-4 sm:px-6 pt-5 pb-7"
           }`}
         >
           <div className="relative">
-            <TrademarkHeroArt className="hidden lg:block absolute right-0 -top-6 w-[340px] xl:w-[400px]" />
+            {/* Pokes past the container's right edge on wide screens, as in the
+                design — never past the viewport. */}
+            <TrademarkHeroArt
+              className="hidden lg:block absolute top-[40px] xl:top-[27px] w-[320px] xl:w-[380px] 2xl:w-[450px]"
+              style={{ right: embedded ? 0 : "calc(-1 * min(95px, max(0px, (100vw - 1490px) / 2)))" }}
+            />
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="flex flex-col items-center"
+              className="flex flex-col"
             >
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-50 border border-yellow-300 text-yellow-800 text-[11px] font-semibold tracking-wide uppercase mb-8">
-                <FaRegCopyright /> Indian Trademark Registry
-              </span>
-              <div className="w-full lg:max-w-[58%] lg:mr-auto text-center">
-                <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-black leading-[1.05] tracking-tight mb-6">
-                  Protect your <span className="text-yellow-400">brand.</span>
+              <div className="text-center lg:pr-[12%]">
+                <span className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-[#FFF4C9] border border-[#F5D77A] text-[#5C3D00] text-[14px] md:text-[19px] font-semibold tracking-wide uppercase">
+                  <FaRegCopyright className="text-[#E8A000] text-[15px]" /> Indian Trademark Registry
+                </span>
+              </div>
+              <div className="w-full lg:w-[62%] xl:w-[64%] text-center mt-8 md:mt-[38px]">
+                <h1 className="text-[40px] sm:text-[54px] lg:text-[58px] xl:text-[66px] font-extrabold text-[#0B0B0B] leading-[0.95] tracking-tight">
+                  Protect your <span className="text-[#FFC21A]">brand.</span>
                   <br />
-                  Start with a <span className="text-yellow-400">search.</span>
+                  Start with a <span className="text-[#FFC21A]">search.</span>
                 </h1>
-                <p className="text-gray-600 text-sm md:text-base max-w-xl mx-auto leading-relaxed">
+                <p className="text-gray-600 text-[15px] md:text-[17px] leading-[26px] max-w-[660px] mx-auto mt-8 md:mt-[38px]">
                   Check whether your brand name or logo is already registered or applied for before you file in India.
                   Search by brand name, owner, application number or logo and narrow it down by class.
                 </p>
@@ -451,23 +456,23 @@ export default function TrademarkSearch({ embedded = false }) {
           </div>
 
           {/* Highlights */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mt-10 lg:mt-12">
-            {HIGHLIGHTS.map(({ icon: Icon, title, text, tone }) => (
+          <div className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-[26px] mt-9 xl:pr-[80px]">
+            {HIGHLIGHTS.map(({ icon: Icon, title, text }) => (
               <div
                 key={title}
-                className="flex items-center gap-4 bg-white rounded-2xl px-5 py-5 shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-white"
+                className="flex items-center gap-3 xl:gap-4 bg-white rounded-2xl px-4 xl:px-6 min-h-[102px] py-4 shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-white"
               >
-                <span className={`shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-xl ${tone}`}>
+                <span className="shrink-0 w-12 h-12 xl:w-14 xl:h-14 rounded-xl flex items-center justify-center text-[22px] xl:text-[24px] bg-[#FFF6D6] text-[#F5B400]">
                   <Icon />
                 </span>
                 <div className="min-w-0">
-                  <p className="font-semibold text-black">{title}</p>
-                  <p className="text-sm text-gray-500 leading-snug">{text}</p>
+                  <p className="text-[16px] xl:text-[18px] font-semibold text-black">{title}</p>
+                  <p className="text-[13.5px] xl:text-[14.5px] text-gray-500 leading-snug mt-0.5">{text}</p>
                 </div>
               </div>
             ))}
           </div>
-          <div className="mt-12" />
+          <div className="mt-12 lg:mt-16" />
 
           {limitReached ? (
             <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-lg border border-yellow-300 p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -492,14 +497,14 @@ export default function TrademarkSearch({ embedded = false }) {
               </div>
             </div>
           ) : (
-          <form onSubmit={handleSubmit} className="max-w-6xl mx-auto">
-            <div className="flex flex-wrap justify-center gap-2 mb-8">
+          <form onSubmit={handleSubmit} className="xl:pl-[29px]">
+            <div className="flex flex-wrap justify-center gap-2 mb-8 lg:mb-[46px] xl:pr-[8%]">
               {SEARCH_TYPES.map((t) => (
                 <button
                   key={t.value}
                   type="button"
                   onClick={() => setType(t.value)}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium border transition ${
+                  className={`h-[37px] px-4 rounded-full text-[15px] font-medium border transition ${
                     type === t.value
                       ? "bg-[#111827] text-white border-[#111827]"
                       : "bg-white text-gray-700 border-gray-200 hover:border-black hover:text-black"
@@ -510,7 +515,7 @@ export default function TrademarkSearch({ embedded = false }) {
               ))}
             </div>
 
-            <div className="flex flex-col md:flex-row gap-3">
+            <div className="flex flex-col md:flex-row gap-[15px] text-[17px]">
               {/* Shared by the Logo tab and Brand name's "Add logo". */}
               <input
                 ref={logoInputRef}
@@ -521,7 +526,7 @@ export default function TrademarkSearch({ embedded = false }) {
               />
               {type === "IMAGE" ? (
                 <div
-                  className="relative flex-1 flex items-center gap-3 min-w-0 h-14 px-4 rounded-xl border border-dashed border-gray-300 bg-white shadow-sm hover:border-yellow-400 cursor-pointer"
+                  className="relative flex-1 flex items-center gap-3 min-w-0 h-[60px] px-5 rounded-xl border border-dashed border-gray-300 bg-white shadow-sm hover:border-yellow-400 cursor-pointer"
                   onClick={() => logoInputRef.current?.click()}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => {
@@ -553,19 +558,19 @@ export default function TrademarkSearch({ embedded = false }) {
                   )}
                 </div>
               ) : (
-              <div className="relative flex-1 min-w-0 h-14">
-                <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+              <div className="relative flex-1 min-w-0 h-[60px]">
+                <FaSearch className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type={type === "APPLICATION_NUMBER" ? "number" : "text"}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={activeType.placeholder}
                   maxLength={100}
-                  className={`w-full h-full pl-11 ${type === "WORD_MARK" ? "pr-32" : "pr-4"} rounded-xl border border-gray-200 bg-white shadow-sm text-base placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400`}
+                  className={`w-full h-full pl-12 ${type === "WORD_MARK" ? "pr-[150px]" : "pr-4"} rounded-xl border border-gray-200 bg-white shadow-sm text-[18px] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400`}
                 />
                 {/* Optional logo: brand name + logo are then checked together. */}
                 {type === "WORD_MARK" && (
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
                     {logo ? (
                       <span className="flex items-center gap-1.5 pl-1.5 pr-1 py-1 rounded-lg bg-yellow-50 border border-yellow-300 max-w-[7.5rem]">
                         <img src={logo.preview} alt="Your logo" className="h-6 w-6 object-contain rounded shrink-0" />
@@ -584,7 +589,7 @@ export default function TrademarkSearch({ embedded = false }) {
                         type="button"
                         onClick={() => logoInputRef.current?.click()}
                         title="Also check your logo"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-medium text-gray-600 hover:border-black hover:text-black"
+                        className="inline-flex items-center gap-2 px-4 h-9 rounded-lg border border-gray-300 text-[15px] font-medium text-gray-700 hover:border-black hover:text-black"
                       >
                         <FaImage /> Add logo
                       </button>
@@ -597,24 +602,30 @@ export default function TrademarkSearch({ embedded = false }) {
                 value={tmClass}
                 onChange={setTmClass}
                 options={NICE_CLASSES.map((c) => ({ value: c.no, label: `Class ${c.no} — ${c.short}` }))}
-                className="h-14 md:w-48 shrink-0"
+                className="h-[56px] md:self-center md:w-[170px] xl:w-[226px] shrink-0 [&>button]:text-[17px] [&>button]:px-5"
               />
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={loading}
-                className="h-14 md:w-36 shrink-0 px-6 whitespace-nowrap rounded-xl bg-[#FFC72C] hover:bg-[#FFBD00] text-black text-base font-bold shadow-[0_8px_20px_rgba(255,199,44,0.45)] disabled:opacity-60"
+                aria-label={loading ? "Searching" : "Search"}
+                className="h-[56px] md:self-center md:w-[110px] xl:w-[131px] shrink-0 px-6 whitespace-nowrap rounded-xl bg-[#FFC72C] hover:bg-[#FFBD00] text-black text-[19px] font-bold shadow-[0_8px_20px_rgba(255,199,44,0.45)] inline-flex items-center justify-center disabled:cursor-wait"
               >
-                {loading ? "Searching…" : "Search"}
+                {/* A spinner while searching — "Searching…" doesn't fit the button. */}
+                {loading ? (
+                  <span className="w-6 h-6 border-[3px] border-black/20 border-t-black rounded-full animate-spin" />
+                ) : (
+                  "Search"
+                )}
               </motion.button>
-              {historyMenu("h-14 md:w-auto shrink-0")}
+              {historyMenu("h-[58px] md:self-center md:w-[130px] xl:w-[151px] shrink-0 md:ml-[3px] [&>button]:text-[19px]")}
             </div>
-            <div className="mt-3 flex items-center justify-center md:justify-start gap-3 text-xs text-gray-600">
+            <div className="mt-4 flex items-center justify-center md:justify-start gap-4 text-[15px] text-gray-700">
               <span>{history.usage.limit} free searches included</span>
               {history.signedIn && (
                 <>
-                  <span className="w-24 h-1.5 rounded-full bg-gray-200 overflow-hidden">
+                  <span className="w-[120px] h-1.5 rounded-full bg-gray-200 overflow-hidden">
                     <span
                       className="block h-full rounded-full bg-[#FFC72C]"
                       style={{ width: `${Math.min(100, (history.usage.used / history.usage.limit) * 100)}%` }}
@@ -646,11 +657,7 @@ export default function TrademarkSearch({ embedded = false }) {
             onClick={(e) => e.stopPropagation()}
           >
             <p id="tm-error-title" className="text-lg font-semibold text-black mb-2">
-              {error.includes("free trademark searches")
-                ? "Free searches used up"
-                : INPUT_ERROR.test(error)
-                  ? "Check your search"
-                  : "Something went wrong"}
+              {INPUT_ERROR.test(error) ? "Check your search" : "Something went wrong"}
             </p>
             <p className="text-sm text-gray-600 mb-6">{error}</p>
             <button
@@ -739,7 +746,7 @@ export default function TrademarkSearch({ embedded = false }) {
       )}
 
       {/* Results */}
-      <section className={embedded ? "w-full py-6" : "max-w-6xl mx-auto px-4 sm:px-6 py-10"}>
+      <section className={embedded ? "w-full py-6" : "max-w-[1364px] mx-auto px-4 sm:px-6 py-10"}>
         {loading && !result && (
           <div className="space-y-3">
             {[0, 1, 2].map((i) => (
@@ -750,8 +757,8 @@ export default function TrademarkSearch({ embedded = false }) {
 
         {result && (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-              <p className="text-gray-700">
+            <div className={`flex flex-wrap items-center justify-between gap-3 mb-5 ${embedded ? "" : "xl:px-[56px]"}`}>
+              <p className="text-gray-700 text-[17px]">
                 {submitted.preview && (
                   <img src={submitted.preview} alt="" className="inline-block align-middle h-8 w-8 object-contain rounded border border-gray-200 bg-white mr-2" />
                 )}
