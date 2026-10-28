@@ -234,9 +234,9 @@ export default function TrademarkSearch({ embedded = false }) {
       last.saved = true;
       setUnlocked(true);
     } catch (err) {
+      // Over the limit: no popup — the "free searches used" banner replaces the form.
       if (err.response?.data?.limitReached) {
         markLimitReached(err);
-        setError(err.response.data.message);
       } else {
         setUnlocked(true); // couldn't save it to the history, but they did sign in
       }
@@ -265,7 +265,7 @@ export default function TrademarkSearch({ embedded = false }) {
       if (!unlocked && data?.results?.length) askToSignIn();
     } catch (err) {
       if (err.response?.data?.limitReached) markLimitReached(err);
-      setError(err.response?.data?.message || "Could not search trademarks right now. Please try again.");
+      else setError(err.response?.data?.message || "Could not search trademarks right now. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -609,9 +609,15 @@ export default function TrademarkSearch({ embedded = false }) {
                 whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={loading}
-                className="h-[56px] md:self-center md:w-[110px] xl:w-[131px] shrink-0 px-6 whitespace-nowrap rounded-xl bg-[#FFC72C] hover:bg-[#FFBD00] text-black text-[19px] font-bold shadow-[0_8px_20px_rgba(255,199,44,0.45)] disabled:opacity-60"
+                aria-label={loading ? "Searching" : "Search"}
+                className="h-[56px] md:self-center md:w-[110px] xl:w-[131px] shrink-0 px-6 whitespace-nowrap rounded-xl bg-[#FFC72C] hover:bg-[#FFBD00] text-black text-[19px] font-bold shadow-[0_8px_20px_rgba(255,199,44,0.45)] inline-flex items-center justify-center disabled:cursor-wait"
               >
-                {loading ? "Searching…" : "Search"}
+                {/* A spinner while searching — "Searching…" doesn't fit the button. */}
+                {loading ? (
+                  <span className="w-6 h-6 border-[3px] border-black/20 border-t-black rounded-full animate-spin" />
+                ) : (
+                  "Search"
+                )}
               </motion.button>
               {historyMenu("h-[58px] md:self-center md:w-[130px] xl:w-[151px] shrink-0 md:ml-[3px] [&>button]:text-[19px]")}
             </div>
@@ -651,11 +657,7 @@ export default function TrademarkSearch({ embedded = false }) {
             onClick={(e) => e.stopPropagation()}
           >
             <p id="tm-error-title" className="text-lg font-semibold text-black mb-2">
-              {error.includes("free trademark searches")
-                ? "Free searches used up"
-                : INPUT_ERROR.test(error)
-                  ? "Check your search"
-                  : "Something went wrong"}
+              {INPUT_ERROR.test(error) ? "Check your search" : "Something went wrong"}
             </p>
             <p className="text-sm text-gray-600 mb-6">{error}</p>
             <button
