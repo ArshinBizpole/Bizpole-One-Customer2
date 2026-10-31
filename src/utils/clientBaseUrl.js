@@ -13,7 +13,7 @@
 
 const PARAM = "clientBase";
 const STORAGE_KEY = "clientBaseUrl";
-const DEFAULT_BASE = "https://test.bizpole.io";
+const DEFAULT_BASE = "https://admin.bizpole.io";
 const ALLOWED_HOST = /(^|\.)bizpole\.io$|(^|\.)bizpoleindia\.in$|^localhost$|^127\.0\.0\.1$/i;
 
 // Any valid http(s) address → its origin; anything else (missing, blank, malformed) → null
