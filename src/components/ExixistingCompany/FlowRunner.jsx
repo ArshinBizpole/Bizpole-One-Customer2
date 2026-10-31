@@ -18,9 +18,11 @@ import { getServiceById, getServicePrice } from "../../api/ServicesApi";
 import { loginWithPhone, signupWithPhone, verifyOtp } from "../../api/AuthApi";
 import { notifyTokenSet } from "../../utils/authSession";
 import { clearReferralToken, getReferralToken } from "../../utils/referralAttribution";
+import { portalSourceOfSale } from "../../utils/leadAttribution";
 import { signedInContact, belongsToOtherCustomer } from "../../utils/applicationPrefill";
 import { districtsFor } from "../../utils/districts";
 import SigninModal from "../Modals/SigninModal";
+import OtpSentTo from "../Modals/OtpSentTo";
 import VoiceSpecifyInput from "./VoiceSpecifyInput";
 import KycVerify from "./KycVerify";
 import FlowStepGuide from "./FlowStepGuide";
@@ -1879,7 +1881,7 @@ async function createDirectDeal(flow, state, A, bump, companyName, ServiceDetail
       email: lc.email,
       franchiseId: lc.franchiseeId,
       employeeId: lc.employeeId,
-      sourceOfSale: "Website",
+      sourceOfSale: portalSourceOfSale(),
       dealType: "Individual",
       services: ServiceDetails.map((s) => ({
         serviceId: s.serviceId,
@@ -2026,7 +2028,7 @@ async function createPackageForApplication(flow, state, A) {
         email: lc.email,
         franchiseId: lc.franchiseeId,
         employeeId: lc.employeeId,
-        sourceOfSale: "Website",
+        sourceOfSale: portalSourceOfSale(),
         dealType: "Package",
         packageId: pkg.id,
         packageName: pkg.name,
@@ -2530,6 +2532,7 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
   const [loginId, setLoginId] = useState("");
   // What the code was sent for — verified and resent against the same value.
   const [otpTo, setOtpTo] = useState("");
+  const [otpSentInfo, setOtpSentInfo] = useState(null); // { emailSent, smsSent, maskedMobile }
   const [otpValues, setOtpValues] = useState(["", "", "", ""]);
   const [timer, setTimer] = useState(30);
   // "Already have an account? Sign in" swaps this form for the site Sign In.
@@ -2592,12 +2595,12 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
       // number genuinely isn't on file yet.
       let mode = "login";
       try {
-        await loginWithPhone(form.mobile.trim());
+        setOtpSentInfo(await loginWithPhone(form.mobile.trim()));
       } catch (err) {
         if (/not found/i.test(err?.message || "")) {
           mode = "signup";
           // Referral scan token (if any) rides along so the server can attribute the signup.
-          await signupWithPhone(form.name.trim(), form.email.trim(), form.mobile.trim(), getReferralToken(), form.state, form.language, state.serviceType);
+          setOtpSentInfo(await signupWithPhone(form.name.trim(), form.email.trim(), form.mobile.trim(), getReferralToken(), form.state, form.language, state.serviceType));
         } else {
           throw err;
         }
@@ -2639,7 +2642,7 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
     setError("");
     setSubmitting(true);
     try {
-      await loginWithPhone(id);
+      setOtpSentInfo(await loginWithPhone(id));
       // The other contact details come from the account once verified.
       setForm((f) => ({ ...f, mobile: isEmail ? "" : mobile, email: isEmail ? raw : "" }));
       setAccountMode("login");
@@ -2719,7 +2722,7 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
     if (timer > 0) return;
     setError("");
     try {
-      await loginWithPhone(otpTo);
+      setOtpSentInfo(await loginWithPhone(otpTo));
       setTimer(30);
     } catch (err) {
       setError(err?.message || "Couldn't resend the code.");
@@ -2760,9 +2763,11 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
           <div className="flex flex-col items-center text-center">
             <h2 className="text-2xl font-bold text-gray-800 mb-3">OTP Verification</h2>
             <p className="text-sm text-gray-600 leading-relaxed mb-6">
-              {accountMode === "login" ? "Welcome back! " : ""}We have sent a one time password to your registered{" "}
-              <span className="font-bold text-gray-800">Email and Mobile Number</span> for<br />
-              <span className="font-semibold text-gray-800">{otpTo.includes("@") ? otpTo : `+91 ${otpTo}`}</span>
+              {accountMode === "login" ? "Welcome back! " : ""}<OtpSentTo info={otpSentInfo} />
+              {/* Signed in with an email → name the account; a mobile is shown masked above. */}
+              {otpTo.includes("@") && (
+                <> for<br /><span className="font-semibold text-gray-800">{otpTo}</span></>
+              )}
             </p>
             <div className="flex gap-3 justify-center mb-4">
               {[0, 1, 2, 3].map((i) => (

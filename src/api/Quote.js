@@ -1,6 +1,7 @@
 // src/api/upsertQuote.js
 import axiosInstance from "./axiosInstance";
 import { setSecureItem, getSecureItem } from "../utils/secureStorage";
+import { portalSourceOfSale } from "../utils/leadAttribution";
 import { fetchFranchiseeGstInfo, calcGstAmount, splitGst } from "../utils/gstCalc";
 
 // Does this company have any Quote at all? Used to route a customer-portal
@@ -97,7 +98,7 @@ export const upsertQuote = async (plan) => {
         EmployeeName: agentName || plan.QuoteCRE?.EmployeeName || "",
       },
       FranchiseeID: franchiseeId || 43,
-      SourceOfSale: plan.SourceOfSale || (plan.isAssociate ? "Associate" : "Website"),
+      SourceOfSale: plan.SourceOfSale || (plan.isAssociate ? "Associate" : portalSourceOfSale()),
       Remarks: plan.Remarks || "Generated from services page",
       IsIndividual: isIndividual ? 1 : 0,
       IsMonthly: isIndividual ? 0 : (plan.IsMonthly || 0),

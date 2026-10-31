@@ -1,11 +1,18 @@
 import axiosInstance from "./axiosInstance";
+import { getLeadAttribution } from "../utils/leadAttribution";
 
 /**
  * Create a Lead (customer-portal call-back request, new user + new service).
  * @param {Object} payload - { name, state, mobile, email, proposed_service, preferred_language, lead_source, franchiseeId, employeeId }
+ * `portal: true` tells the server this is a customer-side lead, so its source
+ * becomes Website or Facebook/Instagram (from `attribution`) — see utils/leadAttribution.
  */
 export const createLead = async (payload) => {
-  const res = await axiosInstance.post("/lead-generation/createLead", payload);
+  const res = await axiosInstance.post("/lead-generation/createLead", {
+    ...payload,
+    portal: true,
+    attribution: getLeadAttribution() || undefined,
+  });
   return res.data;
 };
 

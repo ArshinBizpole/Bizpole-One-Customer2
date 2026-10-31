@@ -8,6 +8,7 @@ import { notifyTokenSet } from "../../utils/authSession";
 import { useNavigate } from "react-router-dom";
 import Select from "react-select";
 import { PATTERNS, isIndia } from "../../utils/formValidation";
+import OtpSentTo from "./OtpSentTo";
 
 
 const NAME_PATTERN = PATTERNS.personName;
@@ -62,6 +63,8 @@ const PartnerSignupModal = ({ isOpen, onClose, onSwitchToLogin }) => {
     const [apiSuccess, setApiSuccess] = useState(false);
     const [createdAssociateId, setCreatedAssociateId] = useState(null);
     const [otpValues, setOtpValues] = useState(["", "", "", ""]);
+    // Send-OTP response ({ emailSent, smsSent, maskedMobile }) for the OTP step.
+    const [otpSentInfo, setOtpSentInfo] = useState(null);
     const [timer, setTimer] = useState(30);
     const [isVerifying, setIsVerifying] = useState(false);
 
@@ -189,7 +192,7 @@ const PartnerSignupModal = ({ isOpen, onClose, onSwitchToLogin }) => {
             if (response.success) {
                 setCreatedAssociateId(response.data.AssociateID);
                 try {
-                    await AssociateApi.requestAssociateEmailOtp(formData.email);
+                    setOtpSentInfo(await AssociateApi.requestAssociateEmailOtp(formData.email));
                     setStep(2);
                     setTimer(30);
                     setOtpValues(["", "", "", ""]);
@@ -271,7 +274,7 @@ const PartnerSignupModal = ({ isOpen, onClose, onSwitchToLogin }) => {
         if (timer === 0) {
             setIsSubmitting(true);
             try {
-                await AssociateApi.requestAssociateEmailOtp(formData.email);
+                setOtpSentInfo(await AssociateApi.requestAssociateEmailOtp(formData.email));
                 setTimer(30);
                 setOtpValues(["", "", "", ""]);
                 setErrors({});
@@ -669,13 +672,10 @@ const PartnerSignupModal = ({ isOpen, onClose, onSwitchToLogin }) => {
 
                             {/* Description */}
                             <p className="text-center text-sm text-gray-500 mb-1 leading-relaxed">
-                                We have sent a one time password to your
-                            </p>
-                            <p className="text-center text-sm text-gray-500 mb-1">
-                                <span className="font-bold text-gray-800">Email and Mobile Number</span>
+                                <OtpSentTo info={otpSentInfo} />
                             </p>
                             <p className="text-center font-bold text-gray-900 mb-8 text-sm">
-                                {formData.email} · +91 - {formData.mobile || "XXXXXXXXXX"}
+                                {formData.email}
                             </p>
 
                             {/* OTP Inputs — circular style */}
