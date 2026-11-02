@@ -615,22 +615,6 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
   //   }
   // };
 
-  // Store latest known prices for selected services in localStorage
-  useEffect(() => {
-    if (Object.keys(bulkPrices).length > 0) {
-      try {
-        const prev = JSON.parse(localStorage.getItem("SelectedServicePrices") || "{}") || {};
-        const updated = { ...prev };
-        Object.entries(bulkPrices).forEach(([sid, priceObj]) => {
-          if (priceObj && priceObj.TotalFee) {
-            updated[sid] = priceObj.TotalFee;
-          }
-        });
-        localStorage.setItem("SelectedServicePrices", JSON.stringify(updated));
-      } catch (err) { console.log(err); }
-    }
-  }, [bulkPrices]);
-
   if (embedded && detailServiceId) {
     return (
       <ServiceDetails
@@ -885,12 +869,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
                         const CategoryIcon = getCategoryIcon(categoryName);
 
                         let price = bulkPrices[sid]?.TotalFee;
-                        if (!price) {
-                          try {
-                            const priceCache = JSON.parse(localStorage.getItem("SelectedServicePrices") || "{}");
-                            price = priceCache[sid];
-                          } catch (error) { console.error("Error fetching services:", error); }
-                        }
+                        if (!price) price = cart[sid]?.TotalFee;
 
                         return (
                           <div key={sid} className="relative bg-[#FFFCF0] border border-amber-100 rounded-2xl p-3.5 pr-8">
@@ -945,10 +924,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
                                 } else if (typeof price === "number" || typeof price === "string") {
                                   value = parseFloat(price) || 0;
                                 } else {
-                                  try {
-                                    const priceCache = JSON.parse(localStorage.getItem("SelectedServicePrices") || "{}");
-                                    value = parseFloat(priceCache[sid]) || 0;
-                                  } catch (error) { console.error("Error fetching services:", error); }
+                                  value = parseFloat(cart[sid]?.TotalFee) || 0;
                                 }
                                 return sum + value;
                               }, 0).toLocaleString("en-IN")}
@@ -965,10 +941,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
                                 } else if (typeof price === "number" || typeof price === "string") {
                                   value = parseFloat(price) || 0;
                                 } else {
-                                  try {
-                                    const priceCache = JSON.parse(localStorage.getItem("SelectedServicePrices") || "{}");
-                                    value = parseFloat(priceCache[sid]) || 0;
-                                  } catch (error) { console.error("Error fetching services:", error); }
+                                  value = parseFloat(cart[sid]?.TotalFee) || 0;
                                 }
                                 return sum + value;
                               }, 0).toLocaleString("en-IN")}
