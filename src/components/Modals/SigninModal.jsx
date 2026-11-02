@@ -8,6 +8,7 @@ import { getAllStates } from "../../api/States";
 import { setSecureItem } from "../../utils/secureStorage";
 import { notifyTokenSet } from "../../utils/authSession";
 import { clearReferralToken, getReferralToken } from "../../utils/referralAttribution";
+import { trackEvent } from "../../utils/analytics";
 import { languagesForState, languageForState } from "../../utils/stateLanguages";
 
 // Add a mode state for switching between sign-in and sign-up
@@ -26,6 +27,10 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
   useEffect(() => {
     if (isOpen) setMode(initialMode === "signup" ? "signup" : "signin");
   }, [isOpen, initialMode]);
+  // Analytics funnel step 1: form opened → otp_sent → otp_verified (api/AuthApi).
+  useEffect(() => {
+    if (isOpen) trackEvent("signup_form_open", { form: "signin_popup", path: window.location.pathname });
+  }, [isOpen]);
   const [step, setStep] = useState(1);
   const [isVerifying, setIsVerifying] = useState(false);
   const [signedMessage, setSignedMessage] = useState("");

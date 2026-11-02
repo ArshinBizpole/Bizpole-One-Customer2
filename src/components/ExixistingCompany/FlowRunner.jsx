@@ -19,6 +19,7 @@ import { loginWithPhone, signupWithPhone, verifyOtp } from "../../api/AuthApi";
 import { notifyTokenSet } from "../../utils/authSession";
 import { clearReferralToken, getReferralToken } from "../../utils/referralAttribution";
 import { portalSourceOfSale } from "../../utils/leadAttribution";
+import { trackEvent } from "../../utils/analytics";
 import { signedInContact, belongsToOtherCustomer } from "../../utils/applicationPrefill";
 import { districtsFor } from "../../utils/districts";
 import SigninModal from "../Modals/SigninModal";
@@ -2526,6 +2527,10 @@ function AuthLabel({ children }) {
 
 export function LeadCaptureModal({ state, bump, title, subtitle }) {
   const [states, setStates] = useState([]);
+  // Analytics funnel step 1: form opened → otp_sent → otp_verified (api/AuthApi).
+  useEffect(() => {
+    trackEvent("signup_form_open", { form: "application", flow: state.flowId, path: window.location.pathname });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // Already entered on a "leadDetails" Step 1 (Lead raised, just not verified
   // yet) — prefill from it and go straight to the details form to confirm.
   const lc = state.leadContact || signedInContact();
