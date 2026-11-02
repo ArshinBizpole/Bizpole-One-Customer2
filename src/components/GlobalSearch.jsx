@@ -237,19 +237,30 @@ const GlobalSearch = ({ variant = "header", placeholder = "Search" }) => {
     }
   };
 
+  // "menu": full-width field in the phone menu
   const wrapCls =
     variant === "dashboard"
       ? "flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm"
+      : variant === "menu"
+      ? "flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 transition focus-within:border-amber-400 focus-within:bg-white"
       : "flex items-center bg-[#FFC42A40] rounded-full px-3 py-1.5";
   const inputCls =
     variant === "dashboard"
       ? "w-40 bg-transparent text-sm text-gray-600 placeholder:text-gray-400 focus:outline-none sm:w-56"
+      : variant === "menu"
+      ? "min-w-0 flex-1 bg-transparent text-sm text-gray-700 placeholder:text-gray-400 outline-none"
       : "bg-transparent outline-none text-sm placeholder-gray-500 w-32 focus:w-44 transition-all";
 
   return (
     <div className="relative" ref={boxRef}>
       <div className={wrapCls}>
-        <Search className={variant === "dashboard" ? "h-4 w-4 text-yellow-500" : "h-5 w-5 text-gray-500 mr-2"} />
+        <Search
+          className={
+            variant === "dashboard" ? "h-4 w-4 text-yellow-500"
+            : variant === "menu" ? "h-4 w-4 shrink-0 text-gray-400"
+            : "h-5 w-5 text-gray-500 mr-2"
+          }
+        />
         <input
           ref={inputRef}
           type="text"
@@ -275,7 +286,7 @@ const GlobalSearch = ({ variant = "header", placeholder = "Search" }) => {
         <div
           id="global-search-results"
           role="listbox"
-          className="absolute right-0 mt-2 w-[min(92vw,420px)] max-h-[70vh] overflow-y-auto bg-white rounded-xl shadow-xl border border-gray-100 z-50"
+          className={`mt-2 ${variant === "menu" ? "max-h-[50vh]" : "absolute right-0 w-[min(92vw,420px)] max-h-[70vh]"} overflow-y-auto bg-white rounded-xl shadow-xl border border-gray-100 z-50`}
         >
           {groups.length === 0 ? (
             <p className="px-4 py-8 text-center text-sm text-gray-500">

@@ -514,13 +514,13 @@ export default function TrademarkSearch({ embedded = false }) {
           ) : (
           <form onSubmit={handleSubmit} className="xl:pl-[29px]">
             {/* One row on phones: smaller pills, scrolls sideways if a screen is too narrow */}
-            <div className="flex flex-nowrap sm:flex-wrap justify-start min-[360px]:justify-center gap-1.5 sm:gap-2 mb-6 sm:mb-8 lg:mb-[46px] xl:pr-[8%] overflow-x-auto sm:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex flex-nowrap sm:flex-wrap justify-center-safe gap-1 min-[400px]:gap-1.5 sm:gap-2 mb-6 sm:mb-8 lg:mb-[46px] xl:pr-[8%] overflow-x-auto sm:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {SEARCH_TYPES.map((t) => (
                 <button
                   key={t.value}
                   type="button"
                   onClick={() => setType(t.value)}
-                  className={`shrink-0 whitespace-nowrap h-[34px] sm:h-[37px] px-3 sm:px-4 rounded-full text-[13px] sm:text-[15px] font-medium border transition ${
+                  className={`shrink-0 whitespace-nowrap h-[34px] sm:h-[37px] px-2.5 min-[400px]:px-3 sm:px-4 rounded-full text-[13px] sm:text-[15px] font-medium border transition ${
                     type === t.value
                       ? "bg-[#111827] text-white border-[#111827]"
                       : "bg-white text-gray-700 border-gray-200 hover:border-black hover:text-black"

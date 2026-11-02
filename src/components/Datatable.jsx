@@ -18,8 +18,38 @@ const DataTable = ({
     <div className="w-full">
       {/* Table Container with subtle shadow and border */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {/* Phones: one card per row (label above value) instead of a wide table.
+            A column with `mobileFull` spans the whole card width. */}
+        <div className="sm:hidden divide-y divide-gray-100">
+          {loading && (
+            <p className="px-4 py-10 text-center text-sm text-gray-500">Loading data...</p>
+          )}
+          {error && (
+            <p className="px-4 py-10 text-center text-sm text-red-600">{error}</p>
+          )}
+          {!loading && !error && data.length === 0 && (
+            <p className="px-4 py-10 text-center text-sm text-gray-500">{emptyMessage}</p>
+          )}
+          {!loading && !error && data.map((row, rowIndex) => (
+            <div key={rowIndex} className="grid grid-cols-2 gap-x-4 gap-y-3 p-4">
+              {columns.map((col, colIndex) => (
+                <div key={colIndex} className={`min-w-0 ${col.mobileFull ? "col-span-2" : ""}`}>
+                  {!col.mobileHideLabel && (
+                    <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                      {col.header}
+                    </p>
+                  )}
+                  <div className="text-xs text-gray-900 break-words">
+                    {typeof col.render === 'function' ? col.render(row) : row[col.key]}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
         {/* Table Wrapper for horizontal scroll on small screens */}
-        <div className="overflow-x-auto">
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full">
             {/* Table Header with gradient background */}
             <thead>

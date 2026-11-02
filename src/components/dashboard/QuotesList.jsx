@@ -138,6 +138,27 @@ const QuotesList = () => {
 
   const pending = <span className="text-gray-300">…</span>;
 
+  const quoteRow = (quote) => {
+    const status = quoteStatuses[quote.QuoteID] || normalizeStatus(quote.QuoteStatus);
+    const [pill, dot] = statusStyles[status] || ["bg-gray-100 text-gray-600", "bg-gray-400"];
+    const detail = quoteDetails[quote.QuoteID];
+    const waiting = detailsLoading && !detail;
+    const amount = detail ? detail.amount : sumServiceDetails(quote.ServiceDetails);
+    const service = detail?.service || serviceSummary(quote.ServiceDetails) || quote.PackageName || "—";
+    const statusPill = (
+      <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold ${pill}`}>
+        <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+        {status}
+      </span>
+    );
+    return {
+      code: quote.QuoteCodeId || quote.QuoteCode || `#${quote.QuoteID}`,
+      service: waiting ? pending : service,
+      amount: waiting ? pending : `₹${amount.toLocaleString("en-IN")}`,
+      statusPill,
+    };
+  };
+
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
       <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-4 md:px-6">
@@ -163,7 +184,36 @@ const QuotesList = () => {
       {companyQuotes.length === 0 ? (
         <p className="py-10 text-center text-sm text-gray-400">No quotes found for this company yet.</p>
       ) : (
-        <div className="max-h-[420px] overflow-auto">
+        <>
+        {/* Phones: one card per quote instead of the wide table */}
+        <ul className="max-h-[420px] divide-y divide-gray-100 overflow-y-auto sm:hidden">
+          {companyQuotes.map((quote, index) => {
+            const row = quoteRow(quote);
+            return (
+              <li key={quote.QuoteID || index} className="space-y-2 px-4 py-3.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-gray-500">{row.code}</span>
+                  {row.statusPill}
+                </div>
+                <p className="text-sm font-semibold text-gray-900">{row.service}</p>
+                <div className="flex items-center justify-between gap-2 text-xs text-gray-600">
+                  <span>
+                    <b className="text-sm text-gray-900">{row.amount}</b>
+                    <span className="ml-2">Valid till {fmtDate(quote.endDate)}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => openQuotePreview(quote.QuoteID)}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 px-3 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                  >
+                    View <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="hidden max-h-[420px] overflow-auto sm:block">
           <table className="w-full min-w-[820px] text-sm">
             <thead className="sticky top-0 bg-slate-50">
               <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">
@@ -178,29 +228,15 @@ const QuotesList = () => {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {companyQuotes.map((quote, index) => {
-                const status = quoteStatuses[quote.QuoteID] || normalizeStatus(quote.QuoteStatus);
-                const [pill, dot] = statusStyles[status] || ["bg-gray-100 text-gray-600", "bg-gray-400"];
-                const detail = quoteDetails[quote.QuoteID];
-                const waiting = detailsLoading && !detail;
-                const amount = detail ? detail.amount : sumServiceDetails(quote.ServiceDetails);
-                const service = detail?.service || serviceSummary(quote.ServiceDetails) || quote.PackageName || "—";
+                const row = quoteRow(quote);
                 return (
                   <tr key={quote.QuoteID || index} className="text-gray-700 hover:bg-gray-50/60">
-                    <td className="px-6 py-3.5 text-gray-500">
-                      {quote.QuoteCodeId || quote.QuoteCode || `#${quote.QuoteID}`}
-                    </td>
-                    <td className="px-3 py-3.5 font-semibold text-gray-900">{waiting ? pending : service}</td>
+                    <td className="px-6 py-3.5 text-gray-500">{row.code}</td>
+                    <td className="px-3 py-3.5 font-semibold text-gray-900">{row.service}</td>
                     <td className="px-3 py-3.5">{companyName || "—"}</td>
-                    <td className="px-3 py-3.5 font-semibold text-gray-900">
-                      {waiting ? pending : `₹${amount.toLocaleString("en-IN")}`}
-                    </td>
+                    <td className="px-3 py-3.5 font-semibold text-gray-900">{row.amount}</td>
                     <td className="px-3 py-3.5">{fmtDate(quote.endDate)}</td>
-                    <td className="px-3 py-3.5">
-                      <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold ${pill}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
-                        {status}
-                      </span>
-                    </td>
+                    <td className="px-3 py-3.5">{row.statusPill}</td>
                     <td className="px-6 py-3.5 text-right">
                       <button
                         type="button"
@@ -216,6 +252,7 @@ const QuotesList = () => {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

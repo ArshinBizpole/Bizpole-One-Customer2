@@ -175,12 +175,13 @@ export default function PackagePlans({ preferredTypeId = null }) {
       />
 
       {businessTypes.length > 1 && (
-        <div className="flex flex-wrap justify-center gap-2 mb-8">
+        // Phones: one swipeable row of chips instead of several wrapped rows
+        <div className="flex flex-nowrap sm:flex-wrap justify-center-safe gap-2 mb-6 sm:mb-8 overflow-x-auto sm:overflow-visible pb-1 sm:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {["all", ...businessTypes].map((t) => (
             <button
               key={t}
               onClick={() => setTypeFilter(t)}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+              className={`shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
                 typeFilter === t
                   ? "bg-[#FFFBEA] border-[#F3C625] text-black"
                   : "bg-white border-gray-200 text-gray-600 hover:border-[#F3C625]"
@@ -194,7 +195,7 @@ export default function PackagePlans({ preferredTypeId = null }) {
 
       <div className="flex items-center gap-3 max-w-6xl mx-auto">
         {pageCount > 1 && (
-          <PagerArrow label="Previous packages" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>
+          <PagerArrow className="hidden sm:flex" label="Previous packages" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>
             <ChevronLeft size={20} />
           </PagerArrow>
         )}
@@ -212,14 +213,29 @@ export default function PackagePlans({ preferredTypeId = null }) {
           ))}
         </div>
         {pageCount > 1 && (
-          <PagerArrow label="Next packages" disabled={currentPage >= pageCount - 1} onClick={() => setPage(currentPage + 1)}>
+          <PagerArrow className="hidden sm:flex" label="Next packages" disabled={currentPage >= pageCount - 1} onClick={() => setPage(currentPage + 1)}>
             <ChevronRight size={20} />
           </PagerArrow>
         )}
       </div>
 
+      {/* Phones: arrows + "2 / 17" under the full-width card (no room beside it) */}
       {pageCount > 1 && (
-        <div className="flex justify-center items-center gap-2 mt-6">
+        <div className="flex sm:hidden justify-center items-center gap-4 mt-5">
+          <PagerArrow className="flex" label="Previous packages" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>
+            <ChevronLeft size={20} />
+          </PagerArrow>
+          <span className="min-w-[56px] text-center text-sm font-medium text-gray-600">
+            {currentPage + 1} / {pageCount}
+          </span>
+          <PagerArrow className="flex" label="Next packages" disabled={currentPage >= pageCount - 1} onClick={() => setPage(currentPage + 1)}>
+            <ChevronRight size={20} />
+          </PagerArrow>
+        </div>
+      )}
+
+      {pageCount > 1 && (
+        <div className="hidden sm:flex justify-center items-center gap-2 mt-6">
           {Array.from({ length: pageCount }, (_, p) => (
             <button
               key={p}
@@ -234,13 +250,13 @@ export default function PackagePlans({ preferredTypeId = null }) {
   );
 }
 
-function PagerArrow({ label, disabled, onClick, children }) {
+function PagerArrow({ label, disabled, onClick, className = "flex", children }) {
   return (
     <button
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className="flex-shrink-0 w-10 h-10 rounded-full border border-gray-200 bg-white flex items-center justify-center text-gray-700 shadow-sm transition-colors hover:border-[#F3C625] hover:bg-[#FFFBEA] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-white"
+      className={`${className} flex-shrink-0 w-10 h-10 rounded-full border border-gray-200 bg-white items-center justify-center text-gray-700 shadow-sm transition-colors hover:border-[#F3C625] hover:bg-[#FFFBEA] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-white`}
     >
       {children}
     </button>
@@ -263,7 +279,7 @@ function PackageCard({ plan, index, featured, quoting, disabled, onGetQuote }) {
       whileHover={{ y: -4 }}
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
-      className={`flex flex-col min-h-[440px] rounded-2xl border p-7 transition-colors duration-200 hover:shadow-lg ${
+      className={`flex flex-col min-h-[320px] sm:min-h-[440px] rounded-2xl border p-5 sm:p-7 transition-colors duration-200 hover:shadow-lg ${
         dark ? "bg-black border-black text-white" : "bg-white border-[#F3C625] text-gray-900"
       }`}
     >
