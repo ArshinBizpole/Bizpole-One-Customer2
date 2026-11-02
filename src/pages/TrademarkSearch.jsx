@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { trackEvent } from "../utils/analytics";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { FaSearch, FaRegCopyright, FaChevronLeft, FaChevronRight, FaArrowRight, FaFilePdf, FaLock, FaImage, FaTimes } from "react-icons/fa";
@@ -254,6 +255,7 @@ export default function TrademarkSearch({ embedded = false }) {
     setError("");
     try {
       const data = await fetchSearch(params, nextPage);
+      if (!nextPage) trackEvent("trademark_search", { search_type: params.type, results: data?.total ?? data?.results?.length ?? 0 });
       setResult(data);
       setSubmitted(params);
       setPage(nextPage);
