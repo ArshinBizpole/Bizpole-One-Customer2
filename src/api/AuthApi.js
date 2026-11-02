@@ -1,5 +1,6 @@
 import axiosInstance from "./axiosInstance";
 import { getLeadAttribution } from "../utils/leadAttribution";
+import { trackEvent } from "../utils/analytics";
 
 
 export const loginWithPhone = async (phone) => {
@@ -27,6 +28,7 @@ export const signupWithPhone = async (name, email, phone, referralToken, state, 
     const attribution = getLeadAttribution();
     if (attribution) body.attribution = attribution;
     const response = await axiosInstance.post("/website-signup", body);
+    trackEvent("sign_up", { method: "phone", service: service || undefined });
     return response.data;
   } catch (error) {
     throw error.response?.data || error;
