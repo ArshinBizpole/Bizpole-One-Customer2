@@ -1,5 +1,6 @@
 import axiosInstance from "./axiosInstance";
 import { getLeadAttribution } from "../utils/leadAttribution";
+import { trackEvent } from "../utils/analytics";
 
 /**
  * Create a Lead (customer-portal call-back request, new user + new service).
@@ -13,6 +14,7 @@ export const createLead = async (payload) => {
     portal: true,
     attribution: getLeadAttribution() || undefined,
   });
+  trackEvent("generate_lead", { lead_source: payload.lead_source || "portal" });
   return res.data;
 };
 
