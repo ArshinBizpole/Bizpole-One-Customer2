@@ -103,6 +103,8 @@ import ReferralLanding from "./pages/ReferralLanding";
 import AffiliateLanding from "./pages/affiliate/AffiliateLanding";
 import AffiliateLayout from "./pages/affiliate/AffiliateLayout";
 import AffiliateDashboard from "./pages/affiliate/AffiliateDashboard";
+import { applyPageMeta } from "./utils/pageTitles";
+import { trackEvent } from "./utils/analytics";
 
 function App() {
   const location = useLocation();
@@ -113,6 +115,18 @@ function App() {
   useEffect(() => {
     AOS.init({ duration: 1000 });
   }, []);
+
+  // Each route's own title / description / canonical (SEO), then its Google
+  // Analytics page view — sent here (not by GA's automatic history tracking)
+  // so it carries the new title.
+  useEffect(() => {
+    applyPageMeta(location.pathname);
+    trackEvent("page_view", {
+      page_title: document.title,
+      page_location: window.location.href,
+      page_path: location.pathname,
+    });
+  }, [location.pathname]);
 
   // Service statuses set as Internal in Status Master, so the portal shows the
   // status chosen there instead. Needs a session token; without one (or if the

@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /dashboard
+Disallow: /associate
+Disallow: /profile
+Disallow: /affiliate/dashboard
+Disallow: /trademark-report
+Disallow: /wa-login
+
+Sitemap: https://www.bizpole.io/sitemap.xml

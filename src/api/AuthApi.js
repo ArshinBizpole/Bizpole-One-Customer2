@@ -6,6 +6,7 @@ import { trackEvent } from "../utils/analytics";
 export const loginWithPhone = async (phone) => {
   try {
     const response = await axiosInstance.post("/websitelogin", { phone });
+    trackEvent("otp_sent", { method: "login" });
     // { success, message, emailSent, smsSent, maskedMobile } — the OTP screen
     // shows the masked mobile only when smsSent.
     return response.data;
@@ -29,6 +30,7 @@ export const signupWithPhone = async (name, email, phone, referralToken, state, 
     if (attribution) body.attribution = attribution;
     const response = await axiosInstance.post("/website-signup", body);
     trackEvent("sign_up", { method: "phone", service: service || undefined });
+    trackEvent("otp_sent", { method: "signup" });
     return response.data;
   } catch (error) {
     throw error.response?.data || error;
@@ -38,6 +40,7 @@ export const signupWithPhone = async (name, email, phone, referralToken, state, 
 export const verifyOtp = async (phone, otp) => {
   try {
     const response = await axiosInstance.post("/verify-website-otp", { phone, otp });
+    trackEvent("otp_verified");
     // Return the correct data structure
     if (response.data && response.data.data) {
       return response.data.data;
