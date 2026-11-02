@@ -61,6 +61,11 @@ const ProfileLayout = () => {
   const isTileActive = (path, isActive) =>
     isActive || (path === "invoice" && pathname.startsWith("/profile/refunds"));
 
+  // The phone menu slides over the page — close it once the user navigates.
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
+
 
   // Load user and company data from secureStorage (robust parse)
   useEffect(() => {
@@ -219,13 +224,27 @@ const ProfileLayout = () => {
 
         {/* Mobile Right Section */}
         <div className="flex items-center space-x-3 lg:hidden">
-          <NotificationBell />
-          <ProfileMenu />
+          {/* Opening notifications or the profile menu closes the ☰ menu */}
+          <div onClickCapture={() => setIsMobileMenuOpen(false)}>
+            <NotificationBell />
+          </div>
+          <div onClickCapture={() => setIsMobileMenuOpen(false)}>
+            <ProfileMenu />
+          </div>
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 rounded hover:bg-gray-100">
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
       </header>
+
+      {/* Phones: tapping the page beside the open menu closes it */}
+      {isMobileMenuOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-30 bg-black/30"
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
 
       {/* ===== Sidebar ===== */}
       <aside

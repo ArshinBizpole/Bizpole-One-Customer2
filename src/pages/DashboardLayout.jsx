@@ -12,6 +12,8 @@ import {
   ChevronDown,
   Menu,
   X,
+  Check,
+  ExternalLink,
 } from "lucide-react";
 
 
@@ -204,8 +206,8 @@ const DashboardLayout = () => {
 
   // Products — listed in the mobile header menu (desktop: the profile menu).
   const menuItems = [
-    { name: "Bizpole One", path: "/dashboard/bizpoleone", icon: Layers },
-    { name: "Journl", href: JOURNL_URL, icon: BookOpen }, // own site — new tab
+    { name: "Bizpole One", desc: "Business dashboard", path: "/dashboard/bizpoleone", icon: Layers },
+    { name: "Journl", desc: "Accounting & Bookkeeping", href: JOURNL_URL, icon: BookOpen }, // own site — new tab
   ];
 const uniqueCompanies = Array.from(
   new Map(
@@ -284,11 +286,15 @@ const uniqueCompanies = Array.from(
 
           {/* ✅ Mobile Right Section (Bell + User + Menu) */}
           <div className="flex items-center space-x-3 lg:hidden">
-            {/* Notifications */}
-            <NotificationBell />
+            {/* Opening notifications or the profile menu closes the ☰ menu */}
+            <div onClickCapture={() => setIsMobileMenuOpen(false)}>
+              <NotificationBell />
+            </div>
 
             {/* User Profile */}
-            <ProfileMenu />
+            <div onClickCapture={() => setIsMobileMenuOpen(false)}>
+              <ProfileMenu />
+            </div>
 
             {/* Mobile Menu Button */}
             <button
@@ -302,76 +308,124 @@ const uniqueCompanies = Array.from(
 
         {/* ✅ Mobile Dropdown Menu — floats over the page (doesn't push it down) */}
         {isMobileMenuOpen && (
-          <div className="lg:hidden absolute left-0 right-0 top-full bg-white shadow-lg border-t border-gray-100 px-4 py-4 space-y-4 max-h-[calc(100vh-4rem)] overflow-y-auto">
-            {/* Company Dropdown for Mobile */}
-            <div className="relative" data-company-dropdown>
+          <>
+          {/* Dimmed page behind the menu — tap to close. -z-10 keeps it under the header. */}
+          <div
+            className="lg:hidden fixed inset-0 -z-10 bg-black/30"
+            onClick={() => setIsMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            // Picking a link or search result closes the menu (even when it
+            // doesn't change the page, e.g. Journl opens in a new tab)
+            onClick={(e) => {
+              if (e.target.closest('a, [role="option"]')) setIsMobileMenuOpen(false);
+            }}
+            className="lg:hidden absolute left-0 right-0 top-full bg-white rounded-b-2xl shadow-xl border-t border-gray-100 px-4 pt-4 pb-5 space-y-5 max-h-[calc(100vh-4rem)] overflow-y-auto">
+            {/* Company */}
+            <section data-company-dropdown>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Company</p>
               <button
-                className="w-full px-6 py-2 rounded-full font-semibold text-black bg-[#FFC42A40] hover:bg-[#FFC42A70] transition flex items-center justify-center gap-2"
-                onClick={() => setShowCompanyDropdown((prev) => !prev)}
                 type="button"
+                onClick={() => setShowCompanyDropdown((prev) => !prev)}
+                aria-expanded={showCompanyDropdown}
+                className="w-full flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2.5 text-left transition hover:bg-amber-50"
               >
-                {selectedCompany || "Select Company"}
-                <ChevronDown className="w-4 h-4" />
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#FFC42A] text-sm font-bold uppercase text-gray-900">
+                  {(selectedCompany || "?").trim().charAt(0)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-gray-900">
+                    {selectedCompany || "Select Company"}
+                  </span>
+                  <span className="block text-xs text-gray-500">
+                    {uniqueCompanies.length > 1 ? "Current company · tap to switch" : "Current company"}
+                  </span>
+                </span>
+                <ChevronDown className={`h-4 w-4 shrink-0 text-gray-500 transition-transform ${showCompanyDropdown ? "rotate-180" : ""}`} />
               </button>
-              {/* Mobile Company Dropdown */}
+              {/* Company list opens in place */}
               {showCompanyDropdown && (
-                <div className="absolute left-0 right-0 mt-2 bg-white rounded-xl shadow-lg z-10 border border-gray-200">
-                  {uniqueCompanies.map((company) => (
-                    <button
-                      key={company.CompanyID || company.BusinessName}
-                      className={`w-full text-left px-5 py-3 hover:bg-yellow-100 rounded-xl transition ${
-                        selectedCompany === company.BusinessName
-                          ? "bg-yellow-50 font-bold"
-                          : ""
-                      }`}
-                      onClick={() => {
-                        handleCompanySelect(company);
-                        setIsMobileMenuOpen(false);
-                      }}
-                    >
-                      {company.BusinessName}
-                    </button>
-                  ))}
-                </div>
+                <ul className="mt-2 max-h-60 overflow-y-auto rounded-xl border border-gray-100 bg-white py-1 shadow-sm">
+                  {uniqueCompanies.map((company) => {
+                    const isSelected = selectedCompany === company.BusinessName;
+                    return (
+                      <li key={company.CompanyID || company.BusinessName}>
+                        <button
+                          type="button"
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition ${
+                            isSelected ? "bg-amber-50 font-semibold text-gray-900" : "text-gray-700 hover:bg-gray-50"
+                          }`}
+                          onClick={() => {
+                            handleCompanySelect(company);
+                            setIsMobileMenuOpen(false);
+                          }}
+                        >
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-xs font-bold uppercase text-gray-600">
+                            {company.BusinessName.trim().charAt(0)}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate">{company.BusinessName}</span>
+                          {isSelected && <Check className="h-4 w-4 shrink-0 text-amber-500" />}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
-            </div>
+            </section>
 
-            {/* Search Bar */}
-            <GlobalSearch />
+            {/* Search */}
+            <section>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Search</p>
+              <GlobalSearch variant="menu" placeholder="Search services, orders, documents…" />
+            </section>
 
             {/* Products — the dark sidebar's links (that sidebar is desktop-only) */}
-            <nav className="border-t pt-3">
+            <nav>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Products</p>
               <ul className="grid grid-cols-2 gap-2">
-                {menuItems.map((item) => (
-                  <li key={item.path || item.href}>
-                    {item.href ? (
-                      <a
-                        href={item.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition bg-gray-50 text-gray-700 hover:bg-gray-100"
-                      >
-                        <item.icon size={18} />
-                        {item.name}
-                      </a>
-                    ) : (
-                    <NavLink
-                      to={item.path}
-                      className={({ isActive }) =>
-                        `flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition ${
-                          isActive ? "bg-[#221e1e] text-white" : "bg-gray-50 text-gray-700 hover:bg-gray-100"
-                        }`
-                      }
-                    >
-                      <item.icon size={18} />
-                      {item.name}
-                    </NavLink>
-                    )}
-                  </li>
-                ))}
+                {menuItems.map((item) => {
+                  const body = (
+                    <>
+                      <span className="flex items-center justify-between">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-amber-500 shadow-sm">
+                          <item.icon size={17} />
+                        </span>
+                        {item.href && <ExternalLink className="h-3.5 w-3.5 text-gray-400" />}
+                      </span>
+                      <span className="mt-2 block text-sm font-semibold text-gray-900">{item.name}</span>
+                      <span className="block text-[11px] leading-snug text-gray-500">{item.desc}</span>
+                    </>
+                  );
+                  const base = "block h-full rounded-xl border p-3 transition";
+                  return (
+                    <li key={item.path || item.href}>
+                      {item.href ? (
+                        <a
+                          href={item.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`${base} border-gray-200 bg-gray-50 hover:bg-gray-100`}
+                        >
+                          {body}
+                        </a>
+                      ) : (
+                        <NavLink
+                          to={item.path}
+                          className={({ isActive }) =>
+                            `${base} ${isActive ? "border-amber-300 bg-amber-50" : "border-gray-200 bg-gray-50 hover:bg-gray-100"}`
+                          }
+                        >
+                          {body}
+                        </NavLink>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </nav>
           </div>
+          </>
         )}
         </div>
 

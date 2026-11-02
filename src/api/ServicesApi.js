@@ -42,6 +42,12 @@ export const getServiceById = async ({ ServiceId }) => {
   return res.data;
 };
 
+// Quote-page content set in the CRM's Service → Proposal step (whatYouGet, importantNotes, ...)
+export const getServiceExtras = async (serviceId) => {
+  const res = await axiosInstance.get(`/service-master-extras/${serviceId}`);
+  return res.data?.data || null;
+};
+
 // ✅ Fetch all service prices for a state, and filter exact service price
 export const getServicePrice = async ({ ServiceId, StateId }) => {
   try {
@@ -91,6 +97,7 @@ export default {
   getServiceCategories,
   getServicesByCategory,
   getServiceById,
+  getServiceExtras,
   getServicePrice,
   getServicePackages,
   getServicePriceCurrency,

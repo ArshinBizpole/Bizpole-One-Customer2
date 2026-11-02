@@ -34,6 +34,7 @@ import { languagesForState, languageForState } from "../../utils/stateLanguages"
 import { DOB_MAX, DOB_ERROR, dobError } from "../../utils/dob";
 import { sanitize, PATTERNS } from "../../utils/formValidation";
 import { getQuotePaymentStatus } from "../../api/QuotePaymentStatusApi";
+import { fetchAvailableOffers, previewOfferCode, redeemOfferOnQuote } from "../../api/OfferApi";
 import { updateMyCompanyDetails, listCompanyDirectors, addCompanyDirector, updateCompanyDirector, removeCompanyDirector, saveCompanyBank } from "../../api/CompanyChangeApi";
 import {
   FLOWS, ownerConfig, ownerBaseFields, newOwner, visibleFields, docItems, docGroups, isMinor,
@@ -2108,14 +2109,32 @@ async function doPay(flow, state, bump) {
     bump();
     return;
   }
+  // Offer picked on the Payment step: recorded once with the Offer Module and
+  // put on the Quote before it opens for approval, so the quote page and the
+  // payment show the discounted amount. If it no longer applies, stay here
+  // with the reason — the next click goes ahead at full price or another offer.
+  if (state.offer?.code && state.quoteId && state.offerApplied?.quoteId !== state.quoteId) {
+    const res = await redeemOfferOnQuote(state.quoteId, state.offer.code);
+    if (res?.valid) {
+      state.offerApplied = { quoteId: state.quoteId, code: res.code || state.offer.code, discount: Number(res.discount) || 0, finalAmount: Number(res.finalAmount) || 0 };
+    } else {
+      approvalTab?.close();
+      state.offerError = res?.message || "This offer can't be applied";
+      state.offer = null;
+      state.__paying = false;
+      bump();
+      return;
+    }
+  }
   openQuoteForApproval(state, approvalTab);
   await createPackageForApplication(flow, state, state.answers);
   await ensureGovtFeeFlag(flow, state.answers, state).catch(() => {});
   const f = feeLines(flow, state.answers, state); // after the quote, so GST info is loaded
+  const applied = state.offerApplied?.quoteId === state.quoteId ? state.offerApplied : null;
   // Stay on Payment: opening the quote is not paying it. FlowRunner's payment
   // check (checkQuotePayment) moves to "Application Submitted" only once the
   // payment has actually succeeded.
-  state.awaitingPayment = { quoteId: state.quoteId, amount: rupee(f.total) };
+  state.awaitingPayment = { quoteId: state.quoteId, amount: rupee(applied ? f.total - applied.discount : f.total) };
   state.__paying = false;
   bump();
 }
@@ -4769,6 +4788,103 @@ function CallbackRequestModal({ onClose, onSubmit }) {
   );
 }
 
+// Offers from the Bizpole Offer Module (OfferApi). Usable offers are cards to
+// pick; locked ones show why ("Minimum transaction amount …"); any code can be
+// typed. Picking only previews — doPay records it once on the Quote. Once on
+// the Quote it's fixed and shown as applied. Never blocks payment.
+function OffersBox({ flow, A, state, bump, applied }) {
+  const [offers, setOffers] = useState([]);
+  const [code, setCode] = useState("");
+  const [checking, setChecking] = useState(false);
+  const linesKey = JSON.stringify(serviceDetailsFor(flow, A, state));
+
+  useEffect(() => {
+    if (applied) return undefined;
+    let alive = true;
+    const lines = JSON.parse(linesKey);
+    // A message from an earlier attempt (saved with the application) is stale now.
+    if (!state.offer?.code && state.offerError) { state.offerError = null; bump(); }
+    fetchAvailableOffers(lines).then((list) => { if (alive) setOffers(list); });
+    // The amount changed (GST loaded, add-ons edited) — re-check the picked offer.
+    if (state.offer?.code) {
+      previewOfferCode(lines, state.offer.code).then((r) => {
+        if (!alive) return;
+        if (r?.valid) state.offer = { code: r.code || state.offer.code, discount: Number(r.discount) || 0, finalAmount: Number(r.finalAmount) || 0 };
+        else { state.offer = null; state.offerError = r?.message || "This offer no longer applies"; }
+        bump();
+      });
+    }
+    return () => { alive = false; };
+  }, [linesKey, !!applied]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const apply = async (promoCode) => {
+    const value = String(promoCode || "").trim();
+    if (!value || checking) return;
+    setChecking(true);
+    const r = await previewOfferCode(JSON.parse(linesKey), value);
+    setChecking(false);
+    if (r?.valid) {
+      state.offer = { code: r.code || value, discount: Number(r.discount) || 0, finalAmount: Number(r.finalAmount) || 0 };
+      state.offerError = null;
+      setCode("");
+    } else {
+      state.offerError = r?.message || "This offer can't be applied";
+    }
+    bump();
+  };
+  const remove = () => { state.offer = null; state.offerError = null; bump(); };
+
+  if (applied) {
+    return (
+      <div className="mt-4 border border-green-200 bg-green-50 rounded-lg p-3 text-sm">
+        <b className="text-green-700">Offer {applied.code} applied</b>
+        <span className="block text-xs text-green-700">You save {rupee(applied.discount)} on this quote.</span>
+      </div>
+    );
+  }
+  const picked = state.offer?.code?.toLowerCase();
+  const usable = offers.filter((o) => o.valid);
+  const locked = offers.filter((o) => !o.valid);
+  const label = (o) => (o.type === "PERCENTAGE" ? `${o.value}% off${o.maxDiscount ? ` (up to ${rupee(o.maxDiscount)})` : ""}` : `${rupee(o.value)} off`);
+  return (
+    <div className="mt-4 border border-gray-200 rounded-lg p-3">
+      <div className="text-xs font-bold uppercase text-blue-600 mb-2">Offers</div>
+      {usable.map((o) => {
+        const isPicked = picked === String(o.code).toLowerCase();
+        return (
+          <button key={o.id ?? o.code} type="button" disabled={checking} onClick={() => (isPicked ? remove() : apply(o.code))}
+            className={`w-full text-left rounded-lg border px-3 py-2 mb-2 text-sm ${isPicked ? "border-green-500 bg-green-50" : "border-gray-200 hover:border-blue-400"}`}>
+            <span className="flex justify-between gap-2"><b className="font-mono">{o.code}</b><span className="text-green-700 font-semibold">{label(o)}</span></span>
+            {o.name && <span className="block text-xs text-gray-500">{o.name}</span>}
+            <span className="block text-xs text-blue-600 mt-0.5">{isPicked ? "Applied — tap to remove" : "Tap to apply"}</span>
+          </button>
+        );
+      })}
+      {locked.map((o) => (
+        <div key={o.id ?? o.code} className="rounded-lg border border-dashed border-gray-200 px-3 py-2 mb-2 text-sm text-gray-400">
+          <span className="flex justify-between gap-2"><b className="font-mono">{o.code}</b><span>{label(o)}</span></span>
+          {o.reason && <span className="block text-xs">{o.reason}</span>}
+        </div>
+      ))}
+      <div className="flex gap-2">
+        <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} onKeyDown={(e) => { if (e.key === "Enter") apply(code); }}
+          placeholder="Have a code?" className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm uppercase" />
+        <button type="button" onClick={() => apply(code)} disabled={!code.trim() || checking}
+          className="px-3 py-2 rounded-lg border-2 border-blue-500 text-blue-700 text-sm font-semibold disabled:opacity-50">
+          {checking ? "Checking…" : "Apply"}
+        </button>
+      </div>
+      {state.offer?.code && !usable.some((o) => String(o.code).toLowerCase() === picked) && (
+        <div className="flex justify-between items-center text-xs text-green-700 mt-2">
+          <span>Code {state.offer.code} applied — you save {rupee(state.offer.discount)}</span>
+          <button type="button" onClick={remove} className="underline">Remove</button>
+        </div>
+      )}
+      {state.offerError && <div className="text-xs text-red-600 mt-2">{state.offerError}</div>}
+    </div>
+  );
+}
+
 function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
   useEffect(() => {
     if (!state.gstInfo) ensureGstInfo(state).then(bump).catch(() => {});
@@ -4779,6 +4895,10 @@ function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
   // Anything other than a call back (incl. drafts saved with the old UPI /
   // card / wallet choices) is the online-payment path.
   const wantsCallback = A.payMethod === CALLBACK_METHOD;
+  // Offer: the one already on this Quote, else the one picked here (preview).
+  const offerApplied = state.offerApplied?.quoteId && state.offerApplied.quoteId === state.quoteId ? state.offerApplied : null;
+  const offer = offerApplied || (!wantsCallback && state.offer?.code ? state.offer : null);
+  const offerDiscount = offer ? Math.min(Number(offer.discount) || 0, f.total) : 0;
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-5">
       <div className="border border-gray-200 rounded-xl p-4">
@@ -4813,7 +4933,13 @@ function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
         ) : (
           <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span>GST @ 18% on professional fees</span><b>{rupee(f.gst)}</b></div>
         )}
-        <div className="flex justify-between text-base font-bold pt-3"><span>Total Amount</span><span>{rupee(f.total)}</span></div>
+        {offer && (
+          <>
+            <div className="text-xs font-bold uppercase text-blue-600 mt-3 mb-1">Offer</div>
+            <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100 text-green-700"><span>Discount ({offer.code})</span><b>− {rupee(offerDiscount)}</b></div>
+          </>
+        )}
+        <div className="flex justify-between text-base font-bold pt-3"><span>Total Amount</span><span>{rupee(f.total - offerDiscount)}</span></div>
         <p className="text-xs text-gray-400 mt-3">🔒 You'll review and approve this quote (with OTP verification) before any payment is taken.</p>
         {A.selectedPackage && (
           // The package is its own Package quote (createPackageForApplication),
@@ -4852,6 +4978,7 @@ function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
           </>
         ) : (
           <>
+            <OffersBox flow={flow} A={A} state={state} bump={bump} applied={offerApplied} />
             {state.awaitingPayment ? (
               <div className="mt-4"><Note variant="warn" body="Waiting for your payment. Your quote is open in a new tab — approve it and complete the payment there. This page moves to “Application Submitted” automatically once the payment succeeds." /></div>
             ) : (

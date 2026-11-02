@@ -1,6 +1,6 @@
 import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getServiceById, getServicePrice } from "../api/ServicesApi";
+import { getServiceById, getServicePrice, getServiceExtras } from "../api/ServicesApi";
 import { upsertQuote } from "../api/Quote";
 import { getSecureItem } from "../utils/secureStorage";
 import { selectSignedInCompany } from "../utils/signedInCompany";
@@ -84,6 +84,18 @@ const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
     fetchService();
   }, [SERVICE_ID]);
 
+  // "What You Get (Deliverables)" from the CRM's Service → Proposal step
+  const [whatYouGet, setWhatYouGet] = useState([]);
+  useEffect(() => {
+    if (!SERVICE_ID) return;
+    let stale = false;
+    setWhatYouGet([]);
+    getServiceExtras(SERVICE_ID)
+      .then((extras) => { if (!stale) setWhatYouGet(Array.isArray(extras?.whatYouGet) ? extras.whatYouGet : []); })
+      .catch(() => {});
+    return () => { stale = true; };
+  }, [SERVICE_ID]);
+
   // Fetch price if state and service are available
   useEffect(() => {
     const fetchPrice = async () => {
@@ -124,10 +136,11 @@ const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
     .map(f => (typeof f === "string" ? f : f?.FeatureName))
     .filter(Boolean);
 
-  // What's Included = ServiceDeliverables for this service only. Some services
+  // What's Included = the Proposal step's "What You Get" list; services that
+  // don't have one yet fall back to their ServiceDeliverables. Some services
   // have the same deliverable saved several times — show each label once.
   const whatsIncluded = [...new Set(
-    (Array.isArray(service?.Deliverables) ? service.Deliverables : [])
+    (whatYouGet.length ? whatYouGet : Array.isArray(service?.Deliverables) ? service.Deliverables : [])
       .map(d => (typeof d === "string" ? d : d?.label)?.trim())
       .filter(Boolean)
   )];

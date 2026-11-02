@@ -16,13 +16,13 @@ const TAB_ORDER_STORAGE_KEY = "individualServiceTabOrder";
 
 /* ── KPI Card ── */
 const KpiCard = ({ icon: Icon, iconBg, label, value }) => (
-  <div className="flex items-center gap-4 px-6 py-4 rounded-xl border border-gray-100 bg-white shadow-sm flex-1 min-w-0">
-    <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${iconBg}`}>
+  <div className="flex flex-col items-start gap-2 p-3 sm:flex-row sm:items-center sm:gap-4 sm:px-6 sm:py-4 rounded-xl border border-gray-100 bg-white shadow-sm flex-1 min-w-0">
+    <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center flex-shrink-0 ${iconBg}`}>
       <Icon size={16} className="text-amber-500" />
     </div>
     <div className="min-w-0">
-      <p className="text-xs text-gray-500 mb-0.5 truncate">{label}</p>
-      <p className="text-xl font-bold truncate text-gray-800">{value}</p>
+      <p className="text-[11px] leading-tight sm:text-xs text-gray-500 mb-0.5 sm:truncate">{label}</p>
+      <p className="text-base sm:text-xl font-bold truncate text-gray-800">{value}</p>
     </div>
   </div>
 );
@@ -264,7 +264,7 @@ const MyIndividualservices = () => {
   const columns = [
     { key: "OrderID", header: "Order ID" },
     {
-      key: "ServiceList", header: "Services",
+      key: "ServiceList", header: "Services", mobileFull: true,
       render: (row) => (
         <ul className="list-disc pl-4">
           {Array.isArray(row.ServiceList) && row.ServiceList.length > 0
@@ -297,15 +297,15 @@ const MyIndividualservices = () => {
         : "N/A"
     },
     {
-      key: "progress", header: "Progress",
+      key: "progress", header: "Progress", mobileFull: true,
       render: (row) => <ProgressBar value={statusProgress[row.OrderStatus] ?? 40} />
     },
     {
-      key: "action", header: "Action",
+      key: "action", header: "Action", mobileFull: true, mobileHideLabel: true,
       render: (row) => (
         <button
           onClick={() => navigate(`/dashboard/bizpoleone/orderdetails?id=${encodeURIComponent(row.OrderPK ?? row.OrderID)}&ind=${ind}`, { state: { order: row, IsIndividual: ind } })}
-          className="px-3 py-1.5 bg-amber-400 hover:bg-amber-500 text-white text-xs font-medium rounded-full transition"
+          className="w-full sm:w-auto px-3 py-2 sm:py-1.5 bg-amber-400 hover:bg-amber-500 text-white text-xs font-medium rounded-full transition"
         >
           View Details
         </button>
@@ -315,12 +315,12 @@ const MyIndividualservices = () => {
 
   /* ── Render ── */
   return (
-    <div className="container mx-auto py-8 px-4">
-      <h1 className="text-2xl font-semibold text-gray-900 mb-1">Individual Orders</h1>
-      <p className="text-sm text-gray-500 mb-6">View and manage all your individual orders in one place</p>
+    <div className="container mx-auto px-0 py-1 sm:px-4 sm:py-8">
+      <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-1">Individual Orders</h1>
+      <p className="text-sm text-gray-500 mb-4 sm:mb-6">View and manage all your individual orders in one place</p>
 
       {/* KPI Cards */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-8">
+      <div className="grid grid-cols-3 gap-2 mb-5 sm:flex sm:flex-row sm:gap-4 sm:mb-8">
         <KpiCard icon={DollarSign} iconBg="bg-amber-100" label="Next Payment Due"      value={loading ? '—' : `₹${kpi.nextDue}`} />
         <KpiCard icon={CheckCircle} iconBg="bg-amber-100" label="Total Services Active" value={loading ? '—' : kpi.totalServices} />
         <KpiCard icon={FileText}    iconBg="bg-amber-100" label="Start Date"            value={loading ? '—' : kpi.startDate} />
