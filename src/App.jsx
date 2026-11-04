@@ -74,7 +74,7 @@ import { CartProvider } from "./context/CartContext";
 import GlobalCart from "./components/Cart/GlobalCart";
 import InvoicePreview from "./pages/InvoicePreview";
 import WhatsAppLogin from "./pages/WhatsAppLogin";
-import TrademarkSharedReport from "./pages/TrademarkSharedReport";
+import TrademarkReportPage from "./pages/TrademarkReportPage";
 
 
 // Associate Dashboard
@@ -207,8 +207,8 @@ function App() {
           <Route path="/questions" element={<BusinessQuizWizard />} />
           {/* Sign-in link sent by the WhatsApp assistant (document upload) */}
           <Route path="/wa-login" element={<WhatsAppLogin />} />
-          {/* A report opened from the CRM (signed link, no sign-in). */}
-          <Route path="/trademark-report" element={<TrademarkSharedReport />} />
+          {/* Report link sent on WhatsApp / email / from the CRM — no sign-in */}
+          <Route path="/trademark-report" element={<TrademarkReportPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
           <Route path="/cancellation-refund-policy" element={<CancellationRefundPolicy />} />
