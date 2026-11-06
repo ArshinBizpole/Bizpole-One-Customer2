@@ -274,9 +274,9 @@ export default function TrademarkSearch({ embedded = false }) {
   const [waNotice, setWaNotice] = useState("");
   const waContact = useRef(null);
 
-  const sendToWhatsApp = async (contact, params) => {
+  const sendToWhatsApp = async (contact, params, firstSend = true) => {
     try {
-      const data = await sendTrademarkReportToWhatsApp({ ...contact, params, limit: PAGE_SIZE });
+      const data = await sendTrademarkReportToWhatsApp({ ...contact, params, limit: PAGE_SIZE, firstSend });
       setWaNotice(data.message);
     } catch (err) {
       throw new Error(err.response?.data?.message || "Could not send your report right now. Please try again.");
@@ -292,7 +292,10 @@ export default function TrademarkSearch({ embedded = false }) {
 
   const askForReport = () => {
     if (localStorage.getItem("token")) askToSignIn();
-    else setWaOpen(true);
+    else {
+      setWaOpen(true);
+      trackEvent("whatsapp_report_form_open", { form: "trademark_whatsapp", path: window.location.pathname });
+    }
   };
 
   const activeType = SEARCH_TYPES.find((t) => t.value === type);
@@ -314,7 +317,7 @@ export default function TrademarkSearch({ embedded = false }) {
       }
       if (data?.results?.length && !localStorage.getItem("token") && waContact.current) {
         // A new search (not another page) by a visitor who already gave their details.
-        if (nextPage === 0) sendToWhatsApp(waContact.current, params).catch((err) => setError(err.message));
+        if (nextPage === 0) sendToWhatsApp(waContact.current, params, false).catch((err) => setError(err.message));
       } else if (!unlocked && data?.results?.length) {
         askForReport();
       }

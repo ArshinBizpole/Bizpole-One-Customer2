@@ -1,5 +1,6 @@
 import { api } from "./axiosInstance";
 import { getLeadAttribution } from "../utils/leadAttribution";
+import { trackEvent } from "../utils/analytics";
 
 // A tracked search can create the customer's Lead / Deal in the CRM — its
 // ad-click attribution (JSON) sets that record's source.
@@ -132,7 +133,9 @@ export async function runTrademarkSearch(name, tmClass) {
 // { q, type, tmClass, file? }) — the server saves it for the customer with this
 // mobile and sends the report link to it on WhatsApp (server: POST
 // /api/trademark/whatsapp-report). Resolves { whatsappSent, message }.
-export const sendTrademarkReportToWhatsApp = async ({ name, mobile, state, params, limit = 10 }) => {
+// `firstSend`: true when sent from the WhatsApp details form (the server raises
+// the visitor's Lead then); false for their later searches in the same visit.
+export const sendTrademarkReportToWhatsApp = async ({ name, mobile, state, params, limit = 10, firstSend = true }) => {
   const form = new FormData();
   form.append("name", name);
   form.append("mobile", mobile);
@@ -143,6 +146,24 @@ export const sendTrademarkReportToWhatsApp = async ({ name, mobile, state, param
   if (!params.file) form.append("type", params.type);
   if (params.tmClass) form.append("classes", params.tmClass);
   form.append("limit", limit);
-  const { data } = await api.post("/api/trademark/whatsapp-report", form);
+  const searchType = params.file ? "IMAGE" : params.type;
+  let data;
+  try {
+    ({ data } = await api.post("/api/trademark/whatsapp-report", form));
+  } catch (err) {
+    trackEvent("whatsapp_report_failed", { search_type: searchType, first_send: firstSend });
+    throw err;
+  }
+  // No OTP here: the WhatsApp number is the contact, and this call also inserts
+  // the visitor's Lead — so the first send counts as a lead in Analytics.
+  trackEvent("whatsapp_report_sent", {
+    search_type: searchType,
+    first_send: firstSend,
+    whatsapp_sent: data?.whatsappSent !== false,
+    state,
+  });
+  if (firstSend) {
+    trackEvent("generate_lead", { lead_source: "trademark_whatsapp", method: "whatsapp", service: "Trademark Registration", state });
+  }
   return data;
 };
