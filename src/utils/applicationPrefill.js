@@ -1,3 +1,4 @@
+import { endSharedSession } from "./sharedLogin";
 import { getSecureItem } from "./secureStorage";
 import { FLOWS, STATES, BIZ_TYPES, LEAD_LANGUAGES } from "../components/ExixistingCompany/existingCompanyData";
 
@@ -84,6 +85,7 @@ export function belongsToOtherCustomer(saved) {
 // Logout: end the session but keep unfinished applications' saved progress, so
 // signing back in can continue them (a plain localStorage.clear() wiped them).
 export function clearStorageKeepingApplications() {
+  endSharedSession(); // signs out of Virtual Office too
   const keep = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);

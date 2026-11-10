@@ -39,7 +39,12 @@ export const signupWithPhone = async (name, email, phone, referralToken, state, 
 
 export const verifyOtp = async (phone, otp) => {
   try {
-    const response = await axiosInstance.post("/verify-website-otp", { phone, otp });
+    const response = await axiosInstance.post(
+      "/verify-website-otp",
+      { phone, otp },
+      // Lets the API set the shared login cookie (also signs in to Virtual Office).
+      { withCredentials: true },
+    );
     trackEvent("otp_verified");
     // Return the correct data structure
     if (response.data && response.data.data) {

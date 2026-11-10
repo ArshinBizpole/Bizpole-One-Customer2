@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BadgeCheck, BookOpen, ChevronRight, ExternalLink, Layers, LogOut, UserRound } from "lucide-react";
+import { BadgeCheck, BookOpen, Building2, ChevronRight, ExternalLink, Layers, LogOut, UserRound } from "lucide-react";
 import { JOURNL_URL, openExternal } from "../utils/externalLinks";
+import { VO_URL } from "../utils/sharedLogin";
 import { getSecureItem } from "../utils/secureStorage";
 import { userPhoto } from "../utils/profilePhoto";
 import { clearStorageKeepingApplications } from "../utils/applicationPrefill";
@@ -41,10 +42,14 @@ export default function ProfileMenu() {
   // Platform logos live in public/Images/platforms/ — until a file is there the
   // placeholder icon shows instead (see PlatformLogo).
   const platforms = [
+    // The app the user is in now: shown, not clickable.
+    { name: "Bizpole One", desc: "Your Bizpole account & services", logo: "/favicon-192.png", logoCls: "w-9 h-9 object-cover scale-[2.2]", icon: Layers, current: true },
     { name: "Compass", desc: "Business Advisory & Consulting", logo: "/Images/platforms/compass.jpg", icon: Layers, path: "/dashboard/bizpoleone",
       badge: hasCompany ? { text: "Active", cls: "bg-green-50 text-green-700", dot: "bg-green-500" } : null },
     // Its own site — opens in a new tab (href instead of an in-app path).
     { name: "Journl", desc: "Accounting & Bookkeeping", logo: "/Images/platforms/journl.jpg", icon: BookOpen, href: JOURNL_URL },
+    // Separate app with shared login: opens already signed in (see utils/sharedLogin).
+    { name: "Virtual Office", desc: "GST & Registered Office Address", logo: "/Images/platforms/virtual-office.jpg", icon: Building2, href: VO_URL },
   ];
 
   useEffect(() => {
@@ -156,7 +161,24 @@ export default function ProfileMenu() {
             <div className="pt-3">
               <div className="text-sm font-bold text-teal-700 mb-2">Platforms</div>
               <div className="space-y-2">
-                {platforms.map((p) => (
+                {platforms.map((p) => p.current ? (
+                  <div
+                    key={p.name}
+                    aria-current="page"
+                    className="w-full flex items-center gap-3 rounded-xl border border-yellow-300 bg-yellow-50 shadow-sm px-3 py-2.5"
+                  >
+                    <span className="w-9 h-9 flex-none rounded-lg bg-gray-50 flex items-center justify-center overflow-hidden">
+                      <PlatformLogo src={p.logo} Fallback={p.icon} name={p.name} className={p.logoCls} />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm font-semibold text-gray-900">{p.name}</span>
+                      <span className="block text-xs text-gray-500 truncate">{p.desc}</span>
+                    </span>
+                    <span className="flex-none inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> You&apos;re here
+                    </span>
+                  </div>
+                ) : (
                   <button
                     key={p.name}
                     type="button"
@@ -221,8 +243,8 @@ export default function ProfileMenu() {
 }
 
 // A platform's logo image, or its placeholder icon if the file is missing.
-function PlatformLogo({ src, Fallback, name }) {
+function PlatformLogo({ src, Fallback, name, className }) {
   const [failed, setFailed] = useState(false);
   if (failed || !src) return <Fallback className="w-5 h-5 text-teal-700" />;
-  return <img src={src} alt={name} className="w-7 h-7 object-contain mix-blend-multiply" onError={() => setFailed(true)} />;
+  return <img src={src} alt={name} className={className || "w-7 h-7 object-contain mix-blend-multiply"} onError={() => setFailed(true)} />;
 }

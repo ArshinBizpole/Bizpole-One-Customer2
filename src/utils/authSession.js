@@ -1,4 +1,5 @@
 import { getTokenExpiryMs } from "./jwt";
+import { endSharedSession } from "./sharedLogin";
 
 // Keys that represent the logged-in session — cleared on logout/expiry.
 // (Deliberately excludes the referral scan token — referralScanToken/ExpiresAt, see
@@ -17,6 +18,8 @@ const SESSION_KEYS = [
 
 export const clearSession = () => {
   SESSION_KEYS.forEach((key) => localStorage.removeItem(key));
+  // Also end the shared login, or it would be restored on the next page load.
+  endSharedSession();
   notifySessionCleared();
 };
 

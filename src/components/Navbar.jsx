@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { FaBars, FaTimes } from "react-icons/fa";
 import SigninModal from "./Modals/SigninModal";
 import ProfileMenu from "./ProfileMenu";
+import { VO_URL } from "../utils/sharedLogin";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -20,7 +21,11 @@ export default function Navbar() {
     { label: "Bizpole One", path: "/bizpoleone", isNew: true },
     { label: "Partners", path: "/partners" },
     { label: "Trademark Search", path: "/trademark-search" },
+    // Separate app (shared login): opens signed in when the user is signed in here.
+    { label: "Virtual Office", path: VO_URL, appSwitch: true },
   ];
+  // Signed in: the app switch lives in the profile menu (Platforms), not the nav bar.
+  const visibleNavItems = navItems.filter((item) => !(item.appSwitch && hasToken));
 
   // Auto-open Signin Modal
   useEffect(() => {
@@ -55,8 +60,12 @@ export default function Navbar() {
   // they are resolved server-side into a scan token; nothing is copied into PartnerID.
 
   const handleNavigate = (path) => {
-    navigate(path);
     setMobileMenuOpen(false);
+    if (/^https?:\/\//.test(path)) {
+      window.location.assign(path);
+      return;
+    }
+    navigate(path);
   };
 
   // The Bizpole One page's hero shape runs up behind the nav, so the nav floats
@@ -83,7 +92,7 @@ export default function Navbar() {
 
           {/* DESKTOP MENU */}
           <ul className="hidden lg:flex items-center gap-7 xl:gap-12 font-medium text-base xl:text-lg">
-            {navItems.map((item, index) => {
+            {visibleNavItems.map((item, index) => {
               const isActive = location.pathname === item.path;
 
               return (
@@ -202,7 +211,7 @@ export default function Navbar() {
               className="lg:hidden absolute left-3 right-3 top-full rounded-2xl bg-white shadow-xl border border-gray-200"
             >
               <ul className="flex flex-col p-6 space-y-5 text-gray-800">
-                {navItems.map((item, index) => (
+                {visibleNavItems.map((item, index) => (
                   <li key={index}>
                     <button
                       onClick={() => handleNavigate(item.path)}
