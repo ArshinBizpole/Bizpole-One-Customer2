@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { trackEvent } from "../utils/analytics";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { FaSearch, FaRegCopyright, FaChevronLeft, FaChevronRight, FaArrowRight, FaFilePdf, FaLock, FaImage, FaTimes, FaWhatsapp } from "react-icons/fa";
+import { FaSearch,FaChevronLeft, FaChevronRight, FaArrowRight, FaFilePdf, FaLock, FaImage, FaTimes, FaWhatsapp } from "react-icons/fa";
 import {
   searchTrademarks,
   searchTrademarksByImage,
@@ -494,13 +494,8 @@ export default function TrademarkSearch({ embedded = false }) {
               transition={{ duration: 0.6 }}
               className="flex flex-col"
             >
-              <div className="text-center lg:pr-[12%]">
-                <span className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-[#FFF4C9] border border-[#F5D77A] text-[#5C3D00] text-[14px] md:text-[19px] font-semibold tracking-wide uppercase">
-                  <FaRegCopyright className="text-[#E8A000] text-[15px]" /> Indian Trademark Registry
-                </span>
-              </div>
-              <div className="w-full lg:w-[62%] xl:w-[64%] text-center mt-8 md:mt-[38px]">
-                <h1 className="text-[40px] sm:text-[54px] lg:text-[58px] xl:text-[66px] font-extrabold text-[#0B0B0B] leading-[0.95] tracking-tight">
+              <div className="w-full lg:w-[62%] xl:w-[64%] text-center">
+                <h1 className="text-[40px] sm:text-[54px] lg:text-[58px] xl:text-[66px] font-extrabold text-[#0B0B0B] leading-[1.1] tracking-tight">
                   Protect your <span className="text-[#FFC21A]">brand.</span>
                   <br />
                   Start with a <span className="text-[#FFC21A]">search.</span>
