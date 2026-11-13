@@ -177,10 +177,19 @@ export default function TrademarkSearch({ embedded = false }) {
   const [assessment, setAssessment] = useState(null);
   const [assessmentLoading, setAssessmentLoading] = useState(false);
   const hasResults = !!result?.results?.length;
+  // Visitors who got the report on WhatsApp aren't signed in, so /assessment
+  // would refuse them — the WhatsApp send returns the assessment instead.
+  const [waAssessment, setWaAssessment] = useState(null); // { q, tmClass, data }
   useEffect(() => {
     setAssessment(null);
     // A name + logo search is assessed on its name.
     if (!unlocked || !hasResults || !hasBrandName(submitted?.type)) return undefined;
+    if (!localStorage.getItem("token")) {
+      if (waAssessment && waAssessment.q === submitted.q && waAssessment.tmClass === (submitted.tmClass || "")) {
+        setAssessment(waAssessment.data);
+      }
+      return undefined;
+    }
     let current = true;
     setAssessmentLoading(true);
     getTrademarkAssessment({ q: submitted.q, classes: submitted.tmClass ? [submitted.tmClass] : [] })
@@ -196,7 +205,7 @@ export default function TrademarkSearch({ embedded = false }) {
     return () => {
       current = false;
     };
-  }, [unlocked, hasResults, submitted?.q, submitted?.type, submitted?.tmClass]);
+  }, [unlocked, hasResults, submitted?.q, submitted?.type, submitted?.tmClass, waAssessment]);
 
   const markLimitReached = (err) => {
     const usage = err.response?.data?.usage;
@@ -278,6 +287,7 @@ export default function TrademarkSearch({ embedded = false }) {
     try {
       const data = await sendTrademarkReportToWhatsApp({ ...contact, params, limit: PAGE_SIZE, firstSend });
       setWaNotice(data.message);
+      if (data.assessment) setWaAssessment({ q: params.q, tmClass: params.tmClass || "", data: data.assessment });
     } catch (err) {
       throw new Error(err.response?.data?.message || "Could not send your report right now. Please try again.");
     }
