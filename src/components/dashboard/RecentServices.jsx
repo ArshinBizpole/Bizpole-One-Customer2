@@ -35,12 +35,12 @@ const RecentServices = ({ services, loading }) => (
       <p className="py-8 text-center text-sm text-gray-400">No services on this company yet.</p>
     ) : (
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] text-sm">
+        <table className="w-full text-sm sm:min-w-[560px]">
           <thead>
             <tr className="border-b border-gray-100 text-left text-xs font-medium uppercase text-gray-400">
               <th className="py-2.5 pr-3 font-medium">Name</th>
               <th className="py-2.5 pr-3 font-medium">Status</th>
-              <th className="py-2.5 pr-3 font-medium">Date</th>
+              <th className="hidden py-2.5 pr-3 font-medium sm:table-cell">Date</th>
               <th className="py-2.5 font-medium">Progress</th>
             </tr>
           </thead>
@@ -53,6 +53,7 @@ const RecentServices = ({ services, loading }) => (
                 <td className="py-3 pr-3">
                   <p className="font-medium">{s.name}</p>
                   {s.code && <p className="text-[11px] text-gray-400">{s.code}</p>}
+                  <p className="text-[11px] text-gray-400 sm:hidden">{fmtDate(s.date)}</p>
                 </td>
                 <td className="py-3 pr-3">
                   <span className="flex items-center gap-2 font-semibold">
@@ -60,13 +61,13 @@ const RecentServices = ({ services, loading }) => (
                     {status}
                   </span>
                 </td>
-                <td className="py-3 pr-3 font-semibold">{fmtDate(s.date)}</td>
+                <td className="hidden py-3 pr-3 font-semibold sm:table-cell">{fmtDate(s.date)}</td>
                 <td className="py-3">
                   <div
                     className="flex items-center gap-2"
                     title={s.totalTasks ? `${s.doneTasks} of ${s.totalTasks} tasks done` : "No tasks yet"}
                   >
-                    <div className="h-1.5 w-24 overflow-hidden rounded-full bg-gray-100">
+                    <div className="h-1.5 w-12 overflow-hidden rounded-full bg-gray-100 sm:w-24">
                       <div className="h-full rounded-full bg-amber-400" style={{ width: `${progress}%` }} />
                     </div>
                     <span className="text-[11px] text-gray-500">{progress}%</span>

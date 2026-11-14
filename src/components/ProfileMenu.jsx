@@ -7,6 +7,7 @@ import { userPhoto } from "../utils/profilePhoto";
 import { clearStorageKeepingApplications } from "../utils/applicationPrefill";
 import { notifySessionCleared } from "../utils/authSession";
 import ConfirmMsg from "./ConfirmMsg";
+import { popoverPlacement } from "../utils/popover";
 
 function readUser() {
   try {
@@ -68,6 +69,18 @@ export default function ProfileMenu() {
 
   const go = (path) => { setOpen(false); navigate(path); };
 
+  // Card position, worked out on open so it stays on screen on narrow phones;
+  // the spike still points at the centre of the profile picture.
+  const [place, setPlace] = useState(null);
+  const toggle = () => {
+    if (!open && boxRef.current) {
+      const p = popoverPlacement(boxRef.current, 340, { margin: 16, overhang: 10 });
+      const r = boxRef.current.getBoundingClientRect();
+      setPlace({ ...p, spikeRight: p.panelRight - (r.left + r.width / 2) - 16 });
+    }
+    setOpen((v) => !v);
+  };
+
   const avatar = (size, ring) => (
     <span className={`flex items-center justify-center rounded-full overflow-hidden bg-yellow-100 text-yellow-800 font-bold ${size} ${ring}`}>
       {photo ? <img src={photo} alt={name} className="w-full h-full object-cover" /> : initials}
@@ -78,7 +91,7 @@ export default function ProfileMenu() {
     <div ref={boxRef} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         aria-haspopup="true"
         aria-expanded={open}
         title="Your account"
@@ -89,9 +102,10 @@ export default function ProfileMenu() {
 
       {open && (
         <div
-          className="absolute top-full mt-4 z-50 w-[340px] max-w-[calc(100vw-32px)]"
+          className="absolute top-full mt-4 z-50"
           style={{
-            right: -10,
+            right: place?.right ?? -10,
+            width: place?.width ?? 340,
             // One filter over card + spike so they cast a single seamless shadow;
             // the faint 0-offset shadow outlines the shape on white pages.
             filter:
@@ -106,7 +120,7 @@ export default function ProfileMenu() {
             aria-hidden="true"
             width="32" height="16" viewBox="0 0 32 16"
             className="absolute -top-[14px]"
-            style={{ right: 12 }}
+            style={{ right: place?.spikeRight ?? 12 }}
           >
             <path d="M0 16 C8 16 10.5 12.5 13 7 Q16 0 19 7 C21.5 12.5 24 16 32 16 Z" fill="#fff" />
           </svg>

@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import AOS from "aos";
 import useAutoLogout from "./hooks/useAutoLogout";
 import useLegacyReferral from "./hooks/useLegacyReferral";
+import axiosInstance from "./api/axiosInstance";
+import { setInternalServiceStatuses } from "./utils/orderStatus";
 
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -27,6 +29,7 @@ import BizpoleBooks from "./pages/BizpoleBooks";
 // BizpoleOne dashboard pages
 import BizpoleOneDashboardLayout from "./pages/BizpoleOneDashboardLayout";
 import BizpoleOne from "./pages/BizpoleOne";
+import QuoteCheckout from "./pages/QuoteCheckout";
 import BizpoleOneServices from "./pages/BizpoleOneServices";
 import BizpoleOneTasks from "./pages/BizpoleOneTasks";
 import SupportTickets from "./pages/SupportTickets";
@@ -42,6 +45,7 @@ import CustomerFiles from "./pages/CustomerFiles";
 import CompanyDetails from "./pages/CompanyDetails";
 import Invoiceprofile from "./pages/Invoiceprofile";
 import Refunds from "./pages/Refunds";
+import ProfileCommunications from "./pages/ProfileCommunications";
 
 import Services from "./pages/Services";
 import ServiceDetails from "./pages/ServiceDetails";
@@ -54,6 +58,7 @@ import CancellationRefundPolicy from "./pages/CancellationRefundPolicy";
 import AssociatePrivacyPolicy from "./pages/associate/AssociatePrivacyPolicy";
 import AssociateTermsAndConditions from "./pages/associate/AssociateTermsAndConditions";
 import AssociateReferralConductPolicy from "./pages/associate/AssociateReferralConductPolicy";
+import AssociateCancellationRefundPolicy from "./pages/associate/AssociateCancellationRefundPolicy";
 
 
 import Plansandpricing from "./pages/Plansandpricing";
@@ -71,6 +76,7 @@ import { CartProvider } from "./context/CartContext";
 import GlobalCart from "./components/Cart/GlobalCart";
 import InvoicePreview from "./pages/InvoicePreview";
 import WhatsAppLogin from "./pages/WhatsAppLogin";
+import TrademarkReportPage from "./pages/TrademarkReportPage";
 
 
 // Associate Dashboard
@@ -99,6 +105,8 @@ import ReferralLanding from "./pages/ReferralLanding";
 import AffiliateLanding from "./pages/affiliate/AffiliateLanding";
 import AffiliateLayout from "./pages/affiliate/AffiliateLayout";
 import AffiliateDashboard from "./pages/affiliate/AffiliateDashboard";
+import { applyPageMeta } from "./utils/pageTitles";
+import { trackEvent } from "./utils/analytics";
 
 function App() {
   const location = useLocation();
@@ -110,10 +118,34 @@ function App() {
     AOS.init({ duration: 1000 });
   }, []);
 
+  // Each route's own title / description / canonical (SEO), then its Google
+  // Analytics page view — sent here (not by GA's automatic history tracking)
+  // so it carries the new title.
+  useEffect(() => {
+    applyPageMeta(location.pathname);
+    trackEvent("page_view", {
+      page_title: document.title,
+      page_location: window.location.href,
+      page_path: location.pathname,
+    });
+  }, [location.pathname]);
+
+  // Service statuses set as Internal in Status Master, so the portal shows the
+  // status chosen there instead. Needs a session token; without one (or if the
+  // call fails) the portal's fixed status mapping is used as before.
+  useEffect(() => {
+    if (!(localStorage.getItem("partnerToken") || localStorage.getItem("token"))) return;
+    axiosInstance
+      .get("/customerStatusMap")
+      .then((res) => setInternalServiceStatuses(res?.data?.data?.service))
+      .catch(() => {});
+  }, [location.pathname.startsWith("/dashboard")]);
+
   // Hide Navbar & Footer for these paths
   const hideLayoutPaths = [
     "/payments",
     "/wa-login",
+    "/trademark-report",
     "/quiz",
     "/profile",
     // "/existing-companies",
@@ -125,6 +157,7 @@ function App() {
     "/partner-privacy-policy",
     "/partner-terms-and-conditions",
     "/partner-referral-conduct-policy",
+    "/partner-cancellation-refund-policy",
   ];
 
   const hideLayout = hideLayoutPaths.some((path) =>
@@ -176,12 +209,15 @@ function App() {
           <Route path="/questions" element={<BusinessQuizWizard />} />
           {/* Sign-in link sent by the WhatsApp assistant (document upload) */}
           <Route path="/wa-login" element={<WhatsAppLogin />} />
+          {/* Report link sent on WhatsApp / email / from the CRM — no sign-in */}
+          <Route path="/trademark-report" element={<TrademarkReportPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
           <Route path="/cancellation-refund-policy" element={<CancellationRefundPolicy />} />
           <Route path="/partner-privacy-policy" element={<AssociatePrivacyPolicy />} />
           <Route path="/partner-terms-and-conditions" element={<AssociateTermsAndConditions />} />
           <Route path="/partner-referral-conduct-policy" element={<AssociateReferralConductPolicy />} />
+          <Route path="/partner-cancellation-refund-policy" element={<AssociateCancellationRefundPolicy />} />
 
           {/* Referral & Affiliate Programme */}
           <Route path="/r/:code" element={<ReferralLanding />} />
@@ -202,6 +238,7 @@ function App() {
             <Route path="companydetails" element={<CompanyDetails />} />
             <Route path="invoice" element={<Invoiceprofile />} />
             <Route path="refunds" element={<Refunds />} />
+            <Route path="communications" element={<ProfileCommunications />} />
             <Route path="invoice-preview/:encrypted" element={<InvoicePreview />} />
 
 
@@ -226,6 +263,8 @@ function App() {
                   <Route path="orders" element={<BizpoleOneServices />} />
                   <Route path="tasks" element={<BizpoleOneTasks />} />
                   <Route path="pricing" element={<Plansandpricing />} />
+                  {/* Quotes → View on an open quote: amounts + offers before the quote opens */}
+                  <Route path="quote/:quoteId" element={<QuoteCheckout />} />
                   <Route path="individual" element={<MyIndividualservices />} />
                   <Route path="chat" element={<ChatPage />} />
                   {/* Billing and Refunds now live under Profile → Invoice */}

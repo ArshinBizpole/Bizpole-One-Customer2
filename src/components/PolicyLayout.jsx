@@ -8,8 +8,8 @@ const POLICY_INFO = {
   companyName: "BIZPOLE BUSINESS SOLUTIONS PRIVATE LIMITED",
   address:
     "2nd Floor, Falcon Complex, Opp. HPCL Petrol Bunk, Nurani, Palakkad City, Palakkad, Kerala – 678014.",
-  email: "",
-  phone: "",
+  email: "info@bizpole.in",
+  phone: "+91 95399 95533",
 };
 
 // A section counts as "current" once its heading is within this many px of the

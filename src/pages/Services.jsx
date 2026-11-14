@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import SigninModal from "../components/Modals/SigninModal";
 import ServiceDetails from "./ServiceDetails";
 import PackagePlans from "../components/PackagePlans";
-import { Building2, FileText, Scale, CheckCircle2, Wallet, Globe2, Tag, Sparkles, Briefcase, Receipt, FileCheck2, DollarSign, ShoppingCart, MapPin, ArrowRight, X, Loader2, SearchX } from "lucide-react";
+import { Building2, FileText, Scale, CheckCircle2, Wallet, Globe2, Tag, Sparkles, Briefcase, Receipt, FileCheck2, DollarSign, ShoppingCart, MapPin, ArrowRight, X, Loader2, SearchX, Handshake, UserRound, User, ShieldCheck, Factory, UtensilsCrossed, HeartHandshake, PiggyBank, Wheat, FileSearch, Calculator, KeyRound, Monitor, Palette, Megaphone, Landmark } from "lucide-react";
 // Icons
 const IconSearch = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -87,15 +87,47 @@ const getCategoryIcon = (categoryName) => {
   return found ? found.icon : Tag;
 };
 
+// Card icon from the service name (first match wins), else its category's icon.
+const SERVICE_ICON_KEYWORDS = [
+  { match: /\bllp\b|limited\s*liability|partnership/i, icon: Handshake },
+  { match: /one\s*person|\bopc\b/i, icon: UserRound },
+  { match: /proprietor/i, icon: User },
+  { match: /section\s*8|\bngo\b|trust|society/i, icon: HeartHandshake },
+  { match: /nidhi/i, icon: PiggyBank },
+  { match: /producer/i, icon: Wheat },
+  { match: /public\s*limited/i, icon: Landmark },
+  { match: /private\s*limited|\bpvt\b|company|incorporat|name\s*reserv/i, icon: Building2 },
+  { match: /trade\s*mark|copyright|patent|\bipr\b|design\s*regist/i, icon: ShieldCheck },
+  { match: /msme|udyam/i, icon: Factory },
+  { match: /fssai|food/i, icon: UtensilsCrossed },
+  { match: /\biec\b|import|export|apeda/i, icon: Globe2 },
+  { match: /\bgst\b|tds|income\s*tax|\btax|e-?way/i, icon: Receipt },
+  { match: /audit/i, icon: FileSearch },
+  { match: /account|bookkeep|financial\s*statement|\bfs\b/i, icon: Calculator },
+  { match: /\bdsc\b|digital\s*signature/i, icon: KeyRound },
+  { match: /website|domain|mail/i, icon: Monitor },
+  { match: /logo|designing/i, icon: Palette },
+  { match: /marketing/i, icon: Megaphone },
+  { match: /legal|agreement|deed/i, icon: Scale },
+  { match: /\bpf\b|\besi\b|payroll/i, icon: Wallet },
+  { match: /\bform\b|\binc\b|\baoc\b|\bmgt\b|roc|annual|compliance|filing|director/i, icon: FileCheck2 },
+];
+const getServiceIcon = (serviceName, categoryName) => {
+  const found = SERVICE_ICON_KEYWORDS.find(({ match }) => match.test(serviceName || ""));
+  return found ? found.icon : getCategoryIcon(categoryName);
+};
+
 import { getAllStates } from "../api/States";
 import Pagination from "../components/Pagination";
 import StateSelect from "../components/StateSelect";
 
-const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price: fetchedPrice, priceLoading, onSelectState, stateId, setShowSigninModal, navigate }) => {
+const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price: fetchedPrice, priceLoading, onSelectState, stateId, stateName, setShowSigninModal, navigate }) => {
   // While loading, treat as no price so Request Quote / Select stay disabled
   const price = priceLoading ? null : fetchedPrice;
+  const [requestingQuote, setRequestingQuote] = useState(false);
   const features = service.Features || [];
   const categoryName = service.Category?.CategoryName || service.CategoryName;
+  const ServiceIcon = getServiceIcon(service.ServiceName || service.Name, categoryName);
   // API descriptions sometimes come wrapped in literal quote characters — strip them for display
   const description = (service.description || service.Description || "").trim().replace(/^["']+|["']+$/g, "").trim();
   return (
@@ -121,8 +153,8 @@ const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price: fetche
       <div className="p-5 flex-1 flex flex-col">
         {/* Header */}
         <div className="flex items-start gap-3 mb-3">
-          <div className="w-11 h-11 rounded-xl bg-[#F3C625] flex items-center justify-center text-xl flex-shrink-0">
-            {service.Icon || "⚡"}
+          <div className="w-11 h-11 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-xl flex-shrink-0">
+            {service.Icon || <ServiceIcon size={20} strokeWidth={1.75} className="text-gray-700" />}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
@@ -148,7 +180,7 @@ const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price: fetche
 
         {/* Features */}
         {features.length > 0 && (
-          <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-4">
+          <div className="grid grid-cols-1 min-[440px]:grid-cols-2 gap-x-3 gap-y-2 mb-4">
             {features.slice(0, 4).map((feat, i) => (
               <div key={i} className="flex items-center gap-1.5 text-xs text-gray-600">
                 <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isSelected ? "bg-[#F3C625]" : "bg-gray-300"}`} />
@@ -239,21 +271,22 @@ const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price: fetche
               {/* Request Quote + Select together */}
               <div className="flex items-center gap-2">
                 <button
-                  className={`flex-1 flex items-center justify-center text-xs font-semibold rounded-lg px-3 py-2 border transition-colors ${!stateId || !price
+                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold rounded-lg px-3 py-2 border transition-colors ${!stateId || !price || requestingQuote
                     ? "border-gray-200 text-gray-400 bg-gray-100 cursor-not-allowed"
                     : "border-yellow-400 text-black hover:bg-yellow-500"
                     }`}
                   style={{ minHeight: 36 }}
                   type="button"
-                  disabled={!stateId || !price}
+                  disabled={!stateId || !price || requestingQuote}
                   onClick={async (e) => {
                     e.stopPropagation();
-                    if (!stateId || !price) return;
+                    if (!stateId || !price || requestingQuote) return;
                     const token = localStorage.getItem('token');
                     if (!token) {
                       setShowSigninModal(true);
                       return;
                     }
+                    setRequestingQuote(true);
                     try {
                       const user = getSecureItem("user");
                       const selectedCompany = getSecureItem("selectedCompany");
@@ -355,10 +388,19 @@ const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price: fetche
                       navigate("/dashboard/bizpoleone");
                     } catch (err) {
                       toast.error("Failed to create quote. Please try again.", err);
+                    } finally {
+                      setRequestingQuote(false);
                     }
                   }}
                 >
-                  Request Quote
+                  {requestingQuote ? (
+                    <>
+                      <Loader2 size={14} strokeWidth={2.5} className="animate-spin text-[#F3C625]" />
+                      Requesting...
+                    </>
+                  ) : (
+                    "Request Quote"
+                  )}
                 </button>
 
                 <motion.button
@@ -394,7 +436,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
   // embedded only: service whose "Know More" details are shown in place of the list
   const [detailServiceId, setDetailServiceId] = useState(embedded ? initialServiceId : null);
   // Public page only: packages tab (default) or the individual-services list
-  const [view, setView] = useState("packages");
+  const [view, setView] = useState("services");
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -439,7 +481,13 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
   useEffect(() => {
     setCategoriesLoading(true);
     ServicesApi.getServiceCategories()
-      .then((res) => setCategories(res.data || []))
+      .then((res) => {
+        const list = res.data || [];
+        setCategories(list);
+        // Open on Business Registration instead of All (if that category exists)
+        const bizReg = list.find((c) => /business\s*regist/i.test(c.CategoryName || ""));
+        if (bizReg) setSelectedCategory((cur) => cur || bizReg.CategoryID.toString());
+      })
       .catch(() => setCategories([]))
       .finally(() => setCategoriesLoading(false));
   }, []);
@@ -615,22 +663,6 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
   //   }
   // };
 
-  // Store latest known prices for selected services in localStorage
-  useEffect(() => {
-    if (Object.keys(bulkPrices).length > 0) {
-      try {
-        const prev = JSON.parse(localStorage.getItem("SelectedServicePrices") || "{}") || {};
-        const updated = { ...prev };
-        Object.entries(bulkPrices).forEach(([sid, priceObj]) => {
-          if (priceObj && priceObj.TotalFee) {
-            updated[sid] = priceObj.TotalFee;
-          }
-        });
-        localStorage.setItem("SelectedServicePrices", JSON.stringify(updated));
-      } catch (err) { console.log(err); }
-    }
-  }, [bulkPrices]);
-
   if (embedded && detailServiceId) {
     return (
       <ServiceDetails
@@ -748,15 +780,6 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
             {/* Package / individual service tabs */}
             <div className="mt-7 inline-flex flex-wrap justify-center gap-3">
               <button
-                onClick={() => setView("packages")}
-                className={`px-5 py-2 rounded-full text-sm font-semibold border transition-all ${view === "packages"
-                  ? "bg-gray-900 border-gray-900 text-white shadow-md"
-                  : "bg-white border-gray-300 text-gray-600 hover:text-gray-900"
-                  }`}
-              >
-                Package
-              </button>
-              <button
                 onClick={() => setView("services")}
                 className={`px-5 py-2 rounded-full text-sm font-semibold border transition-all ${view === "services"
                   ? "bg-[#FFFBEA] border-[#F3C625] text-black shadow-md"
@@ -764,6 +787,15 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
                   }`}
               >
                 Choose individual service
+              </button>
+              <button
+                onClick={() => setView("packages")}
+                className={`px-5 py-2 rounded-full text-sm font-semibold border transition-all ${view === "packages"
+                  ? "bg-gray-900 border-gray-900 text-white shadow-md"
+                  : "bg-white border-gray-300 text-gray-600 hover:text-gray-900"
+                  }`}
+              >
+                Package
               </button>
             </div>
           </div>
@@ -785,9 +817,9 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
             transition={{ duration: 0.3 }}
             className="flex-shrink-0 overflow-hidden"
           >
-            <div className="w-full lg:w-60 bg-white rounded-3xl border border-gray-100 shadow-sm p-5 sticky">
+            <div className="w-full lg:w-60 bg-white rounded-3xl border border-gray-100 shadow-sm p-4 lg:p-5 sticky">
               {/* Sidebar Header */}
-              <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center justify-between mb-4 lg:mb-5">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-[#F3C625] flex items-center justify-center">
                     <IconFilter />
@@ -800,7 +832,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
               </div>
 
               {/* Search */}
-              <div className="mb-5">
+              <div className="mb-4 lg:mb-5">
                 <p className="text-xs font-semibold text-gray-500 mb-2">Search Services</p>
                 <div className="relative">
                   <input
@@ -819,10 +851,11 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
               {/* Categories */}
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-2">Categories</p>
-                <div className="space-y-1.5">
+                {/* Phones/tablets: one swipeable row of chips; desktop: the sidebar list */}
+                <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:block lg:space-y-1.5 lg:overflow-visible lg:pb-0">
                   <button
                     onClick={() => handleCategoryChange("")}
-                    className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${!selectedCategory
+                    className={`shrink-0 whitespace-nowrap lg:whitespace-normal lg:w-full flex items-center gap-2 lg:gap-2.5 px-3 lg:px-4 py-2 lg:py-2.5 rounded-full lg:rounded-lg text-sm font-semibold transition-all ${!selectedCategory
                       ? "bg-[#F3C625] text-white shadow-sm"
                       : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                       }`}
@@ -840,7 +873,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
                         <button
                           key={cat.CategoryID}
                           onClick={() => handleCategoryChange(cat.CategoryID.toString())}
-                          className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-left transition-all ${isActive
+                          className={`shrink-0 whitespace-nowrap lg:whitespace-normal lg:w-full flex items-center gap-2 lg:gap-2.5 px-3 lg:px-4 py-2 lg:py-2.5 rounded-full lg:rounded-lg text-sm font-semibold text-left transition-all ${isActive
                             ? "bg-[#F3C625] text-white shadow-sm"
                             : "bg-gray-50 text-gray-500 hover:bg-gray-200"
                             }`}
@@ -854,8 +887,8 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
                 </div>
               </div>
 
-              {/* Your Selection */}
-              <div className="mt-6 pt-4 border-t border-gray-100">
+              {/* Your Selection — on phones/tablets only once something is picked */}
+              <div className={`mt-5 lg:mt-6 pt-4 border-t border-gray-100 ${selectedServices.length === 0 ? "hidden lg:block" : ""}`}>
                 <div className="flex items-center gap-2 mb-3">
                   <ShoppingCart size={16} className="text-gray-700" strokeWidth={2} />
                   <span className="font-bold text-gray-900 text-sm">Your Selection</span>
@@ -884,12 +917,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
                         const CategoryIcon = getCategoryIcon(categoryName);
 
                         let price = bulkPrices[sid]?.TotalFee;
-                        if (!price) {
-                          try {
-                            const priceCache = JSON.parse(localStorage.getItem("SelectedServicePrices") || "{}");
-                            price = priceCache[sid];
-                          } catch (error) { console.error("Error fetching services:", error); }
-                        }
+                        if (!price) price = cart[sid]?.TotalFee;
 
                         return (
                           <div key={sid} className="relative bg-[#FFFCF0] border border-amber-100 rounded-2xl p-3.5 pr-8">
@@ -944,10 +972,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
                                 } else if (typeof price === "number" || typeof price === "string") {
                                   value = parseFloat(price) || 0;
                                 } else {
-                                  try {
-                                    const priceCache = JSON.parse(localStorage.getItem("SelectedServicePrices") || "{}");
-                                    value = parseFloat(priceCache[sid]) || 0;
-                                  } catch (error) { console.error("Error fetching services:", error); }
+                                  value = parseFloat(cart[sid]?.TotalFee) || 0;
                                 }
                                 return sum + value;
                               }, 0).toLocaleString("en-IN")}
@@ -964,10 +989,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
                                 } else if (typeof price === "number" || typeof price === "string") {
                                   value = parseFloat(price) || 0;
                                 } else {
-                                  try {
-                                    const priceCache = JSON.parse(localStorage.getItem("SelectedServicePrices") || "{}");
-                                    value = parseFloat(priceCache[sid]) || 0;
-                                  } catch (error) { console.error("Error fetching services:", error); }
+                                  value = parseFloat(cart[sid]?.TotalFee) || 0;
                                 }
                                 return sum + value;
                               }, 0).toLocaleString("en-IN")}
@@ -1120,6 +1142,7 @@ const Services = ({ embedded = false, initialServiceId = null }) => {
                         price={getBulkPrice(service.ServiceID)}
                         onSelectState={openStateModal}
                         stateId={stateId}
+                        stateName={selectedStateName}
                         priceLoading={isPriceLoading(service.ServiceID)}
                         setShowSigninModal={(open) => { setSigninService(service); setShowSigninModal(open); }}
                         navigate={navigate}

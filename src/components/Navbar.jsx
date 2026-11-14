@@ -73,12 +73,7 @@ export default function Navbar() {
             onClick={() => navigate("/")}
             className="cursor-pointer flex items-center"
           >
-            {hasToken || isBizpoleOnePage ? (
-              <img src="/Images/image.png" alt="Bizpole One" className="h-10 sm:h-12 lg:h-14 w-auto" />
-            ) : (
-              // mix-blend keeps the logo's white backdrop from showing on tinted pages
-              <img src="/Images/logo.webp" alt="Bizpole" className="h-10 sm:h-12 lg:h-14 w-auto mix-blend-multiply" />
-            )}
+            <img src="/Images/image.png" alt="Bizpole One" className="h-10 sm:h-12 lg:h-14 w-auto" />
           </div>
 
           {/* DESKTOP MENU */}

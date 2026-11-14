@@ -486,7 +486,10 @@ export default function ServiceSelection() {
   };
 
   const getExternalTaskStatusStyles = (status) => {
-    switch (String(status || "").toLowerCase()) {
+    const key = String(status || "").toLowerCase();
+    // "Pending with Client - Pending" / "- Hold" share one colour.
+    if (key.startsWith("pending with client")) return "bg-amber-50 text-amber-700";
+    switch (key) {
       case "completed":
         return "bg-green-50 text-green-600";
       case "in progress":
@@ -494,6 +497,11 @@ export default function ServiceSelection() {
         return "bg-orange-50 text-orange-500";
       case "not started":
         return "bg-gray-100 text-gray-600";
+      case "on hold":
+      case "pending from our side":
+        return "bg-yellow-50 text-yellow-700";
+      case "pending for govt fee approval":
+        return "bg-violet-50 text-violet-700";
       default:
         return "bg-gray-50 text-gray-500";
     }
@@ -1468,13 +1476,24 @@ const displayedUpcomingTasks =
               {externalTasks.map((task) => (
                 <div
                   key={task.TaskID}
-                  className="flex items-center justify-between border border-gray-200 rounded-full px-4 sm:px-5 py-3 gap-2"
+                  className="flex items-center justify-between border border-gray-200 rounded-2xl px-4 sm:px-5 py-3 gap-2"
                 >
-                  <span className="text-sm text-gray-700 truncate min-w-0 max-w-lg">{task.TaskName}</span>
+                  <div className="min-w-0 max-w-lg">
+                    <span className="block text-sm text-gray-700 truncate">{task.TaskName}</span>
+                    {/* Reason entered with Pending with Client / Govt Fee
+                        Approval; null for internal statuses (server-side). */}
+                    {task.CustomerRemark && (
+                      <span className="block text-xs text-gray-500 mt-0.5 whitespace-pre-wrap break-words">
+                        Reason: {task.CustomerRemark}
+                      </span>
+                    )}
+                  </div>
                   <span
-                    className={`ml-4 flex-shrink-0 text-xs font-medium px-3 py-1 rounded-full ${getExternalTaskStatusStyles(task.status)}`}
+                    className={`ml-4 flex-shrink-0 text-xs font-medium px-3 py-1 rounded-full ${getExternalTaskStatusStyles(task.CustomerStatus || task.status)}`}
                   >
-                    {task.status}
+                    {/* CustomerStatus: internal statuses already swapped for the
+                        status set in Task Master (server-side). */}
+                    {task.CustomerStatus || task.status}
                   </span>
                 </div>
               ))}

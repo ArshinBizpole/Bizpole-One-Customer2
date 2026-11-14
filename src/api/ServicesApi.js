@@ -13,7 +13,8 @@ export const getServices = async ({ page = 1, limit = 10, filter = "", categoryI
 // ✅ Fetch services for a specific category
 export const getServicesByCategory = async (categoryId, { page = 1, limit = 2, filter = "" } = {}) => {
   if (!categoryId) return { data: [], total: 0 };
-  const params = { page, limit };
+  // customerView: only services shown to customers, in the admin-set order
+  const params = { page, limit, customerView: 1 };
   if (filter) params.filter = filter;
 
   const res = await axiosInstance.get(`/service-categories/${categoryId}`, { params });
@@ -39,6 +40,12 @@ export const getServiceCategories = async () => {
 export const getServiceById = async ({ ServiceId }) => {
   const res = await axiosInstance.post("/filterServices", { ServiceId });
   return res.data;
+};
+
+// Quote-page content set in the CRM's Service → Proposal step (whatYouGet, importantNotes, ...)
+export const getServiceExtras = async (serviceId) => {
+  const res = await axiosInstance.get(`/service-master-extras/${serviceId}`);
+  return res.data?.data || null;
 };
 
 // ✅ Fetch all service prices for a state, and filter exact service price
@@ -90,6 +97,7 @@ export default {
   getServiceCategories,
   getServicesByCategory,
   getServiceById,
+  getServiceExtras,
   getServicePrice,
   getServicePackages,
   getServicePriceCurrency,

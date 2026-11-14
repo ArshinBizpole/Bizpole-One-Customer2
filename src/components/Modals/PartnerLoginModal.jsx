@@ -6,6 +6,7 @@ import { setSecureItem } from "../../utils/secureStorage";
 import { notifyTokenSet } from "../../utils/authSession";
 import { useNavigate } from "react-router-dom";
 import { sanitize, validate } from "../../utils/formValidation";
+import OtpSentTo from "./OtpSentTo";
 
 const PartnerLoginModal = ({ isOpen, onClose, onSwitchToSignup }) => {
     const navigate = useNavigate();
@@ -16,7 +17,8 @@ const PartnerLoginModal = ({ isOpen, onClose, onSwitchToSignup }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isVerifying, setIsVerifying] = useState(false);
     const [error, setError] = useState("");
-    const [otpSentMessage, setOtpSentMessage] = useState("");
+    // Send-OTP response ({ emailSent, smsSent, maskedMobile }) for the OTP step.
+    const [otpSentInfo, setOtpSentInfo] = useState(null);
     const [isHovered, setIsHovered] = useState(false);
 
     // Timer countdown for OTP
@@ -44,7 +46,7 @@ const PartnerLoginModal = ({ isOpen, onClose, onSwitchToSignup }) => {
         try {
             const response = await AssociateApi.requestAssociateEmailOtp(email);
             if (response.success) {
-                setOtpSentMessage(response.message || "");
+                setOtpSentInfo(response);
                 setStep(2);
                 setTimer(30);
                 setOtpValues(["", "", "", ""]);
@@ -224,7 +226,7 @@ const PartnerLoginModal = ({ isOpen, onClose, onSwitchToSignup }) => {
                                 <h2 className="text-3xl font-extrabold text-[#1e293b] mb-4 mt-4">OTP Verification</h2>
 
                                 <p className="text-center text-slate-500 mb-8 leading-relaxed text-sm">
-                                    {otpSentMessage || "We have sent a one time password to your email and mobile"} <br />
+                                    <OtpSentTo info={otpSentInfo} /> for <br />
                                     <span className="font-semibold text-slate-800 truncate max-w-[300px] inline-block">{email}</span>
                                 </p>
 

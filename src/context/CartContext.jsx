@@ -5,8 +5,21 @@ export const CartContext = createContext();
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState({});
 
-  // Load cart from localStorage
+  // Load cart from localStorage. A signed-out visitor only keeps the cart for
+  // this visit (the sessionStorage flag survives a refresh, not a new visit),
+  // so a cart left on a shared browser isn't shown to the next person.
   useEffect(() => {
+    let visitStarted = false;
+    try {
+      visitStarted = sessionStorage.getItem("cartVisit") === "1";
+      sessionStorage.setItem("cartVisit", "1");
+    } catch { /* storage blocked */ }
+    if (!localStorage.getItem("token") && !visitStarted) {
+      localStorage.removeItem("SelectedServicePrices");
+      localStorage.removeItem("SelectedServices");
+      setCart({});
+      return;
+    }
     const stored = localStorage.getItem("SelectedServicePrices");
     setCart(stored ? JSON.parse(stored) : {});
   }, []);

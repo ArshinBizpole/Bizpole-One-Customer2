@@ -30,6 +30,7 @@ const menuItems = [
   { name: "Files", path: "files", icon: Folder },
   { name: "Compliance Calendar", path: "events", icon: Briefcase },
   { name: "Invoice", path: "invoice", icon: MessageSquare },
+  { name: "Communications", path: "communications", icon: MessageSquare },
 ];
 
 const ProfileLayout = () => {
@@ -52,11 +53,19 @@ const ProfileLayout = () => {
     };
   }, [showCompanyDropdown]);
   const [companies, setCompanies] = useState([]);
+  // Set once the saved companies have been read, so a page can tell "no
+  // company on this account" apart from "not loaded yet".
+  const [companiesReady, setCompaniesReady] = useState(false);
   const navigate = useNavigate();
   const { pathname } = useLocation();
   // Refunds is reached from the Invoice page, so keep the Invoice tile lit there
   const isTileActive = (path, isActive) =>
     isActive || (path === "invoice" && pathname.startsWith("/profile/refunds"));
+
+  // The phone menu slides over the page — close it once the user navigates.
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
 
 
   // Load user and company data from secureStorage (robust parse)
@@ -114,7 +123,31 @@ const ProfileLayout = () => {
     } catch (err) {
       console.log("Error parsing user data in ProfileLayout:", err);
     }
+    setCompaniesReady(true);
   }, []);
+
+  // A company just added from Company Details (customer had none yet) — add it
+  // to the dropdown and the saved user, and select it.
+  const addCompany = (company) => {
+    const companyName = company.BusinessName || "";
+    setCompanies((prev) => [...prev, company]);
+    setSelectedCompany(companyName);
+    setSelectedCompanyId(company.CompanyID);
+    setSecureItem("selectedCompany", JSON.stringify({ CompanyID: company.CompanyID, CompanyName: companyName }));
+    setSecureItem("CompanyId", company.CompanyID.toString());
+    try {
+      const rawUser = getSecureItem("user");
+      const parsedUser = rawUser && typeof rawUser === "string" ? JSON.parse(rawUser) : rawUser;
+      if (parsedUser) {
+        const updated = { ...parsedUser, Companies: [...(parsedUser.Companies || []), company] };
+        setSecureItem("user", JSON.stringify(updated));
+        setUser(updated);
+      }
+    } catch (err) {
+      console.log("Error saving new company to user data:", err);
+    }
+    window.dispatchEvent(new Event("company-switched"));
+  };
 
   // Handle logout
 
@@ -192,13 +225,27 @@ const ProfileLayout = () => {
 
         {/* Mobile Right Section */}
         <div className="flex items-center space-x-3 lg:hidden">
-          <NotificationBell />
-          <ProfileMenu />
+          {/* Opening notifications or the profile menu closes the ☰ menu */}
+          <div onClickCapture={() => setIsMobileMenuOpen(false)}>
+            <NotificationBell />
+          </div>
+          <div onClickCapture={() => setIsMobileMenuOpen(false)}>
+            <ProfileMenu />
+          </div>
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 rounded hover:bg-gray-100">
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
       </header>
+
+      {/* Phones: tapping the page beside the open menu closes it */}
+      {isMobileMenuOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-30 bg-black/30"
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
 
       {/* ===== Sidebar ===== */}
       <aside
@@ -244,13 +291,13 @@ const ProfileLayout = () => {
 
           {/* Grid Menu */}
           <div className="grid grid-cols-2 gap-px bg-gray-200 mx-6 rounded-lg overflow-hidden border border-gray-200">
-            {menuItems.map(({ name, path }) => (
+            {menuItems.map(({ name, path }, index) => (
               <NavLink
                 key={name}
                 to={path}
                 end={name === "Profile"}
                 className={({ isActive }) =>
-                  `relative flex items-center justify-center bg-white py-8 px-2 text-sm font-medium transition ${isTileActive(path, isActive) ? "text-gray-600 font-semibold " : "text-gray-400 hover:text-gray-600"
+                  `relative flex items-center justify-center bg-white py-8 px-2 text-sm font-medium transition ${menuItems.length % 2 === 1 && index === menuItems.length - 1 ? "col-span-2" : ""} ${isTileActive(path, isActive) ? "text-gray-600 font-semibold " : "text-gray-400 hover:text-gray-600"
                   }`
                 }
               >
@@ -302,7 +349,7 @@ const ProfileLayout = () => {
 
       {/* ===== Main Content ===== */}
       <main className="flex-1 p-8 overflow-y-auto mt-[76px]">
-        <ProfileCompanyContext.Provider value={{ selectedCompanyId, selectedCompanyName: selectedCompany }}>
+        <ProfileCompanyContext.Provider value={{ selectedCompanyId, selectedCompanyName: selectedCompany, companiesReady, addCompany }}>
           <Outlet />
         </ProfileCompanyContext.Provider>
       </main>

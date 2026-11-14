@@ -18,7 +18,7 @@ const AWARDS = [
 
 // Cut-out team photo shown over the hero's yellow shape. The hero still reads
 // correctly without it (the image hides itself if the file is missing).
-const HERO_IMAGE = "/Images/bizpole-one-hero-team.png";
+const HERO_IMAGE = "/Images/image 65.png";
 
 const fmt = (n) => n.toLocaleString("en-IN");
 
@@ -185,12 +185,12 @@ export default function AboutPage() {
         .bo-sub { font-size: 15px; color: var(--bo-muted); line-height: 1.7; }
 
         /* ── Hero ───────────────────────────── */
-        .bo-hero { position: relative; min-height: clamp(720px, 100vh, 940px); display: flex; align-items: center; padding: 120px 0 60px; }
+        .bo-hero { position: relative; min-height: clamp(690px, 94vh, 890px); display: flex; align-items: center; padding: 120px 0 55px; }
         .bo-hero-blob { position: absolute; top: 0; right: 0; bottom: 0; width: 44%; pointer-events: none; }
         .bo-hero-blob svg { width: 100%; height: 100%; display: block; }
         .bo-hero-img {
-          position: absolute; right: 2%; bottom: 0; width: 46%; max-width: 720px;
-          height: auto; max-height: 88%; object-fit: contain; object-position: bottom; pointer-events: none;
+          position: absolute; right: 6%; bottom: 0; height: 86%; width: auto; max-width: 42%;
+          object-fit: contain; object-position: bottom right; pointer-events: none;
         }
         .bo-hero-text { position: relative; z-index: 2; max-width: 840px; }
         .bo-hero-h1 { font-weight: 700; font-size: clamp(36px, 4.6vw, 66px); line-height: 1.14; letter-spacing: -0.035em; }
@@ -330,7 +330,7 @@ export default function AboutPage() {
         @media (max-width: 1024px) {
           .bo-hero { min-height: 0; flex-direction: column; align-items: stretch; padding-top: 110px; }
           .bo-hero-blob { top: auto; height: 380px; width: 100%; }
-          .bo-hero-img { width: 82%; right: 9%; max-height: 360px; }
+          .bo-hero-img { width: 82%; max-width: 82%; right: 9%; height: 360px; object-position: bottom center; }
           .bo-hero-visual { height: 360px; }
           .bo-dreams-grid { grid-template-columns: 1fr; }
           .bo-story-grid { grid-template-columns: 1fr; gap: 40px; }
@@ -396,11 +396,11 @@ export default function AboutPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.25, duration: 0.7, ease }}
               >
-                <button className="bo-consult" onClick={() => navigate("/contact")}>
+                <button className="bo-consult" onClick={() => navigate("/startbusiness")}>
                   <span className="bo-consult-ring">
                     <span className="bo-consult-dot"><ArrowRight size={20} color="#fff" strokeWidth={2} /></span>
                   </span>
-                  Get Free Consultation
+                  Get Your Business Started
                 </button>
                 <button className="bo-explore" onClick={() => navigate("/products")}>
                   Explore Platform

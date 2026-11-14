@@ -26,7 +26,7 @@ export const searchMyData = async (q, companyId, signal) => {
 export const searchServiceCatalog = async (q, signal) => {
   const res = await client.post(
     "/filterServices",
-    { Name: q, page: 1, limit: 5, IsActive: 1 },
+    { Name: q, page: 1, limit: 5, IsActive: 1, CustomerView: 1 },
     { signal },
   );
   return Array.isArray(res.data?.data) ? res.data.data : [];

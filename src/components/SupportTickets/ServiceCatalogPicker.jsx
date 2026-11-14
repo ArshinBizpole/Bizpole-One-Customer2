@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { getServices, getServicePackages } from "../../api/ServicesApi";
 import { getPackageOrders, getIndividualOrders } from "../../api/Orders/Order";
+import YellowSelect from "../YellowSelect";
 
 /**
  * Shared Package/Individual service picker.
@@ -14,7 +15,7 @@ import { getPackageOrders, getIndividualOrders } from "../../api/Orders/Order";
  * onSelect({ dealType, id, name, orderId, quoteId, raw }) once an item is chosen.
  */
 const ServiceCatalogPicker = ({ source, onSelect }) => {
-  const [dealType, setDealType] = useState("Package");
+  const [dealType, setDealType] = useState("Individual");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -104,7 +105,7 @@ const ServiceCatalogPicker = ({ source, onSelect }) => {
       <div>
         <label className="block text-xs font-semibold text-gray-600 mb-1">Type *</label>
         <div className="flex gap-2">
-          {["Package", "Individual"].map((t) => (
+          {["Individual", "Package"].map((t) => (
             <button
               key={t}
               type="button"
@@ -125,23 +126,24 @@ const ServiceCatalogPicker = ({ source, onSelect }) => {
         <label className="block text-xs font-semibold text-gray-600 mb-1">
           {source === "catalog" ? "Select a service *" : "Select your purchased service *"}
         </label>
-        <select
+        <YellowSelect
           value={selectedKey}
-          onChange={handleChange}
+          onChange={(key) => handleChange({ target: { value: key } })}
           disabled={loading}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
-        >
-          <option value="">{loading ? "Loading…" : "— Select —"}</option>
-          {items.map((item) => (
-            <option key={keyOf(item)} value={keyOf(item)}>
-              {source === "catalog"
-                ? dealType === "Package"
-                  ? item.PackageName ?? item.name ?? item.packageName
-                  : item.ServiceName
-                : `${item.PackageName || item.ItemName || `Order #${item.OrderID ?? item.id}`}`}
-            </option>
-          ))}
-        </select>
+          placeholder={loading ? "Loading…" : "— Select —"}
+          options={[
+            { value: "", label: loading ? "Loading…" : "— Select —" },
+            ...items.map((item) => ({
+              value: keyOf(item),
+              label:
+                source === "catalog"
+                  ? dealType === "Package"
+                    ? item.PackageName ?? item.name ?? item.packageName
+                    : item.ServiceName
+                  : `${item.PackageName || item.ItemName || `Order #${item.OrderID ?? item.id}`}`,
+            })),
+          ]}
+        />
         {!loading && items.length === 0 && !error && (
           <p className="text-xs text-gray-400 mt-1">
             {source === "catalog" ? "No services available." : "No purchased services found."}

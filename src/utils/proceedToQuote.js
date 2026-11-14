@@ -3,11 +3,12 @@ import CryptoJS from "crypto-js";
 import { upsertQuote } from "../api/Quote";
 import { getSecureItem } from "./secureStorage";
 import { fetchFranchiseeGstInfo, calcGstAmount, splitGst } from "./gstCalc";
+import { getClientBaseUrl } from "./clientBaseUrl";
 
 export const buildQuotePreviewUrl = (quoteId) => {
   const secret = import.meta.env.VITE_QUOTE_LINK_SECRET || "q3!9fKs7@pLzXr84$nmYtB!cVZdQ3";
   const encrypted = CryptoJS.AES.encrypt(String(quoteId), secret).toString();
-  return `${import.meta.env.VITE_CLIENT_BASE_URL}/quotes/saved-preview/${encodeURIComponent(encrypted)}`;
+  return `${getClientBaseUrl()}/quotes/saved-preview/${encodeURIComponent(encrypted)}`;
 };
 
 /**

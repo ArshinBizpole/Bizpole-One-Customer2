@@ -88,7 +88,7 @@ const FeaturedCarousel = () => {
   const go = (step) => setIndex((i) => (i + step + slides.length) % slides.length);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#E9B92F] via-[#D9A520] to-[#B8860B] px-6 py-8 text-white shadow-md sm:px-12 sm:py-10">
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#E9B92F] via-[#D9A520] to-[#B8860B] px-11 py-8 text-white shadow-md sm:px-12 sm:py-10">
       {/* soft decorative glow */}
       <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10" />
       <div className="pointer-events-none absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-black/5" />

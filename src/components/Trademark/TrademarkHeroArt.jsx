@@ -1,9 +1,9 @@
 // Hero illustration for the Trademark Search page: a registration certificate,
 // a gold ® medallion, a magnifying glass and a shield badge. Pure SVG so it
 // scales crisply and needs no image asset.
-export default function TrademarkHeroArt({ className = "" }) {
+export default function TrademarkHeroArt({ className = "", style }) {
   return (
-    <svg viewBox="0 0 420 340" className={className} role="img" aria-label="Trademark registration">
+    <svg viewBox="0 0 420 340" className={className} style={style} role="img" aria-label="Trademark registration">
       <defs>
         <linearGradient id="tm-gold" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#FFE07A" />

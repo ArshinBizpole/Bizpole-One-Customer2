@@ -1,3 +1,4 @@
+import { getClientBaseUrl } from "../../utils/clientBaseUrl";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Home } from "lucide-react";
@@ -17,9 +18,12 @@ import { getServiceById, getServicePrice } from "../../api/ServicesApi";
 import { loginWithPhone, signupWithPhone, verifyOtp } from "../../api/AuthApi";
 import { notifyTokenSet } from "../../utils/authSession";
 import { clearReferralToken, getReferralToken } from "../../utils/referralAttribution";
+import { portalSourceOfSale } from "../../utils/leadAttribution";
+import { trackEvent } from "../../utils/analytics";
 import { signedInContact, belongsToOtherCustomer } from "../../utils/applicationPrefill";
 import { districtsFor } from "../../utils/districts";
 import SigninModal from "../Modals/SigninModal";
+import OtpSentTo from "../Modals/OtpSentTo";
 import VoiceSpecifyInput from "./VoiceSpecifyInput";
 import KycVerify from "./KycVerify";
 import FlowStepGuide from "./FlowStepGuide";
@@ -30,6 +34,7 @@ import { languagesForState, languageForState } from "../../utils/stateLanguages"
 import { DOB_MAX, DOB_ERROR, dobError } from "../../utils/dob";
 import { sanitize, PATTERNS } from "../../utils/formValidation";
 import { getQuotePaymentStatus } from "../../api/QuotePaymentStatusApi";
+import { fetchAvailableOffers, previewOfferCode, redeemOfferOnQuote } from "../../api/OfferApi";
 import { updateMyCompanyDetails, listCompanyDirectors, addCompanyDirector, updateCompanyDirector, removeCompanyDirector, saveCompanyBank } from "../../api/CompanyChangeApi";
 import {
   FLOWS, ownerConfig, ownerBaseFields, newOwner, visibleFields, docItems, docGroups, isMinor,
@@ -1878,7 +1883,7 @@ async function createDirectDeal(flow, state, A, bump, companyName, ServiceDetail
       email: lc.email,
       franchiseId: lc.franchiseeId,
       employeeId: lc.employeeId,
-      sourceOfSale: "Website",
+      sourceOfSale: portalSourceOfSale(),
       dealType: "Individual",
       services: ServiceDetails.map((s) => ({
         serviceId: s.serviceId,
@@ -1985,7 +1990,7 @@ async function createQuoteForApplicationStep(flow, state, A) {
 function quoteApprovalUrl(quoteId) {
   const secret = import.meta.env.VITE_QUOTE_LINK_SECRET || "q3!9fKs7@pLzXr84$nmYtB!cVZdQ3";
   const encrypted = CryptoJS.AES.encrypt(String(quoteId), secret).toString();
-  return `${import.meta.env.VITE_CLIENT_BASE_URL}/quotes/saved-preview/${encodeURIComponent(encrypted)}`;
+  return `${getClientBaseUrl()}/quotes/saved-preview/${encodeURIComponent(encrypted)}`;
 }
 function openQuoteForApproval(state, tab) {
   if (!state.quoteId) {
@@ -2025,7 +2030,7 @@ async function createPackageForApplication(flow, state, A) {
         email: lc.email,
         franchiseId: lc.franchiseeId,
         employeeId: lc.employeeId,
-        sourceOfSale: "Website",
+        sourceOfSale: portalSourceOfSale(),
         dealType: "Package",
         packageId: pkg.id,
         packageName: pkg.name,
@@ -2104,14 +2109,32 @@ async function doPay(flow, state, bump) {
     bump();
     return;
   }
+  // Offer picked on the Payment step: recorded once with the Offer Module and
+  // put on the Quote before it opens for approval, so the quote page and the
+  // payment show the discounted amount. If it no longer applies, stay here
+  // with the reason — the next click goes ahead at full price or another offer.
+  if (state.offer?.code && state.quoteId && state.offerApplied?.quoteId !== state.quoteId) {
+    const res = await redeemOfferOnQuote(state.quoteId, state.offer.code);
+    if (res?.valid) {
+      state.offerApplied = { quoteId: state.quoteId, code: res.code || state.offer.code, discount: Number(res.discount) || 0, finalAmount: Number(res.finalAmount) || 0 };
+    } else {
+      approvalTab?.close();
+      state.offerError = res?.message || "This offer can't be applied";
+      state.offer = null;
+      state.__paying = false;
+      bump();
+      return;
+    }
+  }
   openQuoteForApproval(state, approvalTab);
   await createPackageForApplication(flow, state, state.answers);
   await ensureGovtFeeFlag(flow, state.answers, state).catch(() => {});
   const f = feeLines(flow, state.answers, state); // after the quote, so GST info is loaded
+  const applied = state.offerApplied?.quoteId === state.quoteId ? state.offerApplied : null;
   // Stay on Payment: opening the quote is not paying it. FlowRunner's payment
   // check (checkQuotePayment) moves to "Application Submitted" only once the
   // payment has actually succeeded.
-  state.awaitingPayment = { quoteId: state.quoteId, amount: rupee(f.total) };
+  state.awaitingPayment = { quoteId: state.quoteId, amount: rupee(applied ? f.total - applied.discount : f.total) };
   state.__paying = false;
   bump();
 }
@@ -2473,8 +2496,41 @@ function LeadDetailsBody({ state, errors, bump }) {
    applicant was trying to run resumes automatically right after.
 --------------------------------------------------------------------------- */
 // title/subtitle override the details form's heading (e.g. the Trademark Search page).
+// Sign-in / sign-up modal look — same as the portal's SigninModal: centred bold
+// title, roomy inputs with a yellow focus ring, and the yellow pill "next"
+// button whose white knob slides right on hover.
+const authInputCls = "w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100 transition-all";
+const authLinkCls = "font-semibold underline cursor-pointer text-gray-800 hover:text-yellow-600 transition-colors";
+function AuthNextButton({ busy, label }) {
+  return (
+    <button
+      type="submit"
+      disabled={busy}
+      aria-label={label}
+      className="group relative mx-auto block bg-yellow-400 rounded-full w-20 h-12 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-60"
+    >
+      <span className={`absolute top-1 left-1 w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center transition-transform duration-300 group-hover:translate-x-8 ${busy ? "translate-x-8" : ""}`}>
+        {busy ? (
+          <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-800 rounded-full animate-spin" />
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path d="M5 12h14m-7-7l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </span>
+    </button>
+  );
+}
+function AuthLabel({ children }) {
+  return <label className="block text-sm font-medium text-gray-700 mb-2 text-left">{children}<span className="text-red-500 ml-0.5">*</span></label>;
+}
+
 export function LeadCaptureModal({ state, bump, title, subtitle }) {
   const [states, setStates] = useState([]);
+  // Analytics funnel step 1: form opened → otp_sent → otp_verified (api/AuthApi).
+  useEffect(() => {
+    trackEvent("signup_form_open", { form: "application", flow: state.flowId, path: window.location.pathname });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // Already entered on a "leadDetails" Step 1 (Lead raised, just not verified
   // yet) — prefill from it and go straight to the details form to confirm.
   const lc = state.leadContact || signedInContact();
@@ -2493,8 +2549,18 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
   // registered under a different mobile number. Surfaces a Sign In link instead
   // of just leaving them stuck on a dead-end error.
   const [accountExists, setAccountExists] = useState(false);
+  // Details-form view: "signup" (the full form) or "signin" (mobile only, for an
+  // existing account — their details come from the account once verified).
+  const [view, setView] = useState("signup");
+  // Sign-in box: email address or mobile number, as on the portal's Sign In.
+  const [loginId, setLoginId] = useState("");
+  // What the code was sent for — verified and resent against the same value.
+  const [otpTo, setOtpTo] = useState("");
+  const [otpSentInfo, setOtpSentInfo] = useState(null); // { emailSent, smsSent, maskedMobile }
   const [otpValues, setOtpValues] = useState(["", "", "", ""]);
   const [timer, setTimer] = useState(30);
+  // "Already have an account? Sign in" swaps this form for the site Sign In.
+  const [showSignIn, setShowSignIn] = useState(false);
 
   useEffect(() => {
     getAllStates().then(setStates).catch(() => setStates([]));
@@ -2546,7 +2612,6 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
     if (!form.state) return setError("Please select your state.");
     if (!form.language) return setError("Please select your preferred language.");
     setError("");
-    setAccountExists(false);
     setSubmitting(true);
     try {
       // Try signing in first (in case they already have an account from an
@@ -2554,39 +2619,72 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
       // number genuinely isn't on file yet.
       let mode = "login";
       try {
-        await loginWithPhone(form.mobile.trim());
+        setOtpSentInfo(await loginWithPhone(form.mobile.trim()));
       } catch (err) {
         if (/not found/i.test(err?.message || "")) {
           mode = "signup";
           // Referral scan token (if any) rides along so the server can attribute the signup.
-          await signupWithPhone(form.name.trim(), form.email.trim(), form.mobile.trim(), getReferralToken(), form.state);
+          setOtpSentInfo(await signupWithPhone(form.name.trim(), form.email.trim(), form.mobile.trim(), getReferralToken(), form.state, form.language, state.serviceType));
         } else {
           throw err;
         }
       }
       setAccountMode(mode);
+      setOtpTo(form.mobile.trim());
       setOtpValues(["", "", "", ""]);
       setTimer(30);
       setPhase("otp");
     } catch (err) {
       const msg = err?.message || "Couldn't send a verification code. Please check your details and try again.";
       setError(msg);
-      // Signup hit the backend's "Mobile OR Email already registered" guard —
-      // most likely this email is already on file under a different mobile
-      // number. Offer a way to switch to signing in instead of a dead end.
-      setAccountExists(/already exists/i.test(msg));
     } finally {
       setSubmitting(false);
     }
   }
 
-  // Lets them retry as a sign-in: clears the mobile field (their existing
-  // account may be under a different number than the one just tried) and
-  // keeps name/email filled in.
+  // Switches to the Sign In view. After "account already exists" the email
+  // just typed is prefilled (their account may be under a different mobile).
   function switchToSignIn() {
     setError("");
+    setLoginId(accountExists ? form.email.trim() : "");
     setAccountExists(false);
-    set("mobile", "");
+    setView("signin");
+  }
+
+  // Sign in to an existing account with its email or mobile — the code goes to
+  // the email + mobile on that account. Stays in this modal (and on this page):
+  // once verified, the gated action carries on as after a sign-up.
+  async function submitSignIn(e) {
+    e.preventDefault();
+    const raw = loginId.trim();
+    const isEmail = raw.includes("@");
+    const mobile = raw.replace(/[\s-]/g, "").replace(/^(\+?91|0)(?=\d{10}$)/, "");
+    if (isEmail ? !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw) : !/^[6-9]\d{9}$/.test(mobile)) {
+      return setError("Please enter a valid email address or 10-digit mobile number.");
+    }
+    const id = isEmail ? raw : mobile;
+    setError("");
+    setSubmitting(true);
+    try {
+      setOtpSentInfo(await loginWithPhone(id));
+      // The other contact details come from the account once verified.
+      setForm((f) => ({ ...f, mobile: isEmail ? "" : mobile, email: isEmail ? raw : "" }));
+      setAccountMode("login");
+      setOtpTo(id);
+      setOtpValues(["", "", "", ""]);
+      setTimer(30);
+      setPhase("otp");
+    } catch (err) {
+      if (/not found/i.test(err?.message || "")) {
+        setError(`No account with this ${isEmail ? "email" : "mobile number"} yet — please sign up.`);
+        setForm((f) => (isEmail ? { ...f, email: raw } : { ...f, mobile }));
+        setView("signup");
+      } else {
+        setError(err?.message || "Couldn't send a verification code. Please try again.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   // Raises the Lead the same way the form used to (for sales/CRM tracking),
@@ -2596,16 +2694,20 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
   async function completeLeadCapture(user) {
     if (user?.CustomerID) state.customerId = user.CustomerID;
     state.otpVerified = true;
+    // Signed in with just a mobile: name / email / state come from the account.
+    const me = signedInContact() || {};
+    const contact = { ...form };
+    Object.keys(contact).forEach((k) => { if (!String(contact[k] || "").trim() && me[k]) contact[k] = me[k]; });
     // Lead already raised by the no-OTP Details step — keep it, just refresh
     // the contact details in case they were corrected here.
     if (state.leadCaptured && (state.leadContact?.leadId || state.leadContact?.direct)) {
-      state.leadContact = { ...state.leadContact, ...form };
+      state.leadContact = { ...state.leadContact, ...contact };
       syncAuthFromContact(state, state.leadContact);
       resaveContact(state);
       setPhase("done");
       return;
     }
-    await raiseLead(state, form);
+    await raiseLead(state, contact);
     setPhase("done");
   }
 
@@ -2619,7 +2721,7 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
       setIsVerifying(true);
       setError("");
       try {
-        const tokenData = await verifyOtp(form.mobile.trim(), next.join(""));
+        const tokenData = await verifyOtp(otpTo, next.join(""));
         if (tokenData?.token) {
           localStorage.setItem("token", tokenData.token);
           notifyTokenSet();
@@ -2644,34 +2746,54 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
     if (timer > 0) return;
     setError("");
     try {
-      await loginWithPhone(form.mobile.trim());
+      setOtpSentInfo(await loginWithPhone(otpTo));
       setTimer(30);
     } catch (err) {
       setError(err?.message || "Couldn't resend the code.");
     }
   }
 
+  if (showSignIn) {
+    return (
+      <SigninModal
+        initialValue={form.mobile}
+        onSuccess={finishSignIn}
+        onClose={closeModal}
+        onSignup={() => setShowSignIn(false)}
+      />
+    );
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[92vh] overflow-y-auto p-8">
         <button
           type="button"
           onClick={closeModal}
           aria-label="Close"
-          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl leading-none"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
         >
-          &times;
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
         </button>
         {phase === "done" && (
-          <Note variant="ok" title="Signed in!" body="Continuing with your check now." />
+          <div className="flex flex-col items-center gap-2 py-6 text-center">
+            <h2 className="text-2xl font-bold text-green-600">Signed in!</h2>
+            <p className="text-sm text-gray-600">Continuing with your check now.</p>
+          </div>
         )}
         {phase === "otp" && (
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Verify it's you</h3>
-            <p className="text-xs text-gray-500 mb-4">
-              {accountMode === "login" ? "Welcome back — " : ""}We've emailed a 4-digit code to <b>{form.email}</b>.
+          <div className="flex flex-col items-center text-center">
+            <h2 className="text-2xl font-bold text-gray-800 mb-3">OTP Verification</h2>
+            <p className="text-sm text-gray-600 leading-relaxed mb-6">
+              {accountMode === "login" ? "Welcome back! " : ""}<OtpSentTo info={otpSentInfo} />
+              {/* Signed in with an email → name the account; a mobile is shown masked above. */}
+              {otpTo.includes("@") && (
+                <> for<br /><span className="font-semibold text-gray-800">{otpTo}</span></>
+              )}
             </p>
-            <div className="flex gap-3 justify-center mb-3">
+            <div className="flex gap-3 justify-center mb-4">
               {[0, 1, 2, 3].map((i) => (
                 <input
                   key={i}
@@ -2685,81 +2807,112 @@ export function LeadCaptureModal({ state, bump, title, subtitle }) {
                   onKeyDown={(e) => {
                     if (e.key === "Backspace" && !otpValues[i] && i > 0) document.getElementById(`gate-otp-${i - 1}`)?.focus();
                   }}
-                  className="w-12 h-12 text-center text-lg font-semibold border-2 border-gray-200 rounded-lg focus:border-blue-400 focus:outline-none"
+                  className="w-14 h-14 border-2 border-yellow-400 rounded-full text-center text-xl font-semibold outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100 transition-all"
                 />
               ))}
             </div>
-            {isVerifying && <p className="text-xs text-blue-600 text-center mb-2">Verifying…</p>}
+            {isVerifying && <p className="text-sm text-yellow-500 font-semibold mb-2">Verifying...</p>}
             <ErrorText msg={error} />
-            <p className="text-xs text-gray-500 text-center mt-3">
+            <p className="text-lg font-mono text-gray-600 mt-2">{`00:${String(Math.max(timer, 0)).padStart(2, "0")}`}</p>
+            <p className="text-sm text-gray-600 mt-2">
+              Didn't receive the OTP?{" "}
               {timer > 0 ? (
-                `Resend code in 00:${String(timer).padStart(2, "0")}`
+                <span className="text-gray-400 font-semibold">Resend in {timer}s</span>
               ) : (
-                <button type="button" onClick={handleResend} className="text-blue-600 font-semibold hover:underline">Resend code</button>
+                <button type="button" onClick={handleResend} className="text-yellow-500 font-semibold hover:text-yellow-600 transition-colors">Resend OTP</button>
               )}
             </p>
             <button
               type="button"
               onClick={() => { setPhase("details"); setOtpValues(["", "", "", ""]); setError(""); }}
-              className="mt-3 w-full text-xs text-gray-400 hover:text-gray-600"
+              className="mt-4 text-sm text-gray-500 hover:text-gray-800 underline"
             >
-              ← Use a different number
+              ← Change {otpTo.includes("@") ? "email" : "number"}
             </button>
           </div>
         )}
-        {phase === "details" && (
-          <form onSubmit={submitDetails}>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">
-              {title || (state.leadGate?.reason === "documents" ? "Sign up to upload your documents" : "Sign in to check that…")}
-            </h3>
-            <p className="text-xs text-gray-500 mb-4">{subtitle || "We'll verify your mobile with a code emailed to you, so your application is saved to your own account."}</p>
-            <div className="space-y-3">
+        {phase === "details" && view === "signin" && (
+          <form onSubmit={submitSignIn} className="flex flex-col items-center gap-6 text-center">
+            <h2 className="text-2xl font-bold text-gray-800">Sign In</h2>
+            <div className="w-full">
+              <label className="block text-sm font-medium text-gray-700 mb-2 text-left">Email Address / Phone Number</label>
+              <input
+                className={authInputCls}
+                value={loginId}
+                onChange={(e) => setLoginId(e.target.value)}
+                placeholder="abc@xyz.com"
+                autoFocus
+              />
+              <ErrorText msg={error} />
+            </div>
+            <AuthNextButton busy={submitting} label="Send code" />
+            <p className="text-sm text-gray-600 leading-relaxed">
+              We Will send you a one time password <br />
+              on this <span className="font-bold text-gray-800">Mobile Number</span>
+            </p>
+            <p className="text-sm text-gray-600">
+              Don't Have An Account ?{" "}
+              <button type="button" onClick={() => { setError(""); setView("signup"); }} className={authLinkCls}>
+                Sign up
+              </button>
+            </p>
+          </form>
+        )}
+        {phase === "details" && view === "signup" && (
+          <form onSubmit={submitDetails} className="flex flex-col items-center gap-5 text-center">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800">
+                {title || (state.leadGate?.reason === "documents" ? "Sign up to upload your documents" : "Sign Up")}
+              </h2>
+              <p className="text-sm text-gray-600 mt-2">{subtitle || "We'll verify your mobile with a code emailed to you, so your application is saved to your own account."}</p>
+            </div>
+            <div className="w-full space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name<span className="text-red-500 ml-0.5">*</span></label>
-                <input className={inputCls()} value={form.name} onChange={(e) => set("name", sanitize.personName(e.target.value))} placeholder="Your full name" />
+                <AuthLabel>Name</AuthLabel>
+                <input className={authInputCls} value={form.name} onChange={(e) => set("name", sanitize.personName(e.target.value))} placeholder="Your Name" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Mobile<span className="text-red-500 ml-0.5">*</span></label>
+                <AuthLabel>Phone Number</AuthLabel>
                 <MobileInput
-                  className={inputCls()}
+                  className={authInputCls}
                   value={form.mobile}
                   onChange={(v) => set("mobile", v)}
                   india={isIndia(form.country)}
-                  placeholder="10-digit mobile number"
+                  placeholder="Enter your phone number"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email<span className="text-red-500 ml-0.5">*</span></label>
-                <input className={inputCls()} type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="you@example.com" />
+                <AuthLabel>Email Address</AuthLabel>
+                <input className={authInputCls} type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="abc@xyz.com" />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Country<span className="text-red-500 ml-0.5">*</span></label>
-                <input className={inputCls() + " bg-gray-100 cursor-not-allowed"} value="India" readOnly tabIndex={-1} />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <AuthLabel>State</AuthLabel>
+                  <select className={authInputCls + " bg-white"} value={form.state} onChange={(e) => set("state", e.target.value)}>
+                    <option value="">Select State</option>
+                    {withStaticStates(states).map((s) => <option key={s.id || s.state_code || s.state_name} value={s.state_name}>{s.state_name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <AuthLabel>Language</AuthLabel>
+                  <select className={authInputCls + " bg-white"} value={form.language} onChange={(e) => set("language", e.target.value)}>
+                    <option value="">Select</option>
+                    {languagesForState(form.state).map((l) => <option key={l} value={l.toLowerCase()}>{l}</option>)}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">State<span className="text-red-500 ml-0.5">*</span></label>
-                <select className={inputCls()} value={form.state} onChange={(e) => set("state", e.target.value)}>
-                  <option value="">Select State</option>
-                  {withStaticStates(states).map((s) => <option key={s.id || s.state_code || s.state_name} value={s.state_name}>{s.state_name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Language<span className="text-red-500 ml-0.5">*</span></label>
-                <select className={inputCls()} value={form.language} onChange={(e) => set("language", e.target.value)}>
-                  <option value="">Select Language</option>
-                  {languagesForState(form.state).map((l) => <option key={l} value={l.toLowerCase()}>{l}</option>)}
-                </select>
-              </div>
+              <ErrorText msg={error} />
             </div>
-            <ErrorText msg={error} />
-            {accountExists && (
-              <button type="button" onClick={switchToSignIn} className="mt-1 text-xs text-blue-600 font-semibold hover:underline">
-                Already have an account? Sign in instead
+            <AuthNextButton busy={submitting} label="Sign up" />
+            <p className="text-sm text-gray-600 leading-relaxed">
+              We will send an OTP to your <span className="font-bold text-gray-800">Email and Mobile Number</span>
+            </p>
+            <p className="text-sm text-gray-600">
+              Already have an account?{" "}
+              <button type="button" onClick={switchToSignIn} className={authLinkCls}>
+                Sign in
               </button>
-            )}
-            <button type="submit" disabled={submitting} className="mt-4 w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-60">
-              {submitting ? "Signing up…" : "Sign Up"}
-            </button>
+            </p>
           </form>
         )}
       </div>
@@ -4635,6 +4788,103 @@ function CallbackRequestModal({ onClose, onSubmit }) {
   );
 }
 
+// Offers from the Bizpole Offer Module (OfferApi). Usable offers are cards to
+// pick; locked ones show why ("Minimum transaction amount …"); any code can be
+// typed. Picking only previews — doPay records it once on the Quote. Once on
+// the Quote it's fixed and shown as applied. Never blocks payment.
+function OffersBox({ flow, A, state, bump, applied }) {
+  const [offers, setOffers] = useState([]);
+  const [code, setCode] = useState("");
+  const [checking, setChecking] = useState(false);
+  const linesKey = JSON.stringify(serviceDetailsFor(flow, A, state));
+
+  useEffect(() => {
+    if (applied) return undefined;
+    let alive = true;
+    const lines = JSON.parse(linesKey);
+    // A message from an earlier attempt (saved with the application) is stale now.
+    if (!state.offer?.code && state.offerError) { state.offerError = null; bump(); }
+    fetchAvailableOffers(lines).then((list) => { if (alive) setOffers(list); });
+    // The amount changed (GST loaded, add-ons edited) — re-check the picked offer.
+    if (state.offer?.code) {
+      previewOfferCode(lines, state.offer.code).then((r) => {
+        if (!alive) return;
+        if (r?.valid) state.offer = { code: r.code || state.offer.code, discount: Number(r.discount) || 0, finalAmount: Number(r.finalAmount) || 0 };
+        else { state.offer = null; state.offerError = r?.message || "This offer no longer applies"; }
+        bump();
+      });
+    }
+    return () => { alive = false; };
+  }, [linesKey, !!applied]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const apply = async (promoCode) => {
+    const value = String(promoCode || "").trim();
+    if (!value || checking) return;
+    setChecking(true);
+    const r = await previewOfferCode(JSON.parse(linesKey), value);
+    setChecking(false);
+    if (r?.valid) {
+      state.offer = { code: r.code || value, discount: Number(r.discount) || 0, finalAmount: Number(r.finalAmount) || 0 };
+      state.offerError = null;
+      setCode("");
+    } else {
+      state.offerError = r?.message || "This offer can't be applied";
+    }
+    bump();
+  };
+  const remove = () => { state.offer = null; state.offerError = null; bump(); };
+
+  if (applied) {
+    return (
+      <div className="mt-4 border border-green-200 bg-green-50 rounded-lg p-3 text-sm">
+        <b className="text-green-700">Offer {applied.code} applied</b>
+        <span className="block text-xs text-green-700">You save {rupee(applied.discount)} on this quote.</span>
+      </div>
+    );
+  }
+  const picked = state.offer?.code?.toLowerCase();
+  const usable = offers.filter((o) => o.valid);
+  const locked = offers.filter((o) => !o.valid);
+  const label = (o) => (o.type === "PERCENTAGE" ? `${o.value}% off${o.maxDiscount ? ` (up to ${rupee(o.maxDiscount)})` : ""}` : `${rupee(o.value)} off`);
+  return (
+    <div className="mt-4 border border-gray-200 rounded-lg p-3">
+      <div className="text-xs font-bold uppercase text-blue-600 mb-2">Offers</div>
+      {usable.map((o) => {
+        const isPicked = picked === String(o.code).toLowerCase();
+        return (
+          <button key={o.id ?? o.code} type="button" disabled={checking} onClick={() => (isPicked ? remove() : apply(o.code))}
+            className={`w-full text-left rounded-lg border px-3 py-2 mb-2 text-sm ${isPicked ? "border-green-500 bg-green-50" : "border-gray-200 hover:border-blue-400"}`}>
+            <span className="flex justify-between gap-2"><b className="font-mono">{o.code}</b><span className="text-green-700 font-semibold">{label(o)}</span></span>
+            {o.name && <span className="block text-xs text-gray-500">{o.name}</span>}
+            <span className="block text-xs text-blue-600 mt-0.5">{isPicked ? "Applied — tap to remove" : "Tap to apply"}</span>
+          </button>
+        );
+      })}
+      {locked.map((o) => (
+        <div key={o.id ?? o.code} className="rounded-lg border border-dashed border-gray-200 px-3 py-2 mb-2 text-sm text-gray-400">
+          <span className="flex justify-between gap-2"><b className="font-mono">{o.code}</b><span>{label(o)}</span></span>
+          {o.reason && <span className="block text-xs">{o.reason}</span>}
+        </div>
+      ))}
+      <div className="flex gap-2">
+        <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} onKeyDown={(e) => { if (e.key === "Enter") apply(code); }}
+          placeholder="Have a code?" className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm uppercase" />
+        <button type="button" onClick={() => apply(code)} disabled={!code.trim() || checking}
+          className="px-3 py-2 rounded-lg border-2 border-blue-500 text-blue-700 text-sm font-semibold disabled:opacity-50">
+          {checking ? "Checking…" : "Apply"}
+        </button>
+      </div>
+      {state.offer?.code && !usable.some((o) => String(o.code).toLowerCase() === picked) && (
+        <div className="flex justify-between items-center text-xs text-green-700 mt-2">
+          <span>Code {state.offer.code} applied — you save {rupee(state.offer.discount)}</span>
+          <button type="button" onClick={remove} className="underline">Remove</button>
+        </div>
+      )}
+      {state.offerError && <div className="text-xs text-red-600 mt-2">{state.offerError}</div>}
+    </div>
+  );
+}
+
 function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
   useEffect(() => {
     if (!state.gstInfo) ensureGstInfo(state).then(bump).catch(() => {});
@@ -4645,6 +4895,10 @@ function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
   // Anything other than a call back (incl. drafts saved with the old UPI /
   // card / wallet choices) is the online-payment path.
   const wantsCallback = A.payMethod === CALLBACK_METHOD;
+  // Offer: the one already on this Quote, else the one picked here (preview).
+  const offerApplied = state.offerApplied?.quoteId && state.offerApplied.quoteId === state.quoteId ? state.offerApplied : null;
+  const offer = offerApplied || (!wantsCallback && state.offer?.code ? state.offer : null);
+  const offerDiscount = offer ? Math.min(Number(offer.discount) || 0, f.total) : 0;
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-5">
       <div className="border border-gray-200 rounded-xl p-4">
@@ -4679,7 +4933,13 @@ function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
         ) : (
           <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100"><span>GST @ 18% on professional fees</span><b>{rupee(f.gst)}</b></div>
         )}
-        <div className="flex justify-between text-base font-bold pt-3"><span>Total Amount</span><span>{rupee(f.total)}</span></div>
+        {offer && (
+          <>
+            <div className="text-xs font-bold uppercase text-blue-600 mt-3 mb-1">Offer</div>
+            <div className="flex justify-between text-sm py-2 border-b border-dashed border-gray-100 text-green-700"><span>Discount ({offer.code})</span><b>− {rupee(offerDiscount)}</b></div>
+          </>
+        )}
+        <div className="flex justify-between text-base font-bold pt-3"><span>Total Amount</span><span>{rupee(f.total - offerDiscount)}</span></div>
         <p className="text-xs text-gray-400 mt-3">🔒 You'll review and approve this quote (with OTP verification) before any payment is taken.</p>
         {A.selectedPackage && (
           // The package is its own Package quote (createPackageForApplication),
@@ -4718,6 +4978,7 @@ function PaymentBody({ flow, A, state, bump, onPay, onCallback, onBack }) {
           </>
         ) : (
           <>
+            <OffersBox flow={flow} A={A} state={state} bump={bump} applied={offerApplied} />
             {state.awaitingPayment ? (
               <div className="mt-4"><Note variant="warn" body="Waiting for your payment. Your quote is open in a new tab — approve it and complete the payment there. This page moves to “Application Submitted” automatically once the payment succeeds." /></div>
             ) : (

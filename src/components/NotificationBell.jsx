@@ -17,6 +17,7 @@ import useCustomerNotifications, {
   markAllNotificationsRead,
   refreshCustomerNotifications,
 } from "../hooks/useCustomerNotifications";
+import { popoverPlacement } from "../utils/popover";
 
 const TYPE_ICON = {
   payment: { icon: CreditCard, cls: "bg-green-50 text-green-600" },
@@ -67,8 +68,12 @@ const NotificationBell = ({ variant = "header" }) => {
     };
   }, [open]);
 
+  const [place, setPlace] = useState(null);
   const toggle = () => {
-    if (!open) refreshCustomerNotifications();
+    if (!open) {
+      refreshCustomerNotifications();
+      setPlace(popoverPlacement(ref.current, 360));
+    }
     setOpen((o) => !o);
   };
 
@@ -106,7 +111,12 @@ const NotificationBell = ({ variant = "header" }) => {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-[min(92vw,360px)] bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+        <div
+          className="absolute mt-2 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden"
+          // Kept on screen: on phones the bell isn't at the edge, so a 360px
+          // panel hung from it would run off the left side
+          style={{ right: place?.right ?? 0, width: place?.width ?? 360 }}
+        >
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <span className="text-sm font-semibold text-gray-800">
               Notifications{unread > 0 ? ` (${unread})` : ""}

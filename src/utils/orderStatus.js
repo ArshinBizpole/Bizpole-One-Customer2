@@ -64,6 +64,20 @@ const SERVICE_STATUS_TO_CUSTOMER = {
   dropped: 'Dropped',
 };
 
+// Service statuses marked Internal in Status Master (internal app), keyed like
+// SERVICE_STATUS_TO_CUSTOMER, with the status to show instead. Loaded once per
+// session by loadCustomerStatusMap(); empty until then, which just means the
+// fixed mapping below applies on its own.
+const internalServiceStatuses = new Map();
+const statusKey = (s) => String(s ?? '').toLowerCase().replace(/[^a-z]/g, '');
+
+export function setInternalServiceStatuses(list) {
+  internalServiceStatuses.clear();
+  for (const { status, showAs } of Array.isArray(list) ? list : []) {
+    if (statusKey(status) && showAs) internalServiceStatuses.set(statusKey(status), showAs);
+  }
+}
+
 /**
  * Map a free-text service status to one of CUSTOMER_SERVICE_STATUSES. These strings
  * reach the portal verbatim and have included "expired", "Pending-Acceptence" and
@@ -71,7 +85,9 @@ const SERVICE_STATUS_TO_CUSTOMER = {
  * service that still exists still has work outstanding.
  */
 export function toCustomerServiceStatus(status) {
-  const key = String(status ?? '').toLowerCase().replace(/[^a-z]/g, '');
+  // An internal status is shown as the status Status Master points it to.
+  const shownAs = internalServiceStatuses.get(statusKey(status));
+  const key = statusKey(shownAs ?? status);
   if (!key) return 'Not Started';
   if (SERVICE_STATUS_TO_CUSTOMER[key]) return SERVICE_STATUS_TO_CUSTOMER[key];
   if (key.includes('dropped')) return 'Dropped'; // "client dropped", "customer service dropped"

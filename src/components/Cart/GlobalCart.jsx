@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import SigninModal from "../Modals/SigninModal";
 import { fetchFranchiseeGstInfo, calcGstAmount, splitGst } from "../../utils/gstCalc";
+import { portalSourceOfSale } from "../../utils/leadAttribution";
 
 const GlobalCart = () => {
   const { cart, removeFromCart, clearCart } = useContext(CartContext);
@@ -100,7 +101,7 @@ const GlobalCart = () => {
           EmployeeID: employeeId,
           EmployeeName: employeeName
         },
-        SourceOfSale: "Website",
+        SourceOfSale: portalSourceOfSale(),
         StateService: stateName,
         Remarks: "Generated from global cart",
         QuoteStatus: "Draft",

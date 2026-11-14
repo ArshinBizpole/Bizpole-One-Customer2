@@ -12,7 +12,7 @@ const PlansAndPricing = () => {
   // Opened for one service (e.g. the dashboard's global search): show its
   // details on the individual-services tab, inside the dashboard.
   const openServiceId = location.state?.serviceId || null;
-  const [activeTab, setActiveTab] = useState(openServiceId ? "services" : "packages");
+  const [activeTab, setActiveTab] = useState("services");
   useEffect(() => {
     if (openServiceId) setActiveTab("services");
   }, [location.key, openServiceId]);
@@ -47,15 +47,6 @@ const PlansAndPricing = () => {
         <div className="flex justify-center mb-8 md:mb-10">
           <div className="inline-flex flex-wrap justify-center gap-3">
             <button
-              onClick={() => setActiveTab("packages")}
-              className={`px-5 py-2 rounded-full text-sm font-semibold border transition-all ${activeTab === "packages"
-                ? "bg-gray-900 border-gray-900 text-white shadow-md"
-                : "bg-white border-gray-300 text-gray-600 hover:text-gray-900"
-                }`}
-            >
-              Package
-            </button>
-            <button
               onClick={() => setActiveTab("services")}
               className={`px-5 py-2 rounded-full text-sm font-semibold border transition-all ${activeTab === "services"
                 ? "bg-[#FFFBEA] border-[#F3C625] text-black shadow-md"
@@ -63,6 +54,15 @@ const PlansAndPricing = () => {
                 }`}
             >
               Choose individual service
+            </button>
+            <button
+              onClick={() => setActiveTab("packages")}
+              className={`px-5 py-2 rounded-full text-sm font-semibold border transition-all ${activeTab === "packages"
+                ? "bg-gray-900 border-gray-900 text-white shadow-md"
+                : "bg-white border-gray-300 text-gray-600 hover:text-gray-900"
+                }`}
+            >
+              Package
             </button>
           </div>
         </div>

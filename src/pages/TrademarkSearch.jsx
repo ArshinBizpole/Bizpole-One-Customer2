@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { trackEvent } from "../utils/analytics";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { FaSearch, FaRegCopyright, FaChevronLeft, FaChevronRight, FaArrowRight, FaFilePdf, FaLock, FaImage, FaTimes } from "react-icons/fa";
+import { FaSearch,FaChevronLeft, FaChevronRight, FaArrowRight, FaFilePdf, FaLock, FaImage, FaTimes, FaWhatsapp } from "react-icons/fa";
 import {
   searchTrademarks,
   searchTrademarksByImage,
@@ -9,6 +10,7 @@ import {
   getTrademarkSearchHistoryEntry,
   getTrademarkAssessment,
   fetchTrademarkImage,
+  sendTrademarkReportToWhatsApp,
 } from "../api/TrademarkApi";
 import { NICE_CLASSES } from "../components/ExixistingCompany/existingCompanyData";
 import { LeadCaptureModal, requireVerifiedCustomer } from "../components/ExixistingCompany/FlowRunner";
@@ -18,6 +20,8 @@ import TrademarkReport from "../components/Trademark/TrademarkReport";
 import TrademarkHeroArt from "../components/Trademark/TrademarkHeroArt";
 import ClassSelect from "../components/Trademark/ClassSelect";
 import HistoryMenu from "../components/Trademark/HistoryMenu";
+import WhatsAppReportModal from "../components/Trademark/WhatsAppReportModal";
+import SigninModal from "../components/Modals/SigninModal";
 import ServiceDetails from "./ServiceDetails";
 import { saveElementAsPdf } from "../utils/elementToPdf";
 import "../components/newco-theme.css";
@@ -26,17 +30,30 @@ const PAGE_SIZE = 10;
 const TRADEMARK_SERVICE_ID = 344;
 
 const SEARCH_TYPES = [
-  { value: "WORD_MARK", label: "Brand name", placeholder: "e.g. Bizpole" },
+  // shortPlaceholder: phones, where the long one gets cut off
+  { value: "WORD_MARK", label: "Brand name", placeholder: "Enter your brand name (e.g. Bizpole)", shortPlaceholder: "Enter your brand name" },
   { value: "PROPRIETOR_NAME", label: "Owner", placeholder: "e.g. Bizpole India Pvt Ltd" },
   { value: "APPLICATION_NUMBER", label: "Application no.", placeholder: "e.g. 5123456" },
-  { value: "IMAGE", label: "Logo", placeholder: "Upload your logo (PNG or JPG, up to 2 MB)" },
+  { value: "IMAGE", label: "Logo", placeholder: "Upload your logo (PNG or JPG, up to 2 MB)", shortPlaceholder: "Upload logo (PNG/JPG, 2 MB)" },
 ];
 
+const PHONE_QUERY = "(max-width: 639px)";
+const useIsPhone = () => {
+  const [isPhone, setIsPhone] = useState(() => typeof window !== "undefined" && window.matchMedia(PHONE_QUERY).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(PHONE_QUERY);
+    const onChange = (e) => setIsPhone(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return isPhone;
+};
+
 const HIGHLIGHTS = [
-  { icon: FiDatabase, title: "Official Database", text: "Data from Indian Trademark Registry", tone: "bg-blue-50 text-blue-600" },
-  { icon: HiOutlineShieldCheck, title: "Up to date", text: "Latest trademark records", tone: "bg-emerald-50 text-emerald-600" },
-  { icon: FiZap, title: "Fast & Accurate", text: "Get results in seconds", tone: "bg-yellow-50 text-yellow-500" },
-  { icon: FiLock, title: "Trusted Information", text: "For reference only", tone: "bg-orange-50 text-orange-500" },
+  { icon: FiDatabase, title: "Official Database", text: "Data from Indian Trademark Registry" },
+  { icon: HiOutlineShieldCheck, title: "Up to date", text: "Latest trademark records" },
+  { icon: FiZap, title: "Fast & Accurate", text: "Get results in seconds" },
+  { icon: FiLock, title: "Trusted Information", text: "For reference only" },
 ];
 
 const LOGO_TYPES = ["image/png", "image/jpeg"];
@@ -48,12 +65,12 @@ const INPUT_ERROR = /^(Enter at least|Choose your logo|Logo must)/;
 const typeLabel = (value) =>
   value === "COMPOSITE" ? "Name + logo" : SEARCH_TYPES.find((t) => t.value === value)?.label || value;
 // Local calendar date as YYYY-MM-DD (the report's date format).
-const localDate = (d) => new Date(d).toLocaleDateString("en-CA");
-const fileSafe = (s) => String(s || "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "search";
+export const localDate = (d) => new Date(d).toLocaleDateString("en-CA");
+export const fileSafe = (s) => String(s || "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "search";
 
 // The off-screen report's images are lazy-loaded, so they never load on their
 // own; force them and wait (bounded) before the PDF snapshot.
-async function waitForImages(el) {
+export async function waitForImages(el) {
   const imgs = Array.from(el.querySelectorAll("img"));
   imgs.forEach((img) => { img.loading = "eager"; });
   await Promise.all(
@@ -72,7 +89,7 @@ async function waitForImages(el) {
 // PDF page furniture as in the report format: a running header band on pages
 // 2+, the confidentiality footer + page numbers on every page. Registry logos
 // come through our API so they aren't blank in the PDF.
-const pdfOptions = (reportRef) => ({
+export const pdfOptions = (reportRef) => ({
   resolveImage: (src) => (src.includes("binbash.ai/media/trademarks/") ? fetchTrademarkImage(src) : null),
   runningHeader: { logo: "/Images/image.png", left: "Bizpole One", right: `Trademark Search Report${reportRef ? `  ·  Ref: ${reportRef}` : ""}` },
   footer: "Bizpole One  |  Trademark Search Report  ·  Confidential · Advisory opinion only, not a guarantee of registration",
@@ -109,6 +126,7 @@ export default function TrademarkSearch({ embedded = false }) {
   };
   const [type, setType] = useState("WORD_MARK");
   const [query, setQuery] = useState("");
+  const isPhone = useIsPhone();
   // Logo search: the chosen file and a data-URL preview of it.
   const [logo, setLogo] = useState(null); // { file, preview }
   const logoInputRef = useRef(null);
@@ -234,9 +252,9 @@ export default function TrademarkSearch({ embedded = false }) {
       last.saved = true;
       setUnlocked(true);
     } catch (err) {
+      // Over the limit: no popup — the "free searches used" banner replaces the form.
       if (err.response?.data?.limitReached) {
         markLimitReached(err);
-        setError(err.response.data.message);
       } else {
         setUnlocked(true); // couldn't save it to the history, but they did sign in
       }
@@ -247,13 +265,48 @@ export default function TrademarkSearch({ embedded = false }) {
   // Lead is raised in the background rather than holding the report locked.
   const askToSignIn = () => requireVerifiedCustomer(gate, bumpGate, onVerified, { immediate: true });
 
+  // Not signed in: instead of sign-up, ask name, mobile, state and language and
+  // send the report to their WhatsApp (server saves it for that mobile and
+  // raises the Lead). The details are kept for this visit, so their later
+  // searches go to WhatsApp without asking again.
+  const [waOpen, setWaOpen] = useState(false);
+  const [waSignIn, setWaSignIn] = useState(false);
+  const [waNotice, setWaNotice] = useState("");
+  const waContact = useRef(null);
+
+  const sendToWhatsApp = async (contact, params, firstSend = true) => {
+    try {
+      const data = await sendTrademarkReportToWhatsApp({ ...contact, params, limit: PAGE_SIZE, firstSend });
+      setWaNotice(data.message);
+    } catch (err) {
+      throw new Error(err.response?.data?.message || "Could not send your report right now. Please try again.");
+    }
+  };
+
+  const submitWhatsAppDetails = async (contact) => {
+    await sendToWhatsApp(contact, lastSearch.current.params);
+    waContact.current = contact;
+    setWaOpen(false);
+    setUnlocked(true);
+  };
+
+  const askForReport = () => {
+    if (localStorage.getItem("token")) askToSignIn();
+    else {
+      setWaOpen(true);
+      trackEvent("whatsapp_report_form_open", { form: "trademark_whatsapp", path: window.location.pathname });
+    }
+  };
+
   const activeType = SEARCH_TYPES.find((t) => t.value === type);
+  const placeholder = (isPhone && activeType.shortPlaceholder) || activeType.placeholder;
 
   const runSearch = async (params, nextPage) => {
     setLoading(true);
     setError("");
     try {
       const data = await fetchSearch(params, nextPage);
+      if (!nextPage) trackEvent("trademark_search", { search_type: params.type, results: data?.total ?? data?.results?.length ?? 0 });
       setResult(data);
       setSubmitted(params);
       setPage(nextPage);
@@ -262,10 +315,15 @@ export default function TrademarkSearch({ embedded = false }) {
         setHistory((h) => ({ ...h, signedIn: true, usage: { used: data.usage.used, limit: data.usage.limit } }));
         loadHistory();
       }
-      if (!unlocked && data?.results?.length) askToSignIn();
+      if (data?.results?.length && !localStorage.getItem("token") && waContact.current) {
+        // A new search (not another page) by a visitor who already gave their details.
+        if (nextPage === 0) sendToWhatsApp(waContact.current, params, false).catch((err) => setError(err.message));
+      } else if (!unlocked && data?.results?.length) {
+        askForReport();
+      }
     } catch (err) {
       if (err.response?.data?.limitReached) markLimitReached(err);
-      setError(err.response?.data?.message || "Could not search trademarks right now. Please try again.");
+      else setError(err.response?.data?.message || "Could not search trademarks right now. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -397,52 +455,52 @@ export default function TrademarkSearch({ embedded = false }) {
         // No overflow-hidden here: it would clip the class dropdown, which opens
         // below the section. Only the decorative layer is clipped.
         className={`relative z-20 ${embedded ? "border border-gray-200 rounded-2xl" : ""}`}
-        style={{ background: "linear-gradient(180deg, #FFF6DA 0%, #FFFBEF 45%, #FFFFFF 100%)" }}
+        style={{ backgroundColor: "#FFFBEF" }}
       >
-        {/* Warm glow behind the illustration + yellow sweeps behind the search bar */}
+        {/* Background art (India map, skyline, yellow sweeps) + a fade into the
+            page below so the results don't start on a hard edge. */}
         <div aria-hidden="true" className={`absolute inset-0 overflow-hidden pointer-events-none ${embedded ? "rounded-2xl" : ""}`}>
-        <div
-          aria-hidden="true"
-          className="absolute -top-24 right-0 w-[60%] h-[120%] pointer-events-none"
-          style={{ background: "radial-gradient(closest-side, rgba(255,214,90,0.45), rgba(255,214,90,0) 70%)" }}
-        />
-        <svg
-          aria-hidden="true"
-          className="absolute bottom-0 left-0 w-full h-[45%] pointer-events-none"
-          viewBox="0 0 1440 320"
-          preserveAspectRatio="none"
-        >
-          <path d="M0 210 C 320 120, 620 300, 960 190 S 1360 90, 1440 130 L1440 320 L0 320 Z" fill="#FFE9A8" opacity="0.55" />
-          <path d="M0 250 C 360 170, 700 330, 1040 230 S 1380 170, 1440 190 L1440 320 L0 320 Z" fill="#FFD966" opacity="0.45" />
-          <path d="M0 300 C 400 240, 760 330, 1100 290 S 1400 270, 1440 280 L1440 320 L0 320 Z" fill="#FFFFFF" />
-        </svg>
+          <div
+            className="absolute inset-0 bg-no-repeat bg-cover bg-[position:70%_top]"
+            style={{ backgroundImage: "url('/Images/trbg.jpeg')" }}
+          />
+          {!embedded && (
+            <div
+              className="absolute inset-x-0 bottom-0 h-24"
+              style={{ background: "linear-gradient(180deg, rgba(249,250,251,0) 0%, #F9FAFB 100%)" }}
+            />
+          )}
         </div>
 
         <div
           className={`relative z-10 ${
             // Dashboard: fill the content area (it already pads the page) — no side gutters.
-            embedded ? "w-full px-4 sm:px-6 lg:px-8 py-8 md:py-10" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 pt-10 md:pt-12 pb-10"
+            // Sizes are in px: the site's root font is 13px, so rem classes render
+            // the hero noticeably smaller than the design.
+            embedded ? "w-full px-4 sm:px-6 lg:px-8 py-8 md:py-10" : "max-w-[1490px] mx-auto px-4 sm:px-6 pt-5 pb-7"
           }`}
         >
           <div className="relative">
-            <TrademarkHeroArt className="hidden lg:block absolute right-0 -top-6 w-[340px] xl:w-[400px]" />
+            {/* Pokes past the container's right edge on wide screens, as in the
+                design — never past the viewport. */}
+            <TrademarkHeroArt
+              className="hidden lg:block absolute top-[40px] xl:top-[27px] w-[320px] xl:w-[380px] 2xl:w-[450px]"
+              style={{ right: embedded ? 0 : "calc(-1 * min(95px, max(0px, (100vw - 1490px) / 2)))" }}
+            />
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="flex flex-col items-center"
+              className="flex flex-col"
             >
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-50 border border-yellow-300 text-yellow-800 text-[11px] font-semibold tracking-wide uppercase mb-8">
-                <FaRegCopyright /> Indian Trademark Registry
-              </span>
-              <div className="w-full lg:max-w-[58%] lg:mr-auto text-center">
-                <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-black leading-[1.05] tracking-tight mb-6">
-                  Protect your <span className="text-yellow-400">brand.</span>
+              <div className="w-full lg:w-[62%] xl:w-[64%] text-center">
+                <h1 className="text-[40px] sm:text-[54px] lg:text-[58px] xl:text-[66px] font-extrabold text-[#0B0B0B] leading-[1.1] tracking-tight">
+                  Protect your <span className="text-[#FFC21A]">brand.</span>
                   <br />
-                  Start with a <span className="text-yellow-400">search.</span>
+                  Start with a <span className="text-[#FFC21A]">search.</span>
                 </h1>
-                <p className="text-gray-600 text-sm md:text-base max-w-xl mx-auto leading-relaxed">
+                <p className="text-gray-600 text-[15px] md:text-[17px] leading-[26px] max-w-[660px] mx-auto mt-8 md:mt-[38px]">
                   Check whether your brand name or logo is already registered or applied for before you file in India.
                   Search by brand name, owner, application number or logo and narrow it down by class.
                 </p>
@@ -450,24 +508,24 @@ export default function TrademarkSearch({ embedded = false }) {
             </motion.div>
           </div>
 
-          {/* Highlights */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mt-10 lg:mt-12">
-            {HIGHLIGHTS.map(({ icon: Icon, title, text, tone }) => (
+          {/* Highlights — hidden on phones so the search box sits right under the intro */}
+          <div className="relative hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-[26px] mt-9 xl:pr-[80px]">
+            {HIGHLIGHTS.map(({ icon: Icon, title, text }) => (
               <div
                 key={title}
-                className="flex items-center gap-4 bg-white rounded-2xl px-5 py-5 shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-white"
+                className="flex items-center gap-3 xl:gap-4 bg-white rounded-2xl px-4 xl:px-6 min-h-[102px] py-4 shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-white"
               >
-                <span className={`shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-xl ${tone}`}>
+                <span className="shrink-0 w-12 h-12 xl:w-14 xl:h-14 rounded-xl flex items-center justify-center text-[22px] xl:text-[24px] bg-[#FFF6D6] text-[#F5B400]">
                   <Icon />
                 </span>
                 <div className="min-w-0">
-                  <p className="font-semibold text-black">{title}</p>
-                  <p className="text-sm text-gray-500 leading-snug">{text}</p>
+                  <p className="text-[16px] xl:text-[18px] font-semibold text-black">{title}</p>
+                  <p className="text-[13.5px] xl:text-[14.5px] text-gray-500 leading-snug mt-0.5">{text}</p>
                 </div>
               </div>
             ))}
           </div>
-          <div className="mt-12" />
+          <div className="mt-8 sm:mt-12 lg:mt-16" />
 
           {limitReached ? (
             <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-lg border border-yellow-300 p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -492,14 +550,15 @@ export default function TrademarkSearch({ embedded = false }) {
               </div>
             </div>
           ) : (
-          <form onSubmit={handleSubmit} className="max-w-6xl mx-auto">
-            <div className="flex flex-wrap justify-center gap-2 mb-8">
+          <form onSubmit={handleSubmit} className="xl:pl-[29px]">
+            {/* One row on phones: smaller pills, scrolls sideways if a screen is too narrow */}
+            <div className="flex flex-nowrap sm:flex-wrap justify-center-safe gap-1 min-[400px]:gap-1.5 sm:gap-2 mb-6 sm:mb-8 lg:mb-[46px] xl:pr-[8%] overflow-x-auto sm:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {SEARCH_TYPES.map((t) => (
                 <button
                   key={t.value}
                   type="button"
                   onClick={() => setType(t.value)}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium border transition ${
+                  className={`shrink-0 whitespace-nowrap h-[34px] sm:h-[37px] px-2.5 min-[400px]:px-3 sm:px-4 rounded-full text-[13px] sm:text-[15px] font-medium border transition ${
                     type === t.value
                       ? "bg-[#111827] text-white border-[#111827]"
                       : "bg-white text-gray-700 border-gray-200 hover:border-black hover:text-black"
@@ -510,7 +569,8 @@ export default function TrademarkSearch({ embedded = false }) {
               ))}
             </div>
 
-            <div className="flex flex-col md:flex-row gap-3">
+            {/* Phones: search box / class + History / Search. From md: one row. */}
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] md:flex md:flex-row gap-3 md:gap-[15px] text-[17px]">
               {/* Shared by the Logo tab and Brand name's "Add logo". */}
               <input
                 ref={logoInputRef}
@@ -521,7 +581,7 @@ export default function TrademarkSearch({ embedded = false }) {
               />
               {type === "IMAGE" ? (
                 <div
-                  className="relative flex-1 flex items-center gap-3 min-w-0 h-14 px-4 rounded-xl border border-dashed border-gray-300 bg-white shadow-sm hover:border-yellow-400 cursor-pointer"
+                  className="relative col-span-2 md:flex-1 shrink-0 flex items-center gap-3 min-w-0 h-[56px] md:h-[60px] px-4 sm:px-5 rounded-xl border border-dashed border-gray-300 bg-white shadow-sm hover:border-yellow-400 cursor-pointer"
                   onClick={() => logoInputRef.current?.click()}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => {
@@ -548,28 +608,29 @@ export default function TrademarkSearch({ embedded = false }) {
                   ) : (
                     <>
                       <FaImage className="text-gray-400 shrink-0" />
-                      <span className="truncate text-sm text-gray-400 py-1">{activeType.placeholder}</span>
+                      <span className="truncate text-sm text-gray-400 py-1">{placeholder}</span>
                     </>
                   )}
                 </div>
               ) : (
-              <div className="relative flex-1 min-w-0 h-14">
-                <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+              <div className="relative col-span-2 md:flex-1 shrink-0 min-w-0 h-[56px] md:h-[60px]">
+                {/* md:flex-1 only — flex-1 in the phone column squashes the fixed height */}
+                <FaSearch className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type={type === "APPLICATION_NUMBER" ? "number" : "text"}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder={activeType.placeholder}
+                  placeholder={placeholder}
                   maxLength={100}
-                  className={`w-full h-full pl-11 ${type === "WORD_MARK" ? "pr-32" : "pr-4"} rounded-xl border border-gray-200 bg-white shadow-sm text-base placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400`}
+                  className={`w-full h-full pl-11 sm:pl-12 ${type === "WORD_MARK" ? (logo ? "pr-[84px] sm:pr-[150px]" : "pr-[60px] sm:pr-[150px]") : "pr-4"} rounded-xl border border-gray-200 bg-white shadow-sm text-[16px] sm:text-[18px] placeholder:text-gray-400 placeholder:text-[15px] sm:placeholder:text-[18px] focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400`}
                 />
                 {/* Optional logo: brand name + logo are then checked together. */}
                 {type === "WORD_MARK" && (
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                  <div className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2">
                     {logo ? (
                       <span className="flex items-center gap-1.5 pl-1.5 pr-1 py-1 rounded-lg bg-yellow-50 border border-yellow-300 max-w-[7.5rem]">
                         <img src={logo.preview} alt="Your logo" className="h-6 w-6 object-contain rounded shrink-0" />
-                        <span className="text-xs text-black truncate">+ logo</span>
+                        <span className="hidden sm:inline text-xs text-black truncate">+ logo</span>
                         <button
                           type="button"
                           aria-label="Remove logo"
@@ -584,9 +645,11 @@ export default function TrademarkSearch({ embedded = false }) {
                         type="button"
                         onClick={() => logoInputRef.current?.click()}
                         title="Also check your logo"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-medium text-gray-600 hover:border-black hover:text-black"
+                        aria-label="Add logo"
+                        className="inline-flex items-center gap-2 px-3 sm:px-4 h-10 sm:h-9 rounded-lg border border-gray-300 text-[15px] font-medium text-gray-700 hover:border-black hover:text-black"
                       >
-                        <FaImage /> Add logo
+                        {/* Icon only on phones so the brand name has room */}
+                        <FaImage /> <span className="hidden sm:inline">Add logo</span>
                       </button>
                     )}
                   </div>
@@ -597,24 +660,30 @@ export default function TrademarkSearch({ embedded = false }) {
                 value={tmClass}
                 onChange={setTmClass}
                 options={NICE_CLASSES.map((c) => ({ value: c.no, label: `Class ${c.no} — ${c.short}` }))}
-                className="h-14 md:w-48 shrink-0"
+                className="h-[50px] md:h-[56px] min-w-0 md:self-center md:w-[170px] xl:w-[226px] shrink-0 [&>button]:text-[15px] md:[&>button]:text-[17px] md:[&>button]:px-5"
               />
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={loading}
-                className="h-14 md:w-36 shrink-0 px-6 whitespace-nowrap rounded-xl bg-[#FFC72C] hover:bg-[#FFBD00] text-black text-base font-bold shadow-[0_8px_20px_rgba(255,199,44,0.45)] disabled:opacity-60"
+                aria-label={loading ? "Searching" : "Search"}
+                className="order-last md:order-none col-span-2 h-[52px] md:h-[56px] md:self-center md:w-[110px] xl:w-[131px] shrink-0 px-6 whitespace-nowrap rounded-xl bg-[#FFC72C] hover:bg-[#FFBD00] text-black text-[17px] md:text-[19px] font-bold shadow-[0_8px_20px_rgba(255,199,44,0.45)] inline-flex items-center justify-center disabled:cursor-wait"
               >
-                {loading ? "Searching…" : "Search"}
+                {/* A spinner while searching — "Searching…" doesn't fit the button. */}
+                {loading ? (
+                  <span className="w-6 h-6 border-[3px] border-black/20 border-t-black rounded-full animate-spin" />
+                ) : (
+                  "Search"
+                )}
               </motion.button>
-              {historyMenu("h-14 md:w-auto shrink-0")}
+              {historyMenu("h-[50px] md:h-[58px] md:self-center md:w-[130px] xl:w-[151px] shrink-0 md:ml-[3px] [&>button]:px-4 md:[&>button]:px-6 [&>button]:text-[15px] md:[&>button]:text-[19px]")}
             </div>
-            <div className="mt-3 flex items-center justify-center md:justify-start gap-3 text-xs text-gray-600">
+            <div className="mt-4 flex items-center justify-center md:justify-start gap-4 text-[15px] text-gray-700">
               <span>{history.usage.limit} free searches included</span>
               {history.signedIn && (
                 <>
-                  <span className="w-24 h-1.5 rounded-full bg-gray-200 overflow-hidden">
+                  <span className="w-[120px] h-1.5 rounded-full bg-gray-200 overflow-hidden">
                     <span
                       className="block h-full rounded-full bg-[#FFC72C]"
                       style={{ width: `${Math.min(100, (history.usage.used / history.usage.limit) * 100)}%` }}
@@ -646,11 +715,7 @@ export default function TrademarkSearch({ embedded = false }) {
             onClick={(e) => e.stopPropagation()}
           >
             <p id="tm-error-title" className="text-lg font-semibold text-black mb-2">
-              {error.includes("free trademark searches")
-                ? "Free searches used up"
-                : INPUT_ERROR.test(error)
-                  ? "Check your search"
-                  : "Something went wrong"}
+              {INPUT_ERROR.test(error) ? "Check your search" : "Something went wrong"}
             </p>
             <p className="text-sm text-gray-600 mb-6">{error}</p>
             <button
@@ -739,7 +804,7 @@ export default function TrademarkSearch({ embedded = false }) {
       )}
 
       {/* Results */}
-      <section className={embedded ? "w-full py-6" : "max-w-6xl mx-auto px-4 sm:px-6 py-10"}>
+      <section className={embedded ? "w-full py-6" : "max-w-[1364px] mx-auto px-4 sm:px-6 py-10"}>
         {loading && !result && (
           <div className="space-y-3">
             {[0, 1, 2].map((i) => (
@@ -750,8 +815,8 @@ export default function TrademarkSearch({ embedded = false }) {
 
         {result && (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-              <p className="text-gray-700">
+            <div className={`flex flex-wrap items-center justify-between gap-3 mb-5 ${embedded ? "" : "xl:px-[56px]"}`}>
+              <p className="text-gray-700 text-[17px]">
                 {submitted.preview && (
                   <img src={submitted.preview} alt="" className="inline-block align-middle h-8 w-8 object-contain rounded border border-gray-200 bg-white mr-2" />
                 )}
@@ -777,12 +842,20 @@ export default function TrademarkSearch({ embedded = false }) {
                   <p className="text-sm text-gray-500">
                     Showing {startIndex + 1}–{startIndex + results.length}
                   </p>
-                  {!unlocked && !gate.leadGate && (
+                  {!unlocked && !gate.leadGate && !waOpen && (
                     <button
-                      onClick={askToSignIn}
+                      onClick={askForReport}
                       className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#FFC72C] hover:bg-[#FFBD00] text-black text-sm font-semibold"
                     >
-                      <FaLock /> Sign up to view report
+                      {localStorage.getItem("token") ? (
+                        <>
+                          <FaLock /> Sign up to view report
+                        </>
+                      ) : (
+                        <>
+                          <FaWhatsapp /> Get report on WhatsApp
+                        </>
+                      )}
                     </button>
                   )}
                   {unlocked && (
@@ -797,6 +870,16 @@ export default function TrademarkSearch({ embedded = false }) {
                 </div>
               )}
             </div>
+
+            {waNotice && (
+              <div className="mb-5 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                <FaWhatsapp className="mt-0.5 shrink-0 text-lg text-emerald-600" />
+                <p className="flex-1">{waNotice}</p>
+                <button type="button" aria-label="Dismiss" onClick={() => setWaNotice("")} className="text-emerald-600 hover:text-emerald-800">
+                  <FaTimes />
+                </button>
+              </div>
+            )}
 
             {results.length === 0 ? (
               <div className="rounded-2xl bg-white border border-gray-200 p-10 text-center">
@@ -910,6 +993,29 @@ export default function TrademarkSearch({ embedded = false }) {
             subtitle="We'll verify your mobile with a code emailed to you. Your Trademark Search Report will also be sent to your email."
           />
         </div>
+      )}
+
+      {waOpen && (
+        <WhatsAppReportModal
+          initial={waContact.current}
+          onSubmit={submitWhatsAppDetails}
+          onClose={() => setWaOpen(false)}
+          onSignIn={() => {
+            setWaOpen(false);
+            setWaSignIn(true);
+          }}
+        />
+      )}
+      {/* "Already have an account? Sign in" from the WhatsApp form — then the
+          usual signed-in path (report unlocked, saved to their history). */}
+      {waSignIn && (
+        <SigninModal
+          onClose={() => setWaSignIn(false)}
+          onSuccess={() => {
+            setWaSignIn(false);
+            askToSignIn();
+          }}
+        />
       )}
     </div>
   );

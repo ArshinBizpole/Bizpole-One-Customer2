@@ -3,10 +3,13 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { loginWithPhone, signupWithPhone, verifyOtp } from "../../api/AuthApi";
+import OtpSentTo from "./OtpSentTo";
 import { getAllStates } from "../../api/States";
 import { setSecureItem } from "../../utils/secureStorage";
 import { notifyTokenSet } from "../../utils/authSession";
 import { clearReferralToken, getReferralToken } from "../../utils/referralAttribution";
+import { trackEvent } from "../../utils/analytics";
+import { languagesForState, languageForState } from "../../utils/stateLanguages";
 
 // Add a mode state for switching between sign-in and sign-up
 
@@ -24,6 +27,10 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
   useEffect(() => {
     if (isOpen) setMode(initialMode === "signup" ? "signup" : "signin");
   }, [isOpen, initialMode]);
+  // Analytics funnel step 1: form opened → otp_sent → otp_verified (api/AuthApi).
+  useEffect(() => {
+    if (isOpen) trackEvent("signup_form_open", { form: "signin_popup", path: window.location.pathname });
+  }, [isOpen]);
   const [step, setStep] = useState(1);
   const [isVerifying, setIsVerifying] = useState(false);
   const [signedMessage, setSignedMessage] = useState("");
@@ -31,6 +38,8 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
   const [isHovered, setIsHovered] = useState(false);
   const [timer, setTimer] = useState(30);
   const [otpValues, setOtpValues] = useState(["", "", "", ""]);
+  // Send-OTP response ({ emailSent, smsSent, maskedMobile }) for the OTP step.
+  const [otpSentInfo, setOtpSentInfo] = useState(null);
   const modalContentRef = useRef(null);
   // In-modal message dialog (replaces browser alert()). afterClose runs on OK.
   const [notice, setNotice] = useState(null); // { title, message, afterClose? }
@@ -47,6 +56,9 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
   // The customer's state — saved on their account and used to pick the
   // franchisee serving it (instead of everyone defaulting to Kerala).
   const [signupState, setSignupState] = useState("");
+  // Preferred language — with the state, routes their Lead to a BDE who
+  // speaks it. Follows the State (stateLanguages.js), as in the application form.
+  const [signupLanguage, setSignupLanguage] = useState("");
   const [stateOptions, setStateOptions] = useState([]);
   useEffect(() => {
     if (!isOpen || mode !== "signup" || stateOptions.length) return;
@@ -71,8 +83,8 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
   // Request OTP for both sign-in and sign-up
   const handleNextStep = async () => {
     if (mode === "signup") {
-      if (!signupName || !signupEmail || !inputValue || !signupState) {
-        showNotice("Missing details", "Please fill in your name, email, state and phone number to sign up.");
+      if (!signupName || !signupEmail || !inputValue || !signupState || !signupLanguage) {
+        showNotice("Missing details", "Please fill in your name, email, state, preferred language and phone number to sign up.");
         return;
       }
     } else {
@@ -85,9 +97,9 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
       if (mode === "signup") {
         // Referral scan token (if any, unexpired) rides along; the server attributes the
         // signup from it and ignores it if invalid — it never blocks signup.
-        await signupWithPhone(signupName, signupEmail, inputValue, getReferralToken(), signupState);
+        setOtpSentInfo(await signupWithPhone(signupName, signupEmail, inputValue, getReferralToken(), signupState, signupLanguage));
       } else {
-        await loginWithPhone(inputValue);
+        setOtpSentInfo(await loginWithPhone(inputValue));
       }
       setStep(2);
     } catch (err) {
@@ -104,6 +116,7 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
     setSignupName("");
     setSignupEmail("");
     setSignupState("");
+    setSignupLanguage("");
   };
 
   const handleBackStep = () => {
@@ -115,7 +128,7 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
   const handleResend = async () => {
     if (timer > 0) return;
     try {
-      await loginWithPhone(inputValue);
+      setOtpSentInfo(await loginWithPhone(inputValue));
       setOtpValues(["", "", "", ""]);
       setTimer(30);
     } catch (err) {
@@ -284,12 +297,35 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
                     </label>
                     <select
                       value={signupState}
-                      onChange={(e) => setSignupState(e.target.value)}
+                      onChange={(e) => {
+                        setSignupState(e.target.value);
+                        setSignupLanguage((cur) => languageForState(e.target.value, cur).toLowerCase());
+                      }}
                       className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-white outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100 transition-all"
                     >
                       <option value="">Select your state</option>
                       {stateOptions.map((name) => (
                         <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                  </motion.div>
+                  <motion.div
+                    className="w-full"
+                    initial={{ y: -10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.195 }}
+                  >
+                    <label className="block text-sm font-medium text-gray-700 mb-2 text-left">
+                      Preferred Language
+                    </label>
+                    <select
+                      value={signupLanguage}
+                      onChange={(e) => setSignupLanguage(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-white outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100 transition-all"
+                    >
+                      <option value="">Select your language</option>
+                      {languagesForState(signupState).map((l) => (
+                        <option key={l} value={l.toLowerCase()}>{l}</option>
                       ))}
                     </select>
                   </motion.div>
@@ -428,11 +464,14 @@ const SigninModal = ({ isOpen = true, onClose = () => { }, initialValue = "", in
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.2 }}
               >
-                We have sent a one time password to your registered{" "}
-                <span className="font-bold text-gray-800">Email and Mobile Number</span> for <br />
-                <span className="font-semibold text-gray-800">
-                  {inputValue}
-                </span>
+                <OtpSentTo info={otpSentInfo} />
+                {/* Typed an email → name the account; a typed mobile is shown masked above. */}
+                {String(inputValue).includes("@") && (
+                  <>
+                    {" "}for <br />
+                    <span className="font-semibold text-gray-800">{inputValue}</span>
+                  </>
+                )}
               </motion.p>
 
               {/* OTP inputs */}

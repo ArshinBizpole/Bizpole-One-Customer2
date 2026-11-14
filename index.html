@@ -2,13 +2,81 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="apple-touch-icon" href="/favicon.png" />
+    <!-- Square icons: Google shows a 48px-multiple square favicon in results. -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BizpoleOne</title>
+    <!-- Home-page defaults; each route replaces title / description / canonical /
+         og:* via src/utils/pageTitles.js. -->
+    <title>Business Registration, GST &amp; Trademark Online in India | Bizpole</title>
+    <meta name="description" content="Register your company, get GST, file your trademark and stay compliant — all online with Bizpole. Transparent pricing, expert support, track everything in one dashboard." />
+    <link rel="canonical" href="https://www.bizpole.io/" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#0B0B0B" />
+    <meta property="og:site_name" content="Bizpole" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_IN" />
+    <meta property="og:title" content="Business Registration, GST &amp; Trademark Online in India | Bizpole" />
+    <meta property="og:description" content="Register your company, get GST, file your trademark and stay compliant — all online with Bizpole." />
+    <meta property="og:url" content="https://www.bizpole.io/" />
+    <meta property="og:image" content="https://www.bizpole.io/bizpole-logo.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Business Registration, GST &amp; Trademark Online in India | Bizpole" />
+    <meta name="twitter:description" content="Register your company, get GST, file your trademark and stay compliant — all online with Bizpole." />
+    <meta name="twitter:image" content="https://www.bizpole.io/bizpole-logo.png" />
+    <!-- Site name ("Bizpole" instead of the domain in Google results) + logo. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://www.bizpole.io/#website",
+            "name": "Bizpole",
+            "alternateName": ["Bizpole One", "BizpoleOne", "bizpole.io"],
+            "url": "https://www.bizpole.io/",
+            "publisher": { "@id": "https://www.bizpole.io/#organization" }
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://www.bizpole.io/#organization",
+            "name": "Bizpole",
+            "url": "https://www.bizpole.io/",
+            "logo": "https://www.bizpole.io/favicon-512.png",
+            "image": "https://www.bizpole.io/bizpole-logo.png",
+            "telephone": "+91-95399-95533",
+            "sameAs": [
+              "https://www.facebook.com/bizpolebusinessconsulting",
+              "https://www.instagram.com/bizpole_/",
+              "https://www.linkedin.com/company/56406685/",
+              "https://www.youtube.com/@bizpole3483"
+            ]
+          }
+        ]
+      }
+    </script>
+    <!-- Google Analytics 4. Live site only, so local / test runs don't count as
+         traffic. Page views are sent by the app on every route change (App.jsx),
+         with that page's title — so GA's own page_view is off here, and
+         "Page changes based on browser history events" must be off in the GA
+         stream's enhanced measurement. Events: src/utils/analytics.js -->
+    <script>
+      if (/(^|\.)bizpole\.io$/.test(location.hostname)) {
+        var s = document.createElement("script");
+        s.async = true;
+        s.src = "https://www.googletagmanager.com/gtag/js?id=G-PNZSLDSE7D";
+        document.head.appendChild(s);
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = function () { dataLayer.push(arguments); };
+        gtag("js", new Date());
+        gtag("config", "G-PNZSLDSE7D", { send_page_view: false });
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
