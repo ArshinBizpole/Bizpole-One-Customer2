@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Search, ChevronDown, ArrowUpDown, ArrowUp, ArrowDown, Plus } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Plus } from "lucide-react";
 import Pagination from "../components/Pagination";
 import { getAllOrdersByCompany } from "../api/Orders/Order";
 import {
@@ -15,6 +15,7 @@ import { getServicePriceCurrency } from "../api/ServicesApi";
 import { calcGstAmount, fetchFranchiseeGstInfo } from "../utils/gstCalc";
 import { getSecureItem } from "../utils/secureStorage";
 import ServiceCatalogPicker from "../components/SupportTickets/ServiceCatalogPicker";
+import YellowSelect from "../components/YellowSelect";
 
 const STATUS_STYLES = {
   Open: "bg-blue-50 text-blue-600 border-blue-200",
@@ -25,14 +26,14 @@ const STATUS_STYLES = {
 
 const PAGE_SIZE = 10;
 
-// "2025-11-08 09:24 AM"
+// "08/11/25 09:24 AM"
 const formatDateTime = (value) => {
   if (!value) return "—";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "—";
   const pad = (n) => String(n).padStart(2, "0");
   const h = d.getHours() % 12 || 12;
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(h)}:${pad(d.getMinutes())} ${d.getHours() < 12 ? "AM" : "PM"}`;
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${String(d.getFullYear()).slice(-2)} ${pad(h)}:${pad(d.getMinutes())} ${d.getHours() < 12 ? "AM" : "PM"}`;
 };
 
 const STATUS_LABEL = {
@@ -636,19 +637,15 @@ const SupportTickets = () => {
             className="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
           />
         </div>
-        <div className="relative sm:w-44">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full appearance-none border border-gray-200 rounded-lg pl-3 pr-8 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
-          >
-            <option value="">All Statuses</option>
-            {Object.keys(STATUS_LABEL).map((s) => (
-              <option key={s} value={s}>{STATUS_LABEL[s]}</option>
-            ))}
-          </select>
-          <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-        </div>
+        <YellowSelect
+          className="sm:w-44"
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: "", label: "All Statuses" },
+            ...Object.keys(STATUS_LABEL).map((s) => ({ value: s, label: STATUS_LABEL[s] })),
+          ]}
+        />
       </div>
 
       {/* Tickets table */}
@@ -840,17 +837,11 @@ const SupportTickets = () => {
             <div className="px-6 py-5 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Category *</label>
-                <select
+                <YellowSelect
                   value={form.category}
-                  onChange={(e) => handleCategoryChange(e.target.value)}
-                  className={inputClass}
-                >
-                  {CATEGORIES.map((c) => (
-                    <option key={c.value} value={c.value}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={handleCategoryChange}
+                  options={CATEGORIES.map((c) => ({ value: c.value, label: c.label }))}
+                />
               </div>
 
               {form.category === "callback" ? (
@@ -862,19 +853,17 @@ const SupportTickets = () => {
                       <label className="block text-xs font-semibold text-gray-600 mb-1">
                         Related order {orders.length ? "(optional)" : ""}
                       </label>
-                      <select
+                      <YellowSelect
                         value={form.orderKey}
-                        onChange={(e) => setForm({ ...form, orderKey: e.target.value })}
-                        className={inputClass}
-                      >
-                        <option value="">— Select an order —</option>
-                        {orders.map((o, i) => (
-                          <option key={o.OrderID || o.id || i} value={o.OrderID || o.id}>
-                            Order #{o.OrderID || o.id}
-                            {o.PackageName || o.ItemName ? ` · ${o.PackageName || o.ItemName}` : ""}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(v) => setForm({ ...form, orderKey: v })}
+                        options={[
+                          { value: "", label: "— Select an order —" },
+                          ...orders.map((o) => ({
+                            value: o.OrderID || o.id,
+                            label: `Order #${o.OrderID || o.id}${o.PackageName || o.ItemName ? ` · ${o.PackageName || o.ItemName}` : ""}`,
+                          })),
+                        ]}
+                      />
                     </div>
                   )}
 
@@ -902,18 +891,14 @@ const SupportTickets = () => {
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">Priority *</label>
-                    <select
+                    <YellowSelect
                       value={form.priority}
-                      onChange={(e) => setForm({ ...form, priority: e.target.value })}
-                      className={inputClass}
-                    >
-                      <option value="">— Select priority —</option>
-                      {PRIORITIES.map((p) => (
-                        <option key={p} value={p}>
-                          {p.charAt(0).toUpperCase() + p.slice(1)}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(v) => setForm({ ...form, priority: v })}
+                      options={[
+                        { value: "", label: "— Select priority —" },
+                        ...PRIORITIES.map((p) => ({ value: p, label: p.charAt(0).toUpperCase() + p.slice(1) })),
+                      ]}
+                    />
                   </div>
                 </>
               )}

@@ -72,6 +72,10 @@ const openQuotePreview = (quoteId) => {
   window.open(url, "_blank");
 };
 
+// Still waiting on the client — View shows the amounts and offers first
+// (pages/QuoteCheckout.jsx); anything else opens the quote straight away.
+const OPEN_STATUSES = new Set(["draft", "quote draft", "quote-draft", "quote created"]);
+
 const QuotesList = () => {
   const navigate = useNavigate();
   const { quotes } = useContext(DashboardContext) || {};
@@ -151,7 +155,12 @@ const QuotesList = () => {
         {status}
       </span>
     );
+    const view = () =>
+      OPEN_STATUSES.has(String(status).trim().toLowerCase())
+        ? navigate(`/dashboard/bizpoleone/quote/${quote.QuoteID}`)
+        : openQuotePreview(quote.QuoteID);
     return {
+      view,
       code: quote.QuoteCodeId || quote.QuoteCode || `#${quote.QuoteID}`,
       service: waiting ? pending : service,
       amount: waiting ? pending : `₹${amount.toLocaleString("en-IN")}`,
@@ -203,7 +212,7 @@ const QuotesList = () => {
                   </span>
                   <button
                     type="button"
-                    onClick={() => openQuotePreview(quote.QuoteID)}
+                    onClick={row.view}
                     className="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 px-3 py-1 text-xs text-gray-700 hover:bg-gray-50"
                   >
                     View <ChevronRight className="h-3.5 w-3.5" />
@@ -240,7 +249,7 @@ const QuotesList = () => {
                     <td className="px-6 py-3.5 text-right">
                       <button
                         type="button"
-                        onClick={() => openQuotePreview(quote.QuoteID)}
+                        onClick={row.view}
                         className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1 text-xs text-gray-700 hover:bg-gray-50"
                       >
                         View <ChevronRight className="h-3.5 w-3.5" />

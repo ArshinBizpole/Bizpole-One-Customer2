@@ -20,6 +20,7 @@ import {
   FaEnvelope,
   FaClipboardCheck,
   FaArrowRight,
+  FaArrowLeft,
   FaFolderOpen,
   FaCogs,
   FaRupeeSign,
@@ -403,13 +404,18 @@ const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
       />
       <div className={embedded ? "pb-10 font-sans" : "bg-gray-100 min-h-screen pt-10 pb-20 font-sans mt-26"}>
         <div className={embedded ? "" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}>
-          {embedded && onBack && (
+          {(!embedded || onBack) && (
             <button
               type="button"
-              onClick={onBack}
-              className="text-sm font-semibold text-gray-700 hover:text-black"
+              onClick={
+                embedded
+                  ? onBack
+                  : () => (window.history.state?.idx > 0 ? navigate(-1) : navigate("/services"))
+              }
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-gray-200 text-sm font-semibold text-gray-800 shadow-sm hover:border-[#F3C625] hover:bg-[#FFFBEA] transition-all"
             >
-              ← Back to services
+              <FaArrowLeft className="text-xs text-[#CA8A04]" />
+              Back to services
             </button>
           )}
           {/* Service details fetch status */}

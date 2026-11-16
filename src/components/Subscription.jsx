@@ -266,9 +266,6 @@ const Subscription = () => {
         {/* ════ TOGGLE TABS ════ */}
         <div>
           <div style={{ maxWidth:1200,margin:"0 auto",padding:"20px 24px",display:"flex",alignItems:"center",justifyContent:"center",gap:10,flexWrap:"wrap" }}>
-            <motion.button className="sub-tab sub-tab-active" whileHover={{ scale:1.03 }} whileTap={{ scale:0.97 }}>
-            Package Plans
-            </motion.button>
             <motion.button
               className="sub-tab sub-tab-inactive sub-tab-services"
               whileHover={{ scale:1.03 }} whileTap={{ scale:0.97 }}
@@ -280,6 +277,9 @@ const Subscription = () => {
                   {selectedCount} selected
                 </span>
               )}
+            </motion.button>
+            <motion.button className="sub-tab sub-tab-active" whileHover={{ scale:1.03 }} whileTap={{ scale:0.97 }}>
+            Package Plans
             </motion.button>
           </div>
         </div>

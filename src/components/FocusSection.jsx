@@ -25,7 +25,7 @@ const Phone = ({ children, className = "", tall = false }) => (
 );
 
 const Logo = ({ size = "h-7 sm:h-8" }) => (
-  <img src="/Images/logo.webp" alt="" className={`${size} w-auto mx-auto mix-blend-multiply`} />
+  <img src="/Images/image.png" alt="" className={`${size} w-auto mx-auto mix-blend-multiply`} />
 );
 
 // Left: "Let's talk business!" — new vs existing company, yellow wave at the bottom.

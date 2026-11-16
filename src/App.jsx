@@ -29,6 +29,7 @@ import BizpoleBooks from "./pages/BizpoleBooks";
 // BizpoleOne dashboard pages
 import BizpoleOneDashboardLayout from "./pages/BizpoleOneDashboardLayout";
 import BizpoleOne from "./pages/BizpoleOne";
+import QuoteCheckout from "./pages/QuoteCheckout";
 import BizpoleOneServices from "./pages/BizpoleOneServices";
 import BizpoleOneTasks from "./pages/BizpoleOneTasks";
 import SupportTickets from "./pages/SupportTickets";
@@ -44,6 +45,7 @@ import CustomerFiles from "./pages/CustomerFiles";
 import CompanyDetails from "./pages/CompanyDetails";
 import Invoiceprofile from "./pages/Invoiceprofile";
 import Refunds from "./pages/Refunds";
+import ProfileCommunications from "./pages/ProfileCommunications";
 
 import Services from "./pages/Services";
 import ServiceDetails from "./pages/ServiceDetails";
@@ -236,6 +238,7 @@ function App() {
             <Route path="companydetails" element={<CompanyDetails />} />
             <Route path="invoice" element={<Invoiceprofile />} />
             <Route path="refunds" element={<Refunds />} />
+            <Route path="communications" element={<ProfileCommunications />} />
             <Route path="invoice-preview/:encrypted" element={<InvoicePreview />} />
 
 
@@ -260,6 +263,8 @@ function App() {
                   <Route path="orders" element={<BizpoleOneServices />} />
                   <Route path="tasks" element={<BizpoleOneTasks />} />
                   <Route path="pricing" element={<Plansandpricing />} />
+                  {/* Quotes → View on an open quote: amounts + offers before the quote opens */}
+                  <Route path="quote/:quoteId" element={<QuoteCheckout />} />
                   <Route path="individual" element={<MyIndividualservices />} />
                   <Route path="chat" element={<ChatPage />} />
                   {/* Billing and Refunds now live under Profile → Invoice */}

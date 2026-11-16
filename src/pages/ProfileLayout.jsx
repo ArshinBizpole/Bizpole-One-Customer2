@@ -30,6 +30,7 @@ const menuItems = [
   { name: "Files", path: "files", icon: Folder },
   { name: "Compliance Calendar", path: "events", icon: Briefcase },
   { name: "Invoice", path: "invoice", icon: MessageSquare },
+  { name: "Communications", path: "communications", icon: MessageSquare },
 ];
 
 const ProfileLayout = () => {
@@ -290,13 +291,13 @@ const ProfileLayout = () => {
 
           {/* Grid Menu */}
           <div className="grid grid-cols-2 gap-px bg-gray-200 mx-6 rounded-lg overflow-hidden border border-gray-200">
-            {menuItems.map(({ name, path }) => (
+            {menuItems.map(({ name, path }, index) => (
               <NavLink
                 key={name}
                 to={path}
                 end={name === "Profile"}
                 className={({ isActive }) =>
-                  `relative flex items-center justify-center bg-white py-8 px-2 text-sm font-medium transition ${isTileActive(path, isActive) ? "text-gray-600 font-semibold " : "text-gray-400 hover:text-gray-600"
+                  `relative flex items-center justify-center bg-white py-8 px-2 text-sm font-medium transition ${menuItems.length % 2 === 1 && index === menuItems.length - 1 ? "col-span-2" : ""} ${isTileActive(path, isActive) ? "text-gray-600 font-semibold " : "text-gray-400 hover:text-gray-600"
                   }`
                 }
               >
