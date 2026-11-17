@@ -185,7 +185,7 @@ export default function AboutPage() {
         .bo-sub { font-size: 15px; color: var(--bo-muted); line-height: 1.7; }
 
         /* ── Hero ───────────────────────────── */
-        .bo-hero { position: relative; min-height: clamp(720px, 100vh, 940px); display: flex; align-items: center; padding: 120px 0 60px; }
+        .bo-hero { position: relative; min-height: clamp(690px, 94vh, 890px); display: flex; align-items: center; padding: 120px 0 55px; }
         .bo-hero-blob { position: absolute; top: 0; right: 0; bottom: 0; width: 44%; pointer-events: none; }
         .bo-hero-blob svg { width: 100%; height: 100%; display: block; }
         .bo-hero-img {
@@ -396,11 +396,11 @@ export default function AboutPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.25, duration: 0.7, ease }}
               >
-                <button className="bo-consult" onClick={() => navigate("/contact")}>
+                <button className="bo-consult" onClick={() => navigate("/startbusiness")}>
                   <span className="bo-consult-ring">
                     <span className="bo-consult-dot"><ArrowRight size={20} color="#fff" strokeWidth={2} /></span>
                   </span>
-                  Get Free Consultation
+                  Get Your Business Started
                 </button>
                 <button className="bo-explore" onClick={() => navigate("/products")}>
                   Explore Platform

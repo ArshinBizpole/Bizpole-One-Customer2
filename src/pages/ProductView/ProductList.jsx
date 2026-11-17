@@ -1,6 +1,7 @@
 // 📁 src/components/ProductList.jsx
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { FaExternalLinkAlt } from "react-icons/fa";
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 function arrayBufferToBase64(buffer) {
@@ -97,8 +98,9 @@ const ProductList = () => {
                     const name = product.name || product.ProductName;
                     const description =
                       product.description || product.Description || "No description available.";
-                    const link =
-                      product.url || product.link || product.product_url || product.ProductUrl;
+                    const link = /journl/i.test(name || "")
+                      ? "https://www.getjournl.com/"
+                      : product.url || product.link || product.product_url || product.ProductUrl;
 
                     return (
                       <motion.div
@@ -142,9 +144,10 @@ const ProductList = () => {
                               href={link}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-yellow-500 hover:text-yellow-600 text-sm underline break-all mb-6"
+                              className="self-start inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-full bg-[#FFFBEA] border border-[#F3C625] text-sm font-semibold text-gray-800 shadow-sm hover:bg-[#F3C625] hover:text-black transition-all break-all"
                             >
-                              {link}
+                              {link.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
+                              <FaExternalLinkAlt className="text-xs text-[#CA8A04]" />
                             </a>
                           )}
 
