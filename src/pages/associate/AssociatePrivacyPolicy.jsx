@@ -3,7 +3,7 @@ import PolicyLayout from "../../components/PolicyLayout";
 const sections = [
   {
     heading: "Introduction",
-    body: "BIZPOLE ONE Associate Portal (“Portal”) is operated by BIZPOLE BUSINESS SOLUTIONS PRIVATE LIMITED (“BIZPOLE”, “we”, “us” or “our”). This Privacy Policy explains how we collect, use, store and share information when associates use the Portal to refer clients to BIZPOLE and coordinate related communications.",
+    body: "BIZPOLE ONE Associate Portal (“Portal”) is operated by BIZPOLE BUSINESS ACUMEN PRIVATE LIMITED (“BIZPOLE”, “we”, “us” or “our”). This Privacy Policy explains how we collect, use, store and share information when associates use the Portal to refer clients to BIZPOLE and coordinate related communications.",
   },
   {
     heading: "Information We Collect",
