@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 const POLICY_INFO = {
   effectiveDate: "",
   lastUpdated: "",
-  companyName: "BIZPOLE BUSINESS SOLUTIONS PRIVATE LIMITED",
+  companyName: "BIZPOLE BUSINESS ACUMEN PRIVATE LIMITED",
   address:
     "2nd Floor, Falcon Complex, Opp. HPCL Petrol Bunk, Nurani, Palakkad City, Palakkad, Kerala – 678014.",
   email: "info@bizpole.in",

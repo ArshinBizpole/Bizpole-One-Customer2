@@ -324,7 +324,7 @@ const ServiceCard = ({ service, onLearnMore, isSelected, onSelect, price: fetche
                       const gstAmount = calcGstAmount(professionalFee, vendorFee, gstEligible);
                       const { cgst, sgst, igst } = splitGst(gstAmount, franchiseeState, stateName);
                       const total = professionalFee + vendorFee + govtFee + contractorFee - discount + gstAmount;
-                      const advanceAmount = Math.ceil(total * 0.3);
+                      const advanceAmount = Math.ceil(total * 0.25);
 
                       const serviceDetails = [
                         {

@@ -56,7 +56,7 @@ const GlobalCart = () => {
         const gstAmount = calcGstAmount(professionalFee, vendorFee, gstEligible);
         const { cgst, sgst, igst } = splitGst(gstAmount, franchiseeState, stateName);
         const total = professionalFee + vendorFee + govtFee + contractorFee - discount + gstAmount;
-        const advanceAmount = Math.ceil(total * 0.3);
+        const advanceAmount = Math.ceil(total * 0.25);
         return {
           ServiceID: sid,
           ItemName: item.ServiceName || item.Name,

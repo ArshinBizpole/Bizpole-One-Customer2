@@ -29,6 +29,7 @@ import BizpoleBooks from "./pages/BizpoleBooks";
 // BizpoleOne dashboard pages
 import BizpoleOneDashboardLayout from "./pages/BizpoleOneDashboardLayout";
 import BizpoleOne from "./pages/BizpoleOne";
+import QuoteCheckout from "./pages/QuoteCheckout";
 import BizpoleOneServices from "./pages/BizpoleOneServices";
 import BizpoleOneTasks from "./pages/BizpoleOneTasks";
 import SupportTickets from "./pages/SupportTickets";
@@ -262,6 +263,8 @@ function App() {
                   <Route path="orders" element={<BizpoleOneServices />} />
                   <Route path="tasks" element={<BizpoleOneTasks />} />
                   <Route path="pricing" element={<Plansandpricing />} />
+                  {/* Quotes → View on an open quote: amounts + offers before the quote opens */}
+                  <Route path="quote/:quoteId" element={<QuoteCheckout />} />
                   <Route path="individual" element={<MyIndividualservices />} />
                   <Route path="chat" element={<ChatPage />} />
                   {/* Billing and Refunds now live under Profile → Invoice */}

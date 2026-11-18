@@ -34,6 +34,27 @@ export const previewOfferCode = async (ServiceDetails, promoCode) => {
   }
 };
 
+// Dashboard quote checkout (pages/QuoteCheckout.jsx): a saved quote's lines,
+// total, applied offer and available offers. → the server's body, or null.
+export const loadQuoteCheckout = async (quoteId) => {
+  try {
+    const res = await client.post("/website/quote-checkout/load", { quoteId });
+    return res.data?.success ? res.data : null;
+  } catch {
+    return null;
+  }
+};
+
+// Preview a code on a saved quote — nothing is recorded.
+export const previewQuoteCheckoutCode = async (quoteId, promoCode) => {
+  try {
+    const res = await client.post("/website/quote-checkout/preview", { quoteId, promoCode });
+    return res.data || { valid: false, message: "Offers are unavailable right now" };
+  } catch {
+    return { valid: false, message: "Offers are unavailable right now" };
+  }
+};
+
 // Records the offer once and puts the discount on the saved Quote.
 // → { valid, code, discount, finalAmount } or { valid: false, message }
 export const redeemOfferOnQuote = async (quoteId, promoCode) => {

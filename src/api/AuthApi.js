@@ -61,6 +61,7 @@ export const verifyOtp = async (phone, otp) => {
 export const magicLogin = async (token) => {
   try {
     const response = await axiosInstance.post("/whatsapp-bot/magic-login", { token });
+    trackEvent("login", { method: "whatsapp_link" });
     return response.data;
   } catch (error) {
     throw error.response?.data || error;

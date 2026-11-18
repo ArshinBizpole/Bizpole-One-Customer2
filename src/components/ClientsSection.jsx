@@ -1,6 +1,10 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, useInView, AnimatePresence, useScroll, useTransform } from "framer-motion";
-import { testimonials } from "../data/testimonials";
+import { fetchPublicReviews } from "../api/customerReviewsApi";
+
+// Reviews come from admin Settings → Customer Reviews (no photo → initials).
+const initialsOf = (name = "") =>
+  name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
 
 // ── Single Card ──────────────────────────────────────────────────────────────
 // All cards share one size so the grid gaps stay even; only colour marks the featured one.
@@ -24,19 +28,38 @@ function TestimonialCard({ item, index, active }) {
 
       {/* Author */}
       <div className="flex items-center gap-4 pr-10">
-        <img
-          src={item.img}
-          alt={item.name}
-          className={`w-16 h-16 rounded-full object-cover ring-2 flex-shrink-0
-            ${isFeatured ? "ring-white/60" : "ring-white/40"}`}
-        />
+        {item.img ? (
+          <img
+            src={item.img}
+            alt={item.name}
+            loading="lazy"
+            className={`w-16 h-16 rounded-full object-cover ring-2 flex-shrink-0
+              ${isFeatured ? "ring-white/60" : "ring-white/40"}`}
+          />
+        ) : (
+          <div
+            aria-hidden="true"
+            className={`w-16 h-16 rounded-full ring-2 flex-shrink-0 flex items-center justify-center
+              font-bold text-xl text-[#1a1a1a]
+              ${isFeatured ? "bg-white/70 ring-white/60" : "bg-white ring-white/40"}`}
+          >
+            {initialsOf(item.name)}
+          </div>
+        )}
         <div className="min-w-0">
           <div className="font-bold text-lg leading-tight text-[#1a1a1a]">
             {item.name}
           </div>
-          <div className={`text-sm mt-1 ${isFeatured ? "text-[#1a1a1a]/60" : "text-[#1a1a1a]/50"}`}>
-            {item.role}
-          </div>
+          {item.role && (
+            <div className={`text-sm mt-1 ${isFeatured ? "text-[#1a1a1a]/60" : "text-[#1a1a1a]/50"}`}>
+              {item.role}
+            </div>
+          )}
+          {item.services && (
+            <div className={`text-xs mt-1 ${isFeatured ? "text-[#1a1a1a]/55" : "text-[#1a1a1a]/45"}`}>
+              {item.services}
+            </div>
+          )}
         </div>
       </div>
 
@@ -50,6 +73,31 @@ function TestimonialCard({ item, index, active }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function ClientsSection() {
+  const [testimonials, setTestimonials] = useState([]);
+
+  useEffect(() => {
+    let alive = true;
+    fetchPublicReviews().then((rows) => {
+      if (!alive) return;
+      setTestimonials(
+        rows.map((r) => ({
+          name: r.ClientName,
+          role: r.CompanyName,
+          services: r.ServicesTaken,
+          img: r.PhotoUrl,
+          text: r.ReviewText,
+        })),
+      );
+    });
+    return () => { alive = false; };
+  }, []);
+
+  // Nothing published yet (or the API is unreachable) → hide the whole section.
+  if (testimonials.length === 0) return null;
+  return <ClientsCarousel testimonials={testimonials} />;
+}
+
+function ClientsCarousel({ testimonials }) {
   const [active, setActive] = useState(0);
   const [direction, setDirection] = useState(1);
   const sectionRef = useRef(null);
@@ -70,8 +118,8 @@ export default function ClientsSection() {
     setActive((p) => (p + 1) % testimonials.length);
   };
 
-  // Visible cards: active + next 2
-  const visible = [0, 1, 2].map((offset) => ({
+  // Visible cards: active + next 2 (fewer when there are fewer reviews, so none repeats)
+  const visible = [0, 1, 2].slice(0, Math.min(3, testimonials.length)).map((offset) => ({
     item: testimonials[(active + offset) % testimonials.length],
     index: offset,
   }));
