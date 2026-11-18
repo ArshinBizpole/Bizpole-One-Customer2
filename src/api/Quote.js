@@ -148,7 +148,7 @@ export const upsertQuote = async (plan) => {
         const gstAmount = calcGstAmount(professionalFee, vendorFee, gstEligible);
         const { cgst, sgst, igst } = splitGst(gstAmount, franchiseeState, buyerState);
         const total = professionalFee + vendorFee + govtFee + gstAmount;
-        const advanceAmount = Math.ceil(total * 0.3);
+        const advanceAmount = Math.ceil(total * 0.25);
 
         return {
           ServiceID: s.ServiceID,
