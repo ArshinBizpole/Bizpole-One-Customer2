@@ -1,6 +1,42 @@
 {
+  "routes": [
+    {
+      "route": "/trademark-registration/apply/index.html",
+      "redirect": "/trademark-registration/apply",
+      "statusCode": 301
+    },
+    {
+      "route": "/trademark-registration/apply/",
+      "redirect": "/trademark-registration/apply",
+      "statusCode": 301
+    },
+    {
+      "route": "/trademark-registration/apply",
+      "rewrite": "/trademark-registration/apply/index.html"
+    },
+    {
+      "route": "/trademark-registration/index.html",
+      "redirect": "/trademark-registration",
+      "statusCode": 301
+    },
+    {
+      "route": "/trademark-registration/",
+      "redirect": "/trademark-registration",
+      "statusCode": 301
+    },
+    {
+      "route": "/trademark-registration",
+      "rewrite": "/trademark-registration/index.html"
+    }
+  ],
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/assets/*", "/images/*", "/css/*", "/js/*"]
+    "exclude": [
+      "/assets/*",
+      "/images/*",
+      "/css/*",
+      "/js/*",
+      "/trademark-registration/*"
+    ]
   }
 }

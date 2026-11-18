@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Get Started – Trademark Registration | Bizpole</title>
+<meta name="description" content="Share your name, mobile, state and preferred language. A Bizpole trademark expert will call you with a free trademark search report.">
+<!-- Form step of the landing page: kept out of Google so it never competes with /trademark-registration -->
+<meta name="robots" content="noindex, follow">
+<link rel="canonical" href="https://www.bizpole.io/trademark-registration/apply">
+<meta name="theme-color" content="#1a1a1a">
+<meta name="format-detection" content="telephone=no">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<!-- Self-hosted Poppins (Latin subset): no third-party round trips before first paint -->
+<link rel="preload" href="/trademark-registration/fonts/poppins-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/trademark-registration/fonts/poppins-400.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:"Poppins";font-style:normal;font-weight:400;font-display:swap;src:url(/trademark-registration/fonts/poppins-400.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Poppins";font-style:normal;font-weight:600;font-display:swap;src:url(/trademark-registration/fonts/poppins-600.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Poppins";font-style:normal;font-weight:700;font-display:swap;src:url(/trademark-registration/fonts/poppins-700.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+/* ₹ only (≈680 B each) so prices render in Poppins without the large Devanagari subset */
+@font-face{font-family:"Poppins";font-style:normal;font-weight:400;font-display:swap;src:url(/trademark-registration/fonts/poppins-400-inr.woff2) format("woff2");unicode-range:U+20B9}
+@font-face{font-family:"Poppins";font-style:normal;font-weight:600;font-display:swap;src:url(/trademark-registration/fonts/poppins-600-inr.woff2) format("woff2");unicode-range:U+20B9}
+@font-face{font-family:"Poppins";font-style:normal;font-weight:700;font-display:swap;src:url(/trademark-registration/fonts/poppins-700-inr.woff2) format("woff2");unicode-range:U+20B9}
+/* Metric-matched fallback: text shown before Poppins arrives takes the same space (no layout jump) */
+@font-face{font-family:"Poppins Fallback";src:local("Arial"),local("Helvetica"),local("Roboto");size-adjust:112%;ascent-override:94%;descent-override:31%;line-gap-override:9%}
+:root{
+  --ink:#1a1a1a; --ink-2:#374151; --muted:#5b6472; --line:#e5e7eb;
+  --bg-soft:#f7f5f0; --bg-cream:#fffbea;
+  --brand:#f5c518; --brand-d:#9a5b06; --coral:#ef6b5b; --ok:#16a34a;
+  --r-sm:10px;
+  --font:"Poppins","Poppins Fallback",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font-family:var(--font);font-size:16px;line-height:1.55;color:var(--ink-2);background:var(--ink);-webkit-font-smoothing:antialiased}
+img{display:block;max-width:100%;height:auto}
+h1,h2{color:var(--ink);line-height:1.2;margin:0;font-weight:600;letter-spacing:-.01em}
+p{margin:0}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+
+/* ===== Split layout (like an app sign-up screen) ===== */
+.split{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
+@media (min-width:960px){.split{display:grid;grid-template-columns:1fr minmax(440px,500px)}}
+
+/* ----- Left: brand visual panel ----- */
+.visual{position:relative;overflow:hidden;color:#fff;padding:12px 16px 26px;
+  background:
+    radial-gradient(600px 420px at 70% 38%,rgba(245,197,24,.22),transparent 65%),
+    radial-gradient(500px 360px at 10% 100%,rgba(239,107,91,.18),transparent 60%),
+    var(--ink)}
+/* Optional photo: drop img/apply-hero.webp in and add class "has-photo" to .visual */
+.visual.has-photo{background:linear-gradient(180deg,rgba(0,0,0,.25) 0%,rgba(0,0,0,0) 35%,rgba(0,0,0,.72) 100%),url("/trademark-registration/img/apply-hero.webp") center/cover no-repeat,var(--ink)}
+.visual::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(ellipse at 60% 40%,#000 30%,transparent 75%);-webkit-mask-image:radial-gradient(ellipse at 60% 40%,#000 30%,transparent 75%);pointer-events:none}
+.visual.has-photo::before{display:none}
+.visual > *{position:relative}
+.logo{display:inline-block}
+@media (min-width:960px){.logo img{width:86px;height:48px}}
+.stage{display:none}
+.visual{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.m-tag{font-size:.78rem;font-weight:600;color:var(--brand);text-align:right;line-height:1.3}
+.v-copy{display:none}
+.v-copy h2{color:#fff;font-size:clamp(1.25rem,4.6vw,1.95rem);font-weight:600;max-width:620px}
+.v-copy h2 em{font-style:normal;color:var(--brand)}
+.v-ticks{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px 22px;font-size:.88rem;font-weight:500;color:#e5e7eb}
+.v-ticks li{display:inline-flex;align-items:center;gap:7px}
+.v-ticks svg{flex:0 0 16px}
+@media (min-width:960px){
+  .visual{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;padding:36px 48px 40px;height:100vh;position:sticky;top:0}
+  .m-tag{display:none}
+  .v-copy{display:block}
+  .stage{display:flex;flex:1;min-height:0;align-items:center;justify-content:center;padding:12px 0}
+  .visual.has-photo .stage{visibility:hidden}
+  .v-copy{margin-top:0}
+  .v-ticks{font-size:.98rem;margin-top:18px}
+}
+
+/* ----- Animated ™ → ® certificate (same motion as the landing page) ----- */
+.tmv{--cyc:9s;position:relative;width:100%;max-width:440px;padding:44px 6px 6px}
+.tmv-card{position:relative;z-index:1;background:#fff;color:var(--ink-2);border-radius:22px;box-shadow:0 30px 80px rgba(0,0,0,.45);padding:20px 22px 24px;transform:rotate(-2deg);animation:tmv-float 6s ease-in-out infinite}
+@keyframes tmv-float{50%{transform:rotate(-2deg) translateY(-8px)}}
+.tmv-top{display:flex;align-items:center;gap:6px}
+.tmv-top i{width:9px;height:9px;border-radius:50%;background:#e5e7eb}
+.tmv-top i:first-child{background:var(--coral)}.tmv-top i:nth-child(2){background:var(--brand)}
+.tmv-top span{margin-left:auto;font-size:.68rem;font-weight:600;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+.tmv-brand{position:relative;display:inline-block;margin:26px 0 10px;font-size:2.7rem;font-weight:700;color:var(--ink);letter-spacing:-.02em;line-height:1}
+.tmv-name{display:inline-block;clip-path:inset(0 100% 0 0);animation:tmv-type var(--cyc) steps(9,end) infinite}
+@keyframes tmv-type{0%{clip-path:inset(0 100% 0 0)}12%,97%{clip-path:inset(0 0 0 0)}100%{clip-path:inset(0 100% 0 0)}}
+.tmv-brand::after{content:"";position:absolute;left:0;right:0;bottom:-4px;height:8px;border-radius:4px;background:var(--brand);transform-origin:left;transform:scaleX(0);animation:tmv-ul var(--cyc) ease infinite;z-index:-1}
+@keyframes tmv-ul{0%,12%{transform:scaleX(0)}18%,96%{transform:scaleX(1)}100%{transform:scaleX(0)}}
+.tmv-brand sup{position:absolute;top:-.1em;right:-.95em;font-size:.42em;font-weight:700}
+.tmv-brand .s-tm{color:var(--muted);animation:tmv-tm var(--cyc) infinite}
+.tmv-brand .s-r{color:var(--coral);font-family:Arial,sans-serif;font-size:.5em;top:-.15em;opacity:0;animation:tmv-r var(--cyc) infinite}
+@keyframes tmv-tm{0%,20%{opacity:0}24%,74%{opacity:1}77%,100%{opacity:0}}
+@keyframes tmv-r{0%,75%{opacity:0;transform:scale(.4)}79%,96%{opacity:1;transform:scale(1)}100%{opacity:0}}
+.tmv-meta{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 16px}
+.tmv-meta b{font-size:.72rem;font-weight:600;color:var(--ink-2);background:var(--bg-soft);border-radius:999px;padding:4px 10px}
+.tmv-lines i{display:block;height:8px;border-radius:4px;background:#f1f1f1;margin-top:9px;width:92%}
+.tmv-lines i:nth-child(2){width:78%}.tmv-lines i:nth-child(3){width:52%}
+.tmv-stamp{position:absolute;right:16px;bottom:14px;width:92px;height:92px;border-radius:50%;border:3px solid var(--coral);color:var(--coral);display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,.85);opacity:0;transform:rotate(-14deg) scale(2.2);animation:tmv-stamp var(--cyc) cubic-bezier(.2,.9,.3,1.2) infinite}
+.tmv-stamp::before{content:"";position:absolute;inset:5px;border:1.5px dashed var(--coral);border-radius:50%}
+.tmv-stamp b{font-family:Arial,sans-serif;font-size:2.3rem;line-height:1}
+.tmv-stamp small{font-size:.5rem;font-weight:700;letter-spacing:.14em}
+@keyframes tmv-stamp{0%,72%{opacity:0;transform:rotate(-14deg) scale(2.2)}76%{opacity:1;transform:rotate(-14deg) scale(.9)}79%,94%{opacity:1;transform:rotate(-14deg) scale(1)}100%{opacity:0;transform:rotate(-14deg) scale(1)}}
+.tmv-chip{position:absolute;z-index:2;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;background:#fff;border-radius:999px;box-shadow:0 10px 24px rgba(0,0,0,.25);padding:7px 13px;font-size:.78rem;font-weight:600;color:var(--ink);opacity:0}
+.tmv-chip .ok{width:18px;height:18px;border-radius:50%;background:#dcfce7;color:var(--ok);display:grid;place-items:center;font-size:.7rem}
+.tmv-chip.c1{top:4px;left:0;animation:tmv-c1 var(--cyc) infinite}
+.tmv-chip.c2{top:40%;right:-14px;animation:tmv-c2 var(--cyc) infinite}
+.tmv-chip.c3{top:4px;right:0;background:var(--brand);animation:tmv-c3 var(--cyc) infinite}
+@keyframes tmv-c1{0%,8%{opacity:0;transform:translateY(8px) scale(.9)}12%,94%{opacity:1;transform:none}100%{opacity:0}}
+@keyframes tmv-c2{0%,24%{opacity:0;transform:translateX(10px) scale(.9)}28%,94%{opacity:1;transform:none}100%{opacity:0}}
+@keyframes tmv-c3{0%,78%{opacity:0;transform:translateY(8px) scale(.9)}82%,94%{opacity:1;transform:none}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){
+  .tmv *,.tmv *::before,.tmv *::after{animation:none!important}
+  .tmv-name{clip-path:none}.tmv-brand::after{transform:none}
+  .tmv-brand .s-tm{opacity:0}.tmv-brand .s-r,.tmv-chip,.tmv-stamp{opacity:1}
+  .tmv-stamp{transform:rotate(-14deg)}
+}
+
+/* ----- Right: form card ----- */
+.panel{background:#fff;flex:1;display:flex;flex-direction:column;border-radius:20px 20px 0 0;margin-top:-14px;position:relative;z-index:2;padding:22px 16px calc(24px + env(safe-area-inset-bottom))}
+@media (min-width:960px){.panel{margin:24px 24px 24px 0;border-radius:22px;padding:56px 48px 32px;min-height:calc(100vh - 48px);overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.35)}}
+.ribbon{display:none}
+@media (min-width:960px){.ribbon{display:block;position:absolute;top:30px;right:-58px;width:240px;transform:rotate(45deg);background:linear-gradient(90deg,#fef3c7,#fde68a);color:#92400e;text-align:center;font-size:.64rem;font-weight:700;letter-spacing:.1em;padding:6px 0}}
+.mark{display:none}
+.mark img{width:86px;height:48px}
+@media (min-width:960px){.mark{display:block}}
+.welcome{margin:0 0 4px;font-size:.88rem;color:var(--muted)}
+@media (min-width:960px){.welcome{margin:18px 0 6px;font-size:.92rem}}
+.welcome b{color:var(--ink);font-weight:600}
+h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
+@media (min-width:960px){h1{margin-bottom:24px}}
+
+.field{margin-bottom:12px}
+.field label{display:block;font-size:.84rem;font-weight:500;color:var(--ink-2);margin-bottom:6px}
+.field input,.field select{width:100%;height:52px;padding:0 14px;font:400 16px var(--font);color:var(--ink);background:#fff;border:1.5px solid var(--line);border-radius:var(--r-sm);appearance:none;-webkit-appearance:none;transition:border-color .15s,box-shadow .15s}
+.field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%236b7280' stroke-width='2'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+.field select:invalid{color:#9ca3af}
+.field input::placeholder{color:#9ca3af}
+.field input:focus,.field select:focus{border-color:var(--ink);outline:none;box-shadow:0 0 0 3px rgba(245,197,24,.45)}
+.field [aria-invalid="true"]{border-color:#dc2626}
+.phone{display:grid;grid-template-columns:64px 1fr;gap:8px}
+.cc{display:flex;align-items:center;justify-content:center;gap:6px;height:52px;border:1.5px solid var(--line);border-radius:var(--r-sm);font-weight:500;color:var(--ink);background:#fff}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.row2 .field{min-width:0}
+.hp{position:absolute;left:-9999px}
+
+.btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;margin-top:6px;border:0;border-radius:var(--r-sm);font:600 1.02rem var(--font);cursor:pointer;background:var(--ink);color:#fff;transition:background .15s,transform .1s}
+.btn:hover{background:#000}
+.btn:active{transform:scale(.99)}
+.btn[disabled]{opacity:.7;cursor:progress}
+.terms{margin-top:12px;font-size:.78rem;color:var(--muted);text-align:center}
+.terms a{color:var(--brand-d);font-weight:500;text-decoration:none}
+.err{display:none;margin:-8px 0 14px;padding:11px 14px;border-radius:var(--r-sm);background:#fef2f2;color:#991b1b;font-size:.9rem}
+.err.show{display:block}
+
+.offer{display:flex;gap:14px;align-items:center;margin-top:20px;padding:16px;border:1px solid #fde68a;border-radius:14px;background:linear-gradient(135deg,var(--bg-cream),#fff)}
+.offer .ic{flex:0 0 44px;height:44px;border-radius:12px;background:var(--ink);color:var(--brand);display:grid;place-items:center}
+.offer .tag{display:inline-block;font-size:.62rem;font-weight:700;letter-spacing:.08em;color:#92400e;background:#fef3c7;border-radius:6px;padding:2px 7px;margin-bottom:4px}
+.offer p{font-size:.9rem;color:var(--ink);font-weight:500;line-height:1.35}
+.offer small{display:block;color:var(--muted);font-size:.8rem;font-weight:400;margin-top:2px}
+
+.foot{margin-top:28px;text-align:center}
+@media (min-width:960px){.foot{margin-top:auto;padding-top:28px}}
+.foot .div{height:1px;background:linear-gradient(90deg,transparent,#d1d5db,transparent);margin-bottom:16px}
+.foot p{font-size:.72rem;font-weight:600;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+.foot ul{list-style:none;margin:0;padding:0;display:flex;justify-content:center;flex-wrap:wrap;gap:6px 16px;font-size:.84rem;color:var(--ink-2);font-weight:500}
+.foot li::before{content:"✓ ";color:var(--ok);font-weight:700}
+
+/* OTP step */
+.otp-view{display:none}
+.back-link{display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:0;margin-bottom:18px;font:500 .9rem var(--font);color:var(--ink-2);cursor:pointer;min-height:40px}
+.otp-sub{color:var(--muted);font-size:.95rem;margin:-14px 0 22px}
+.otp-sub b{color:var(--ink);font-weight:600}
+.otp-sub button{background:none;border:0;padding:0;margin-left:6px;font:600 .9rem var(--font);color:var(--brand-d);cursor:pointer}
+.otp-in{width:100%;height:64px;text-align:center;font:600 1.9rem var(--font);letter-spacing:.9em;text-indent:.9em;color:var(--ink);border:1.5px solid var(--line);border-radius:12px;background:#fff}
+.otp-in:focus{border-color:var(--ink);outline:none;box-shadow:0 0 0 3px rgba(245,197,24,.45)}
+.otp-in[aria-invalid="true"]{border-color:#dc2626}
+.resend{margin-top:14px;text-align:center;font-size:.88rem;color:var(--muted)}
+.resend button{background:none;border:0;padding:0;font:600 .88rem var(--font);color:var(--brand-d);cursor:pointer}
+.resend button[disabled]{color:var(--muted);cursor:default}
+.done{display:none;text-align:center;padding-top:8px}
+.done .tick{width:72px;height:72px;margin:0 auto 16px;border-radius:50%;background:#ecfdf5;display:grid;place-items:center}
+.done h1{margin-bottom:8px}
+.done ol{text-align:left;margin:18px auto 22px;padding-left:20px;max-width:360px;display:grid;gap:8px;font-size:.95rem}
+.done .btn{max-width:360px;margin:0 auto;text-decoration:none;background:var(--brand);color:var(--ink)}
+</style>
+</head>
+<body>
+
+<div class="split">
+  <!-- ===== Left: brand visual ===== -->
+  <section class="visual" aria-label="Why Bizpole">
+    <a class="logo" href="/trademark-registration" id="logo-link" aria-label="Back to trademark registration">
+      <img src="/trademark-registration/img/logo-one-white.webp" alt="Bizpole One" width="72" height="40" fetchpriority="high">
+    </a>
+    <p class="m-tag">Trademark filing ₹2,999<br><span style="color:#d1d5db;font-weight:500">+ Govt. fee · Free TM search</span></p>
+
+    <div class="stage" aria-hidden="true">
+      <div class="tmv">
+        <span class="tmv-chip c1"><span class="ok">✓</span>Name available</span>
+        <span class="tmv-chip c3"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"/><path d="M15.5 13 17 22l-5-3-5 3 1.5-9"/></svg>Trademark registered</span>
+        <div class="tmv-card">
+          <div class="tmv-top"><i></i><i></i><i></i><span>Trademark Certificate</span></div>
+          <div class="tmv-brand"><span class="tmv-name">YourBrand</span><sup class="s-tm">™</sup><sup class="s-r">®</sup></div>
+          <div class="tmv-meta"><b>Class 35</b><b>Class 9</b><b>Valid 10 years</b></div>
+          <div class="tmv-lines"><i></i><i></i><i></i></div>
+          <div class="tmv-stamp"><b>®</b><small>REGISTERED</small></div>
+        </div>
+        <span class="tmv-chip c2"><span class="ok">✓</span>TM number issued</span>
+      </div>
+    </div>
+
+    <div class="v-copy">
+      <h2>Protect your brand name &amp; logo with <em>Bizpole</em> — trademark filed in 24–48 hours</h2>
+      <ul class="v-ticks">
+        <li><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="#f5c518" stroke-width="2"/><path d="M7.5 12.5l3 3 6-6.5" fill="none" stroke="#f5c518" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Affordable pricing</li>
+        <li><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="#f5c518" stroke-width="2"/><path d="M7.5 12.5l3 3 6-6.5" fill="none" stroke="#f5c518" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Dedicated trademark expert</li>
+        <li><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="#f5c518" stroke-width="2"/><path d="M7.5 12.5l3 3 6-6.5" fill="none" stroke="#f5c518" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Easy tracking via dashboard</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== Right: form ===== -->
+  <main class="panel">
+    <div class="ribbon" aria-hidden="true">FREE TM SEARCH</div>
+
+    <div id="form-view">
+      <div class="mark"><img src="/trademark-registration/img/logo-one.webp" alt="Bizpole One" width="86" height="48"></div>
+      <p class="welcome">Welcome to <b>Bizpole One</b></p>
+      <h1>Get started &amp; register your trademark</h1>
+
+      <div class="err" id="err" role="alert"></div>
+
+      <form id="tm-form" novalidate>
+        <div class="field">
+          <label for="f-name">Full name</label>
+          <input id="f-name" name="name" type="text" autocomplete="name" required maxlength="150" placeholder="Enter your full name">
+        </div>
+
+        <div class="field">
+          <label for="f-mobile">Mobile number</label>
+          <div class="phone">
+            <span class="cc" aria-hidden="true">+91</span>
+            <input id="f-mobile" name="mobile" type="tel" inputmode="numeric" autocomplete="tel-national" required pattern="[6-9][0-9]{9}" placeholder="10-digit mobile number">
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label for="f-state">State</label>
+            <select id="f-state" name="state" required autocomplete="address-level1">
+              <option value="" disabled selected>Select</option>
+              <option>Andhra Pradesh</option><option>Arunachal Pradesh</option><option>Assam</option><option>Bihar</option>
+              <option>Chhattisgarh</option><option>Goa</option><option>Gujarat</option><option>Haryana</option>
+              <option>Himachal Pradesh</option><option>Jharkhand</option><option>Karnataka</option><option>Kerala</option>
+              <option>Madhya Pradesh</option><option>Maharashtra</option><option>Manipur</option><option>Meghalaya</option>
+              <option>Mizoram</option><option>Nagaland</option><option>Odisha</option><option>Punjab</option>
+              <option>Rajasthan</option><option>Sikkim</option><option>Tamil Nadu</option><option>Telangana</option>
+              <option>Tripura</option><option>Uttar Pradesh</option><option>Uttarakhand</option><option>West Bengal</option>
+              <option>Andaman and Nicobar Islands</option><option>Chandigarh</option>
+              <option>Dadra and Nagar Haveli and Daman and Diu</option><option>Delhi</option>
+              <option>Jammu and Kashmir</option><option>Ladakh</option><option>Lakshadweep</option><option>Puducherry</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="f-lang">Preferred language</label>
+            <!-- Values match the CRM's language names (lead routing matches franchisee languages case-insensitively) -->
+            <select id="f-lang" name="preferred_language" required>
+              <option value="" disabled selected>Select</option>
+              <option>English</option><option>Hindi</option><option>Malayalam</option><option>Tamil</option>
+              <option>Telugu</option><option>Kannada</option><option>Marathi</option><option>Gujarati</option>
+              <option>Bengali</option><option>Punjabi</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Honeypot: real visitors never see or fill this -->
+        <div class="hp" aria-hidden="true">
+          <label for="f-hp">Company website</label>
+          <input id="f-hp" name="company_website" type="text" tabindex="-1" autocomplete="off">
+        </div>
+
+        <button class="btn" type="submit" id="f-submit">Continue</button>
+        <p class="terms">By continuing you agree to our <a href="/privacy-policy">privacy policy</a> &amp; <a href="/terms-and-conditions">terms of use</a>.</p>
+      </form>
+
+      <div class="offer">
+        <div class="ic"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div>
+        <div>
+          <span class="tag">INCLUDED FREE</span>
+          <p>Trademark availability search for your brand name<small>Trademark filing ₹2,999 incl. GST + Govt. fee</small></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="otp-view" id="otp-view">
+      <button type="button" class="back-link" id="otp-back">← Back</button>
+      <div class="mark"><img src="/trademark-registration/img/logo-one.webp" alt="Bizpole One" width="86" height="48" loading="lazy"></div>
+      <p class="welcome">Step 2 of 2</p>
+      <h1>Verify your mobile number</h1>
+      <p class="otp-sub">Enter the 4-digit code sent to <b id="otp-to">+91</b><button type="button" id="otp-edit">Edit</button></p>
+
+      <div class="err" id="otp-err" role="alert"></div>
+
+      <form id="otp-form" novalidate>
+        <div class="field">
+          <label for="f-otp" class="sr-only" style="position:absolute;left:-9999px">One-time password</label>
+          <input id="f-otp" class="otp-in" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{4}" placeholder="••••" required>
+        </div>
+        <button class="btn" type="submit" id="otp-submit">Verify &amp; continue</button>
+      </form>
+      <p class="resend" aria-live="polite"><span id="resend-txt">Didn't get it? Resend in <b id="resend-sec">30</b>s</span> <button type="button" id="resend-btn" hidden>Resend OTP</button></p>
+    </div>
+
+    <div class="done" id="done-view" tabindex="-1" aria-live="polite">
+      <div class="tick" aria-hidden="true"><svg width="36" height="36" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#16a34a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <h1>Thank you<span id="done-name"></span>!</h1>
+      <p style="color:var(--muted)">Your request is in. Here's what happens next:</p>
+      <ol>
+        <li>A trademark expert calls you shortly in <strong id="done-lang">your language</strong>.</li>
+        <li>We run a free availability search for your brand name.</li>
+        <li>Once you're ready, we file your application and you get the TM number in 24–48 hours.</li>
+      </ol>
+      <a class="btn" href="/trademark-search">Check name availability now →</a>
+    </div>
+
+    <div class="foot">
+      <div class="div"></div>
+      <p>Trusted by growing brands across India</p>
+      <ul><li>Free trademark search</li><li>All 45 classes</li><li>100% online</li></ul>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  // Website-lead API (public key by design: protection = CORS allowlist + per-IP limit + honeypot).
+  var isLocal = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  var API = (isLocal ? "http://localhost:3000" : "https://api.bizpole.io") + "/lead-generation/website-lead";
+  var API_KEY = "ad5c04dcf7248dc0fdc8efdf78f1c1f5b77da7a2aaefa926";
+
+  // Attribution: saved by the landing page in sessionStorage, and/or forwarded in this URL.
+  var keys = ["utm_source","utm_medium","utm_campaign","utm_content","utm_term","fbclid","gclid"];
+  var qs = new URLSearchParams(location.search), attr = {};
+  try { attr = JSON.parse(sessionStorage.getItem("tm_attr") || "{}"); } catch (e) {}
+  keys.forEach(function (k) { if (qs.get(k)) attr[k] = qs.get(k); });
+
+  // Logo goes back to the landing page with the ad params intact.
+  var back = new URL("/trademark-registration", location.origin);
+  keys.forEach(function (k) { if (attr[k]) back.searchParams.set(k, attr[k]); });
+  document.getElementById("logo-link").href = back.pathname + back.search;
+
+  var form = document.getElementById("tm-form");
+  var err = document.getElementById("err");
+  var btn = document.getElementById("f-submit");
+  var mob = document.getElementById("f-mobile");
+  var el = form.elements;
+
+  // No maxlength on purpose: it would cut a pasted/autofilled "+91 98765 43210" to 10 characters
+  // before we strip the spaces. Keep digits, drop a +91 / 0 prefix, then cap at 10.
+  mob.addEventListener("input", function () {
+    var d = mob.value.replace(/\D/g, "");
+    if (d.length > 10 && d.indexOf("91") === 0) d = d.slice(2);
+    else if (d.length > 10 && d.charAt(0) === "0") d = d.slice(1);
+    mob.value = d.slice(0, 10);
+  });
+  form.addEventListener("input", function (e) { e.target.removeAttribute("aria-invalid"); err.classList.remove("show"); });
+  form.addEventListener("change", function (e) { e.target.removeAttribute("aria-invalid"); err.classList.remove("show"); });
+
+  function fail(input, text) {
+    err.textContent = text; err.classList.add("show");
+    if (input) { input.setAttribute("aria-invalid", "true"); input.focus(); }
+    return false;
+  }
+
+  var BASE = isLocal ? "http://localhost:3000" : "https://api.bizpole.io";
+  var formView = document.getElementById("form-view");
+  var otpView = document.getElementById("otp-view");
+  var otpForm = document.getElementById("otp-form");
+  var otpIn = document.getElementById("f-otp");
+  var otpErr = document.getElementById("otp-err");
+  var otpBtn = document.getElementById("otp-submit");
+  var resendBtn = document.getElementById("resend-btn");
+  var resendTxt = document.getElementById("resend-txt");
+  var resendSec = document.getElementById("resend-sec");
+  var details = null, timer = null;
+
+  function post(url, data, headers) {
+    return fetch(url, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, headers || {}), body: JSON.stringify(data) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); });
+  }
+  function otpFail(text) { otpErr.textContent = text; otpErr.classList.add("show"); otpIn.setAttribute("aria-invalid", "true"); otpIn.focus(); otpIn.select(); }
+
+  function startCountdown(sec) {
+    clearInterval(timer);
+    var left = sec || 30;
+    resendBtn.hidden = true; resendTxt.hidden = false; resendSec.textContent = left;
+    timer = setInterval(function () {
+      left -= 1; resendSec.textContent = left;
+      if (left <= 0) { clearInterval(timer); resendTxt.hidden = true; resendBtn.hidden = false; }
+    }, 1000);
+  }
+
+  function sendOtp() {
+    return post(BASE + "/mobile-otp/send", { mobile: details.mobile, purpose: "trademark-lp" }).then(function (res) {
+      if (!res.ok) {
+        var e = new Error((res.j && res.j.message) || "Could not send OTP. Please try again.");
+        e.retryAfter = res.j && res.j.retryAfter; throw e;
+      }
+      startCountdown((res.j && res.j.resendAfter) || 30);
+    });
+  }
+
+  function showStep(step) {
+    formView.style.display = step === "form" ? "" : "none";
+    otpView.style.display = step === "otp" ? "block" : "none";
+    window.scrollTo({ top: 0 });
+  }
+
+  // Step 1: details → send OTP
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var name = el.name.value.trim(), mobile = mob.value.trim(),
+        state = el.state.value, lang = el.preferred_language.value;
+    if (!name) return fail(el.name, "Please enter your name.");
+    if (!/^[6-9]\d{9}$/.test(mobile)) return fail(mob, "Please enter a valid 10-digit mobile number.");
+    if (!state) return fail(el.state, "Please select your state.");
+    if (!lang) return fail(el.preferred_language, "Please select your preferred language.");
+    if (el.company_website.value) { // honeypot: pretend success, send nothing
+      formView.style.display = "none"; document.getElementById("done-view").style.display = "block"; return;
+    }
+
+    details = { name: name, mobile: mobile, state: state, lang: lang };
+    btn.disabled = true; btn.textContent = "Sending OTP…";
+    sendOtp()
+      .then(function () {
+        document.getElementById("otp-to").textContent = "+91 " + mobile.slice(0, 5) + " " + mobile.slice(5);
+        otpIn.value = ""; otpErr.classList.remove("show"); otpIn.removeAttribute("aria-invalid");
+        showStep("otp"); otpIn.focus();
+      })
+      .catch(function (x) {
+        // Cooldown hit (e.g. user went Back and re-submitted): the earlier code is still valid.
+        if (x.retryAfter && details) { showStep("otp"); startCountdown(x.retryAfter); otpIn.focus(); return; }
+        fail(null, x.message || "Network error. Please check your connection and try again.");
+      })
+      .finally(function () { btn.disabled = false; btn.textContent = "Continue"; });
+  });
+
+  otpIn.addEventListener("input", function () {
+    otpIn.value = otpIn.value.replace(/\D/g, "").slice(0, 4);
+    otpErr.classList.remove("show"); otpIn.removeAttribute("aria-invalid");
+    if (otpIn.value.length === 4) otpForm.requestSubmit ? otpForm.requestSubmit() : otpBtn.click();
+  });
+  document.getElementById("otp-back").addEventListener("click", function () { showStep("form"); });
+  document.getElementById("otp-edit").addEventListener("click", function () { showStep("form"); mob.focus(); mob.select(); });
+  resendBtn.addEventListener("click", function () {
+    resendBtn.disabled = true;
+    sendOtp().then(function () { otpIn.value = ""; otpIn.focus(); })
+      .catch(function (x) { otpFail(x.message); resendBtn.hidden = false; })
+      .finally(function () { resendBtn.disabled = false; });
+  });
+
+  // Step 2: OTP → create the lead (the server checks the OTP before saving anything)
+  otpForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (otpBtn.disabled) return;
+    var code = otpIn.value.trim();
+    if (!/^\d{4}$/.test(code)) return otpFail("Please enter the 4-digit OTP.");
+
+    var plan = (qs.get("plan") || "").replace(/[^a-z]/g, ""), cta = (qs.get("cta") || "").replace(/[^a-z-]/g, "");
+    var body = Object.assign({}, attr, {
+      name: details.name,
+      mobile: details.mobile,
+      otp: code,
+      state: details.state,
+      preferred_language: details.lang,
+      service: "Trademark Registration",
+      form_name: "trademark-registration-lp",
+      site: "bizpole.io",
+      message: [plan ? "Plan: " + plan : "", cta ? "CTA: " + cta : ""].filter(Boolean).join(" | "),
+      page_url: attr.landing || location.href,
+      referrer: attr.referrer || document.referrer
+    });
+
+    otpBtn.disabled = true; otpBtn.textContent = "Verifying…";
+    post(API, body, { "x-api-key": API_KEY })
+      .then(function (res) {
+        if (!res.ok) {
+          var msg = res.status === 429 ? "Too many attempts. Please try again in a few minutes." : ((res.j && res.j.message) || "Something went wrong. Please try again.");
+          return otpFail(msg);
+        }
+        clearInterval(timer);
+        document.getElementById("done-name").textContent = ", " + details.name.split(" ")[0];
+        document.getElementById("done-lang").textContent = details.lang;
+        otpView.style.display = "none";
+        var done = document.getElementById("done-view"); done.style.display = "block"; done.focus();
+        try { sessionStorage.removeItem("tm_attr"); } catch (x) {}
+        (window.dataLayer = window.dataLayer || []).push({ event: "lead_submit", form: "trademark-registration-lp", plan: plan, mobile_verified: true });
+        if (window.fbq) fbq("track", "Lead", { content_name: "Trademark Registration" });
+      })
+      .catch(function () { otpFail("Network error. Please check your connection and try again."); })
+      .finally(function () { otpBtn.disabled = false; otpBtn.textContent = "Verify & continue"; });
+  });
+})();
+</script>
+</body>
+</html>

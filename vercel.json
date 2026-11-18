@@ -1,5 +1,38 @@
 {
+  "redirects": [
+    {
+      "source": "/trademark-registration/",
+      "destination": "/trademark-registration",
+      "permanent": true
+    },
+    {
+      "source": "/trademark-registration/index.html",
+      "destination": "/trademark-registration",
+      "permanent": true
+    },
+    {
+      "source": "/trademark-registration/apply/",
+      "destination": "/trademark-registration/apply",
+      "permanent": true
+    },
+    {
+      "source": "/trademark-registration/apply/index.html",
+      "destination": "/trademark-registration/apply",
+      "permanent": true
+    }
+  ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
+    {
+      "source": "/trademark-registration",
+      "destination": "/trademark-registration/index.html"
+    },
+    {
+      "source": "/trademark-registration/apply",
+      "destination": "/trademark-registration/apply/index.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/"
+    }
   ]
 }
