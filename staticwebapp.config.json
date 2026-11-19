@@ -1,12 +1,32 @@
 {
   "routes": [
     {
+      "route": "/trademark-search",
+      "rewrite": "/trademark-search/index.html"
+    },
+    {
       "route": "/trademark-registration/apply",
       "rewrite": "/trademark-registration/apply/index.html"
     },
     {
       "route": "/trademark-registration",
       "rewrite": "/trademark-registration/index.html"
+    },
+    {
+      "route": "/private-limited-company-registration/apply",
+      "rewrite": "/private-limited-company-registration/apply/index.html"
+    },
+    {
+      "route": "/private-limited-company-registration",
+      "rewrite": "/private-limited-company-registration/index.html"
+    },
+    {
+      "route": "/gst-registration/apply",
+      "rewrite": "/gst-registration/apply/index.html"
+    },
+    {
+      "route": "/gst-registration",
+      "rewrite": "/gst-registration/index.html"
     }
   ],
   "navigationFallback": {
@@ -16,7 +36,11 @@
       "/images/*",
       "/css/*",
       "/js/*",
-      "/trademark-registration/*"
+      "/trademark-registration/*",
+      "/trademark-search/*",
+      "/private-limited-company-registration/*",
+      "/gst-registration/*",
+      "/lp/*"
     ]
   }
 }

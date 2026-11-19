@@ -4,7 +4,15 @@ import tailwindcss from '@tailwindcss/vite'
 
 // Static landing pages in public/<slug>/index.html, served at clean URLs (/<slug>).
 // Production does the same via vercel.json / staticwebapp.config.json.
-const STATIC_PAGES = ['/trademark-registration', '/trademark-registration/apply']
+const STATIC_PAGES = [
+  '/trademark-registration',
+  '/trademark-registration/apply',
+  '/private-limited-company-registration',
+  '/private-limited-company-registration/apply',
+  '/gst-registration',
+  '/gst-registration/apply',
+  '/trademark-search',
+]
 
 function staticLandingPages() {
   const middleware = (req, res, next) => {

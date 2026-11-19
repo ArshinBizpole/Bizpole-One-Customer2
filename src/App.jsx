@@ -108,6 +108,15 @@ import AffiliateDashboard from "./pages/affiliate/AffiliateDashboard";
 import { applyPageMeta } from "./utils/pageTitles";
 import { trackEvent } from "./utils/analytics";
 
+// Static pages in public/<slug>/ are served by the host on a full page load; a client-side
+// <Link> would otherwise render nothing (or a stale React page) for that path.
+function StaticPageRedirect({ to }) {
+  useEffect(() => {
+    window.location.replace(to + window.location.search + window.location.hash);
+  }, [to]);
+  return null;
+}
+
 function App() {
   const location = useLocation();
 
@@ -201,7 +210,9 @@ function App() {
           <Route path="/services/:id" element={<ServiceDetails />} />
           <Route path="/products" element={<ProductList />} />
           <Route path="/partners" element={<Partners />} />
-          <Route path="/trademark-search" element={<TrademarkSearch />} />
+          {/* /trademark-search is now a static SEO page (public/trademark-search/index.html).
+              In-app links land here — do a full load so the server serves the static page. */}
+          <Route path="/trademark-search" element={<StaticPageRedirect to="/trademark-search" />} />
           <Route path="/startbusiness/apply" element={<NewCompanyFlow />} />
           <Route path="/startbusiness/about" element={<Tellabout />} />
           <Route path="/startbusiness/subscriptions" element={<Subscription />} />

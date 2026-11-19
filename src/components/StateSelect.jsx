@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Check, Search } from "lucide-react";
+import { ChevronDown, Check, Search, MapPin } from "lucide-react";
 
 const PANEL_MAX_H = 320; // search box + list
 
@@ -8,8 +8,11 @@ const PANEL_MAX_H = 320; // search box + list
 // <select> list can't be styled, so it clashed with the UI; this renders the
 // open list as our own rounded panel (search, yellow hover, check on selected).
 //   states: [{ id|StateID, state_name }]   value / onChange: the state id (string)
-const StateSelect = ({ states = [], value, onChange, loading = false, placeholder = "Choose your state" }) => {
-  const [open, setOpen] = useState(false);
+//   variant: "default" (modal field, yellow chevron box) | "pill" (inline white pill with a pin icon)
+//   onOpenChange(open): told when the list opens/closes; ref.open() opens it programmatically.
+const StateSelect = forwardRef(({ states = [], value, onChange, loading = false, placeholder = "Choose your state", variant = "default", onOpenChange }, ref) => {
+  const [open, setOpenState] = useState(false);
+  const setOpen = (next) => { setOpenState(next); onOpenChange?.(next); };
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [pos, setPos] = useState(null);
@@ -76,6 +79,8 @@ const StateSelect = ({ states = [], value, onChange, loading = false, placeholde
     listRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
   }, [active, open]);
 
+  useImperativeHandle(ref, () => ({ open: openList }));
+
   const choose = (s) => {
     onChange(idOf(s));
     setOpen(false);
@@ -94,20 +99,40 @@ const StateSelect = ({ states = [], value, onChange, loading = false, placeholde
 
   return (
     <div ref={rootRef} className="relative" onKeyDown={onKeyDown}>
-      <button
-        ref={buttonRef}
-        type="button"
-        disabled={loading}
-        onClick={() => (open ? setOpen(false) : openList())}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className={`w-full text-left pl-4 pr-14 py-3.5 rounded-2xl border bg-white text-sm outline-none transition-colors disabled:opacity-60 ${open ? "border-[#f7d761] ring-1 ring-[#f7d761]" : "border-gray-200 hover:border-gray-300"} ${selected ? "text-gray-900 font-medium" : "text-gray-500"}`}
-      >
-        {loading ? "Loading states..." : selected?.state_name || placeholder}
-      </button>
-      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-[#F3C625] flex items-center justify-center pointer-events-none">
-        <ChevronDown className={`w-4 h-4 text-gray-900 transition-transform ${open ? "rotate-180" : ""}`} />
-      </span>
+      {variant === "pill" ? (
+        <button
+          ref={buttonRef}
+          type="button"
+          disabled={loading}
+          onClick={() => (open ? setOpen(false) : openList())}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          className={`w-full flex items-center gap-3 bg-white border rounded-xl px-4 py-3 shadow-sm text-left outline-none transition-colors disabled:opacity-60 ${open ? "border-[#f7d761] ring-1 ring-[#f7d761]" : "border-gray-200 hover:border-[#F3C625]"}`}
+        >
+          <MapPin className="w-4 h-4 text-amber-500 shrink-0" fill="currentColor" stroke="white" />
+          <span className="flex-1 truncate text-sm font-semibold text-gray-900">
+            {loading ? "Loading states..." : selected?.state_name || placeholder}
+          </span>
+          <ChevronDown className={`w-4 h-4 text-gray-700 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+      ) : (
+        <>
+          <button
+            ref={buttonRef}
+            type="button"
+            disabled={loading}
+            onClick={() => (open ? setOpen(false) : openList())}
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            className={`w-full text-left pl-4 pr-14 py-3.5 rounded-2xl border bg-white text-sm outline-none transition-colors disabled:opacity-60 ${open ? "border-[#f7d761] ring-1 ring-[#f7d761]" : "border-gray-200 hover:border-gray-300"} ${selected ? "text-gray-900 font-medium" : "text-gray-500"}`}
+          >
+            {loading ? "Loading states..." : selected?.state_name || placeholder}
+          </button>
+          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-[#F3C625] flex items-center justify-center pointer-events-none">
+            <ChevronDown className={`w-4 h-4 text-gray-900 transition-transform ${open ? "rotate-180" : ""}`} />
+          </span>
+        </>
+      )}
 
       {open && pos && createPortal(
         <div
@@ -155,6 +180,8 @@ const StateSelect = ({ states = [], value, onChange, loading = false, placeholde
       )}
     </div>
   );
-};
+});
+
+StateSelect.displayName = "StateSelect";
 
 export default StateSelect;

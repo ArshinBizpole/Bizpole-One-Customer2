@@ -196,7 +196,7 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
     <a class="logo" href="/trademark-registration" id="logo-link" aria-label="Back to trademark registration">
       <img src="/trademark-registration/img/logo-one-white.webp" alt="Bizpole One" width="72" height="40" fetchpriority="high">
     </a>
-    <p class="m-tag">Trademark filing ₹2,999<br><span style="color:#d1d5db;font-weight:500">+ Govt. fee · Free TM search</span></p>
+    <p class="m-tag">Trademark filing ₹3,000<br><span style="color:#d1d5db;font-weight:500">+ Govt. fee · Free TM search</span></p>
 
     <div class="stage" aria-hidden="true">
       <div class="tmv">
@@ -291,7 +291,7 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
         <div class="ic"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div>
         <div>
           <span class="tag">INCLUDED FREE</span>
-          <p>Trademark availability search for your brand name<small>Trademark filing ₹2,999 incl. GST + Govt. fee</small></p>
+          <p>Trademark availability search for your brand name<small>Trademark filing ₹3,000 incl. GST + Govt. fee</small></p>
         </div>
       </div>
     </div>
@@ -470,7 +470,7 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
     var code = otpIn.value.trim();
     if (!/^\d{4}$/.test(code)) return otpFail("Please enter the 4-digit OTP.");
 
-    var plan = (qs.get("plan") || "").replace(/[^a-z]/g, ""), cta = (qs.get("cta") || "").replace(/[^a-z-]/g, "");
+    var plan = (qs.get("plan") || "").replace(/[^a-z-]/g, ""), cta = (qs.get("cta") || "").replace(/[^a-z-]/g, "");
     var body = Object.assign({}, attr, {
       name: details.name,
       mobile: details.mobile,

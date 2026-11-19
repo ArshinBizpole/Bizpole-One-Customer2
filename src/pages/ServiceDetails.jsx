@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getServiceById, getServicePrice, getServiceExtras } from "../api/ServicesApi";
 import { upsertQuote } from "../api/Quote";
@@ -17,7 +17,6 @@ import {
   FaBuilding,
   FaCheckCircle,
   FaBalanceScale,
-  FaEnvelope,
   FaClipboardCheck,
   FaArrowRight,
   FaArrowLeft,
@@ -26,11 +25,12 @@ import {
   FaRupeeSign,
   // FaPlus,
   FaCheck,
-  FaPhoneAlt
+  FaPhoneAlt,
+  FaRegClock
 } from "react-icons/fa";
 // import { HiOutlineLocationMarker, HiOutlineCheckCircle } from "react-icons/hi";
-import { HiOutlineLocationMarker } from "react-icons/hi";
 import StateSelect from "../components/StateSelect";
+import ServiceEnquiryForm from "../components/ServiceEnquiryForm";
 const parsePriceResponse = (res) => {
   if (Array.isArray(res?.data)) return res.data[0] || null;
   if (typeof res?.data === 'object') return res.data;
@@ -53,13 +53,14 @@ const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
   });
   const [price, setPrice] = useState(null);
   const [priceLoading, setPriceLoading] = useState(false);
-  const [showStateModal, setShowStateModal] = useState(false);
   const [allStates, setAllStates] = useState([]);
   const [statesLoading, setStatesLoading] = useState(false);
-  const [selectedStateForModal, setSelectedStateForModal] = useState("");
   // Set when "Add to Selection" is clicked before a state is chosen — the
-  // service is added once the state is picked in the modal.
+  // state dropdown opens and the service is added once a state is picked.
   const [pendingAdd, setPendingAdd] = useState(false);
+  const stateBarRef = useRef(null);
+  const [showEnquiry, setShowEnquiry] = useState(false);
+  const stateSelectRef = useRef(null);
   const [activeTab, setActiveTab] = useState("eligibility");
 
   const { cart, addToCart, clearCart } = useContext(CartContext);
@@ -120,15 +121,14 @@ const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
     fetchPrice();
   }, [stateId, service?.ServiceID]);
 
+  // The state dropdown sits inline on the page, so load the list up front.
   useEffect(() => {
-    if (stateId && allStates.length === 0) {
-      setStatesLoading(true);
-      getAllStates()
-        .then((states) => setAllStates(states || []))
-        .catch(() => setAllStates([]))
-        .finally(() => setStatesLoading(false));
-    }
-  }, [stateId]);
+    setStatesLoading(true);
+    getAllStates()
+      .then((states) => setAllStates(states || []))
+      .catch(() => setAllStates([]))
+      .finally(() => setStatesLoading(false));
+  }, []);
 
   // Key Benefits = ServiceFeatures. /filterServices sends them as plain names
   // (["..."]); older responses sent {FeatureName} objects — accept both. No
@@ -182,39 +182,15 @@ const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
 
   const isSelected = !!cart[service?.ServiceID];
 
-  const openStateModal = async () => {
-    setShowStateModal(true);
-    setSelectedStateForModal(stateId || "");
-    if (allStates.length === 0) {
-      setStatesLoading(true);
-      try {
-        const states = await getAllStates();
-        setAllStates(states || []);
-      } catch (error) {
-        console.error("Error fetching states:", error);
-        setAllStates([]);
-      } finally {
-        setStatesLoading(false);
-      }
-    }
-  };
-
-  const closeStateModal = () => {
-    setShowStateModal(false);
-    setPendingAdd(false);
-  };
-
-  const handleStateModalSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedStateForModal) return;
-    localStorage.setItem("StateID", selectedStateForModal);
-    setStateId(selectedStateForModal);
-    setShowStateModal(false);
+  const handleStateChange = async (newStateId) => {
+    if (!newStateId) return;
+    localStorage.setItem("StateID", newStateId);
+    setStateId(newStateId);
     if (pendingAdd && service?.ServiceID) {
       setPendingAdd(false);
       let statePrice = null;
       try {
-        statePrice = parsePriceResponse(await getServicePrice({ ServiceId: service.ServiceID, StateId: selectedStateForModal }));
+        statePrice = parsePriceResponse(await getServicePrice({ ServiceId: service.ServiceID, StateId: newStateId }));
       } catch {
         statePrice = null;
       }
@@ -275,7 +251,8 @@ const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
     // No state yet — ask for it first, then add with that state's price
     if (!stateId) {
       setPendingAdd(true);
-      openStateModal();
+      stateBarRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      stateSelectRef.current?.open();
       return;
     }
     addToSelection(price);
@@ -431,182 +408,173 @@ const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="bg-white rounded-2xl p-6 shadow-sm mt-6"
+              className="bg-white rounded-2xl p-6 sm:p-10 shadow-sm mt-6"
             >
-              <div className="flex flex-col lg:flex-row gap-6">
-                {/* LEFT */}
-                <div className="flex-1">
-                  {/* Title row */}
-                  <div className="flex items-center gap-3 mb-1">
-                    <div className="bg-yellow-400 p-2.5 rounded-xl">
-                      <FaBuilding className="text-black text-base" />
-                    </div>
-                    <h1 className="text-xl font-extrabold text-gray-900 leading-tight">
-                      {service?.Name || service?.ServiceName || "Company Registration"}
-                    </h1>
-                  </div>
-
-                  {/* Meta */}
-                  {(service?.Category?.CategoryName || service?.EstimatedTAT || service?.Duration) && (
-                    <p className="text-gray-400 text-xs mb-6 ml-12 bg-yellow-50 w-max px-2 py-0.5 rounded-full">
-                      {[
-                        service?.Category?.CategoryName,
-                        (service?.EstimatedTAT || service?.Duration) && `⏱ ${service?.EstimatedTAT || service?.Duration} Days`,
-                      ].filter(Boolean).join("  ·  ")}
-                    </p>
-                  )}
-
-                  {serviceDescription && (
-                    <p className="text-gray-600 text-sm leading-relaxed">
-                      {serviceDescription}
-                    </p>
-                  )}
+              {/* Header: icon tile + title + chips */}
+              <div className="flex items-center gap-4 sm:gap-5">
+                <div className="w-14 h-14 sm:w-[72px] sm:h-[72px] rounded-2xl bg-[#FBC02D] flex items-center justify-center shrink-0 shadow-sm">
+                  <FaBuilding className="text-gray-900 text-xl sm:text-2xl" />
                 </div>
-
-                {/* RIGHT – pricing card */}
-                <div className="w-full lg:w-72 xl:w-80 shrink-0">
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 sticky top-24  p-5">
-                    {/* Add/Select (+) Button */}
-                    {/* Price / prompt line */}
-                    <div className="mb-4">
-                      <AnimatePresence mode="wait">
-                        {stateId && !priceLoading && price !== null && typeof price === 'object' ? (
-                          <motion.div
-                            key="price-object"
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 10 }}
-                            className="flex items-baseline gap-1"
-                          >
-                            <FaRupeeSign className="text-green-600 text-sm" />
-                            <span className="text-2xl font-bold text-gray-900">
-                              {price.TotalFee?.toLocaleString('en-IN')}
-                            </span>
-                          </motion.div>
-                        ) : stateId && !priceLoading && price === null ? (
-                          <motion.div
-                            key="price-unavailable"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-lg"
-                          >
-                            Price not available for selected state
-                          </motion.div>
-                        ) : priceLoading ? (
-                          <motion.div
-                            key="price-loading"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="flex items-center gap-2 text-sm text-gray-500"
-                          >
-                            <div className="w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
-                            Checking price...
-                          </motion.div>
-                        ) : (
-                          <motion.p
-                            key="no-state"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="text-sm text-gray-500"
-                          >
-                            Select your state to view pricing
-                          </motion.p>
-                        )}
-                      </AnimatePresence>
+                <div className="min-w-0">
+                  <h1 className="text-2xl sm:text-4xl font-extrabold text-gray-900 leading-tight tracking-tight">
+                    {service?.Name || service?.ServiceName || "Company Registration"}
+                  </h1>
+                  {(service?.Category?.CategoryName || service?.EstimatedTAT || service?.Duration) && (
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      {service?.Category?.CategoryName && (
+                        <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-600 text-xs sm:text-sm font-medium">
+                          {service.Category.CategoryName}
+                        </span>
+                      )}
+                      {(service?.EstimatedTAT || service?.Duration) && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFFBEA] border border-[#FDE9A6] text-gray-800 text-xs sm:text-sm font-medium">
+                          <FaRegClock size={12} />
+                          {service?.EstimatedTAT || service?.Duration} Days
+                        </span>
+                      )}
                     </div>
-
-                    {/* State selection pill */}
-                    <motion.button
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
-                      onClick={openStateModal}
-                      className="w-full flex items-center gap-3 bg-[#FDF4D6] hover:bg-[#fbecc0] transition-colors rounded-2xl px-4 py-3 mb-5"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-                        <HiOutlineLocationMarker className="text-amber-600" size={18} />
-                      </div>
-                      <span className="font-bold text-gray-900 text-sm text-left flex-1">
-                        {stateId
-                          ? allStates.find(s => String(s.id || s.StateID) === String(stateId))?.state_name || "Selected State"
-                          : "Select Your State"}
-                      </span>
-                    </motion.button>
-
-                    {/* What's Included */}
-                    {whatsIncluded.length > 0 && (
-                    <div className="mb-5">
-                      <h4 className="text-sm font-extrabold text-gray-900 mb-3">
-                        What's Included
-                      </h4>
-                      <ul className="space-y-2.5">
-                        {whatsIncluded.map((item, index) => (
-                          <motion.li
-                            key={index}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: index * 0.05 }}
-                            className="flex items-center gap-2.5 text-sm text-gray-700"
-                          >
-                            <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                              <FaCheck className="text-green-600" size={10} />
-                            </div>
-                            <span>{item}</span>
-                          </motion.li>
-                        ))}
-                      </ul>
-                    </div>
-                    )}
-
-                    {/* Action Buttons */}
-                    <div className="space-y-2">
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={handleAddToSelection}
-                        disabled={!service?.ServiceID || quoteLoading}
-                        className={`w-full font-bold py-3 px-4 rounded-2xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-70 ${isSelected
-                          ? "bg-green-500 text-white hover:bg-green-600"
-                          : "bg-gradient-to-r from-yellow-400 to-yellow-500 text-black"
-                          }`}
-                      >
-                        {quoteLoading ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            <span>Processing...</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>{isSelected ? "Proceed to Quote" : "Add to Selection"}</span>
-                            <FaArrowRight className="text-xs" />
-                          </>
-                        )}
-                      </motion.button>
-
-                      <motion.a
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        href="tel:+919539995533"
-                        className="flex items-center justify-center gap-2 px-3 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all text-sm font-medium w-full"
-                      >
-                         <FaPhoneAlt size={12} />
-                        <span>Call Us</span>
-                      </motion.a>
-
-                      <motion.a
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        href="mailto:info@bizpole.in"
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all text-sm font-medium"
-                      >
-                        <FaEnvelope size={12} />
-                        <span>Email Us</span>
-                      </motion.a>
-                    </div>
-
-
-                  </div>
+                  )}
                 </div>
               </div>
+
+              {serviceDescription && (
+                <p className="text-gray-600 text-sm sm:text-base leading-relaxed mt-6">
+                  {serviceDescription}
+                </p>
+              )}
+
+              {/* State / price strip */}
+              <div ref={stateBarRef} className="relative overflow-hidden mt-6 rounded-2xl border border-[#FBE7A1] bg-[#FFFBF0] px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+                <div className="min-w-0 sm:border-r sm:border-[#F3E3B0] sm:pr-6">
+                  <AnimatePresence mode="wait">
+                    {stateId && !priceLoading && price !== null && typeof price === 'object' ? (
+                      <motion.div
+                        key="price-object"
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="flex items-baseline gap-1"
+                      >
+                        <FaRupeeSign className="text-green-600 text-base" />
+                        <span className="text-2xl font-bold text-gray-900">
+                          {price.TotalFee?.toLocaleString('en-IN')}
+                        </span>
+                      </motion.div>
+                    ) : stateId && !priceLoading && price === null ? (
+                      <motion.div
+                        key="price-unavailable"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-lg"
+                      >
+                        Price not available for selected state
+                      </motion.div>
+                    ) : priceLoading ? (
+                      <motion.div
+                        key="price-loading"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="flex items-center gap-2 text-sm text-gray-500"
+                      >
+                        <div className="w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+                        Checking price...
+                      </motion.div>
+                    ) : (
+                      <motion.p
+                        key="no-state"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-sm sm:text-base font-medium text-gray-800"
+                      >
+                        Select your state to view pricing
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                <div className="sm:ml-auto w-full sm:w-80">
+                  <StateSelect
+                    ref={stateSelectRef}
+                    variant="pill"
+                    states={allStates}
+                    value={stateId}
+                    onChange={handleStateChange}
+                    loading={statesLoading}
+                    placeholder="Select Your State"
+                    // Closed without picking — drop the pending "Add to Selection"
+                    onOpenChange={(isOpen) => { if (!isOpen && !localStorage.getItem("StateID")) setPendingAdd(false); }}
+                  />
+                </div>
+
+                {/* corner accent */}
+                <div className="pointer-events-none absolute -bottom-4 -right-4 w-8 h-8 bg-[#FBC02D] rotate-45" />
+              </div>
+
+              {/* What's Included */}
+              {whatsIncluded.length > 0 && (
+                <div className="mt-8">
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="w-1.5 h-6 bg-[#FBC02D] rounded-sm -skew-x-12" />
+                    <h2 className="text-xl sm:text-2xl font-extrabold text-gray-900 whitespace-nowrap">What's Included</h2>
+                    <span className="flex-1 h-px bg-gray-200 ml-3" />
+                  </div>
+                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-4 bg-gray-50/70 border border-gray-100 rounded-2xl p-5 sm:p-6">
+                    {whatsIncluded.map((item, index) => (
+                      <motion.li
+                        key={index}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="flex items-start gap-3 text-sm sm:text-[15px] text-gray-700"
+                      >
+                        <div className="w-6 h-6 rounded-md bg-green-100 flex items-center justify-center flex-shrink-0">
+                          <FaCheck className="text-green-600" size={11} />
+                        </div>
+                        <span className="leading-snug pt-0.5">{item}</span>
+                      </motion.li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="mt-8 flex flex-col sm:flex-row gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={handleAddToSelection}
+                  disabled={!service?.ServiceID || quoteLoading}
+                  className={`flex-1 font-bold py-4 px-6 rounded-2xl shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2 text-base disabled:opacity-70 ${isSelected
+                    ? "bg-green-500 text-white hover:bg-green-600"
+                    : "bg-[#FBC02D] hover:bg-[#F9B81B] text-gray-900"
+                    }`}
+                >
+                  {quoteLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Processing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>{isSelected ? "Proceed to Quote" : "Add to Selection"}</span>
+                      <FaArrowRight className="text-sm" />
+                    </>
+                  )}
+                </motion.button>
+
+                {/* Opens the lead form popup (replaces Call Us / Email Us) */}
+                <motion.button
+                  type="button"
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => setShowEnquiry(true)}
+                  className="sm:w-64 flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold text-base transition-colors"
+                >
+                  <FaPhoneAlt size={14} />
+                  <span>Request a Call Back</span>
+                </motion.button>
+              </div>
+
             </motion.div>
           )}
 
@@ -747,80 +715,32 @@ const ServiceDetails = ({ serviceId, embedded = false, onBack }) => {
             </motion.div>
           )}
 
-          {/* State Selection Modal */}
+          {/* Lead form popup — "Request a Call Back" */}
           <AnimatePresence>
-            {showStateModal && (
+            {showEnquiry && service && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-                onClick={closeStateModal}
+                onClick={() => setShowEnquiry(false)}
               >
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 20 }}
                   transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                  className="relative bg-white rounded-[2rem] shadow-2xl max-w-md w-full p-8 overflow-hidden"
-                  onClick={e => e.stopPropagation()}
+                  className="bg-white rounded-3xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto p-6 sm:p-8"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  {/* Decorative corner glow */}
-                  <div className="pointer-events-none absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br from-amber-50 to-transparent rounded-full" />
-
-                  {/* Icon */}
-                  <div className="w-16 h-16 rounded-2xl bg-[#F3C625] flex items-center justify-center mb-6">
-                    <HiOutlineLocationMarker className="text-gray-900" size={28} />
-                  </div>
-
-                  {/* Heading */}
-                  <h2 className="text-3xl font-extrabold text-gray-900 mb-3">
-                    Where are you located?
-                  </h2>
-
-                  {/* Subtext */}
-                  <p className="text-gray-500 text-sm leading-relaxed">
-                    Where would you like to avail this service?<br />
-                    Please select your state to get accurate pricing.
-                  </p>
-                  <p className="text-amber-400 font-semibold text-sm mt-1 mb-6">
-                    Service availability and pricing may vary by location
-                  </p>
-
-                  <form onSubmit={handleStateModalSubmit}>
-                    <div className="mb-6">
-                      <label className="block text-sm font-bold text-gray-900 mb-2">
-                        Select your state <span className="text-red-500">*</span>
-                      </label>
-                      <StateSelect
-                        states={allStates}
-                        value={selectedStateForModal}
-                        onChange={setSelectedStateForModal}
-                        loading={statesLoading}
-                      />
-                    </div>
-
-                    {/* Modal Actions */}
-                    <div className="flex gap-3">
-                      <button
-                        type="button"
-                        onClick={closeStateModal}
-                        className="flex-1 px-6 py-3.5 border-2 border-gray-200 text-gray-900 text-sm font-bold rounded-2xl hover:border-gray-300 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={!selectedStateForModal || statesLoading}
-                        className={`flex-1 px-6 py-3.5 text-sm font-bold rounded-2xl transition-colors ${selectedStateForModal && !statesLoading
-                          ? "bg-[#F3C625] text-gray-900 hover:bg-[#e0b420]"
-                          : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                          }`}
-                      >
-                        Get Price
-                      </button>
-                    </div>
-                  </form>
+                  <ServiceEnquiryForm
+                    serviceName={service?.Name || service?.ServiceName || ""}
+                    states={allStates}
+                    stateId={stateId}
+                    onStateChange={handleStateChange}
+                    statesLoading={statesLoading}
+                    onClose={() => setShowEnquiry(false)}
+                  />
                 </motion.div>
               </motion.div>
             )}
