@@ -181,6 +181,26 @@ const PRIORITY = {
   optional: { label: "Optional", cls: "text-gray-500", dot: "bg-gray-400" },
 };
 
+// What each class covers lives on the static /trademark-classes page (one
+// anchor per class) — the class text never changes, so the report links to it
+// instead of repeating each mark's long goods / services description.
+const CLASSES_PAGE = "/trademark-classes";
+
+function ClassLink({ no }) {
+  const n = Number.parseInt(no, 10);
+  if (!(n >= 1 && n <= 45)) return "—";
+  return (
+    <a
+      href={`${CLASSES_PAGE}#class-${n}`}
+      target="_blank"
+      rel="noopener"
+      className="font-semibold text-[#9a5b06] underline underline-offset-2 hover:text-gray-900"
+    >
+      Class {n} details →
+    </a>
+  );
+}
+
 const chancePill = (c) =>
   c >= 75 ? "bg-emerald-50 text-emerald-600" : c >= 50 ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-600";
 
@@ -490,32 +510,6 @@ const TrademarkReport = forwardRef(function TrademarkReport(
           </>
         )}
 
-        {/* 6 · Disclaimer + sign-off */}
-        <div data-pdf-section className="mt-10 px-2 sm:px-4">
-          <SectionHeader number={next()} size="lg">Disclaimer</SectionHeader>
-          <p className="sm:pl-11 text-[13.5px] leading-relaxed text-gray-600">
-            This report is an advisory opinion based on records available on the IP India Trade Marks Registry and related public
-            databases as on the search date. Applications filed recently, or not yet digitised, and unregistered use of similar
-            marks may not appear in the search. The probability shown is Bizpole's professional estimate and not a guarantee; the
-            final decision on registration rests with the Registrar of Trade Marks, and third parties may oppose the application.
-            Bizpole is not liable for any objection, opposition or infringement claim arising from adoption or use of the mark.
-            This report is confidential and intended only for the applicant named above.
-          </p>
-          <div className="sm:pl-11 mt-6 grid grid-cols-3 gap-6 text-[15px]">
-            {[
-              ["Prepared by", "Bizpole One · Trademark Search"],
-              ["Reviewed by", "TM Attorney / Agent"],
-              ["Date of Issue", searchDate],
-            ].map(([label, value]) => (
-              <div key={label}>
-                <div className="w-8 h-[3px] rounded-full bg-yellow-400 mb-3" />
-                <p className="font-semibold text-gray-900">{label}</p>
-                <p className="text-[13.5px] text-gray-500 mt-1">{value}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Annexure · registry results */}
         <div data-pdf-section className="mt-12 mb-5 px-2 flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -587,7 +581,7 @@ const TrademarkReport = forwardRef(function TrademarkReport(
                       ) : "—"}
                     </td>
                     <td className="px-4 py-5 max-w-[150px] break-words">{tm.proprietorName || "—"}</td>
-                    <td className="px-4 py-5 max-w-[260px] break-words">{tm.classDetail || "—"}</td>
+                    <td className="px-4 py-5 whitespace-nowrap"><ClassLink no={tm.classNumber} /></td>
                     <td className="px-4 py-5 max-w-[110px] break-words">{tm.userDetail || "—"}</td>
                   </tr>
                 );
@@ -595,6 +589,38 @@ const TrademarkReport = forwardRef(function TrademarkReport(
             )}
           </tbody>
         </table>
+      </div>
+      <p className="relative mx-4 sm:mx-10 mt-3 text-[12.5px] text-gray-500">
+        What each class covers:{" "}
+        <a href={CLASSES_PAGE} target="_blank" rel="noopener" className="font-semibold text-[#9a5b06] underline underline-offset-2">
+          Trademark classes explained →
+        </a>
+      </p>
+
+      {/* Last · Disclaimer + sign-off */}
+      <div data-pdf-section className="relative mt-12 px-6 sm:px-12">
+        <SectionHeader number={next()} size="lg">Disclaimer</SectionHeader>
+        <p className="sm:pl-11 text-[13.5px] leading-relaxed text-gray-600">
+          This report is an advisory opinion based on records available on the IP India Trade Marks Registry and related public
+          databases as on the search date. Applications filed recently, or not yet digitised, and unregistered use of similar
+          marks may not appear in the search. The probability shown is Bizpole's professional estimate and not a guarantee; the
+          final decision on registration rests with the Registrar of Trade Marks, and third parties may oppose the application.
+          Bizpole is not liable for any objection, opposition or infringement claim arising from adoption or use of the mark.
+          This report is confidential and intended only for the applicant named above.
+        </p>
+        <div className="sm:pl-11 mt-6 grid grid-cols-3 gap-6 text-[15px]">
+          {[
+            ["Prepared by", "Bizpole One · Trademark Search"],
+            ["Reviewed by", "TM Attorney / Agent"],
+            ["Date of Issue", searchDate],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <div className="w-8 h-[3px] rounded-full bg-yellow-400 mb-3" />
+              <p className="font-semibold text-gray-900">{label}</p>
+              <p className="text-[13.5px] text-gray-500 mt-1">{value}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* On screen only — the PDF draws this footer on every page. */}

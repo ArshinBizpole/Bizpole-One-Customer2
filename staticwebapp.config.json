@@ -1,6 +1,10 @@
 {
   "routes": [
     {
+      "route": "/trademark-classes",
+      "rewrite": "/trademark-classes/index.html"
+    },
+    {
       "route": "/trademark-search",
       "rewrite": "/trademark-search/index.html"
     },
@@ -38,6 +42,7 @@
       "/js/*",
       "/trademark-registration/*",
       "/trademark-search/*",
+      "/trademark-classes/*",
       "/private-limited-company-registration/*",
       "/gst-registration/*",
       "/lp/*"

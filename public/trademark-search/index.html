@@ -35,7 +35,6 @@
 <!-- Self-hosted Poppins (shared with /trademark-registration): no third-party round trips -->
 <link rel="preload" href="/trademark-registration/fonts/poppins-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/trademark-registration/fonts/poppins-400.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" as="image" href="/trademark-search/img/tm-report-800.webp" imagesrcset="/trademark-search/img/tm-report-480.webp 480w, /trademark-search/img/tm-report-800.webp 800w, /trademark-search/img/tm-report-1200.webp 1200w" imagesizes="(min-width:960px) 540px, 300px" fetchpriority="high">
 
 <!-- ============ STRUCTURED DATA ============ -->
 <script type="application/ld+json">
@@ -86,7 +85,7 @@
       "@id": "https://www.bizpole.io/trademark-search#faq",
       "mainEntity": [
         { "@type": "Question", "name": "Is the trademark search really free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. The trademark search and the report are 100% free. No payment or card details are needed." } },
-        { "@type": "Question", "name": "How will I receive my trademark search report?", "acceptedAnswer": { "@type": "Answer", "text": "Your report is sent to the WhatsApp number you enter. We verify the number with a one-time code first so the report reaches the right person." } },
+        { "@type": "Question", "name": "How will I receive my trademark search report?", "acceptedAnswer": { "@type": "Answer", "text": "Your report link is sent to the WhatsApp number you enter, usually within a minute. Open it to see the matching trademarks for your brand name." } },
         { "@type": "Question", "name": "What does the trademark search check?", "acceptedAnswer": { "@type": "Answer", "text": "We search the Indian trademark registry for identical marks, similar-sounding and similar-looking marks, and marks in the class that fits your business, and note the status of any conflicting marks." } },
         { "@type": "Question", "name": "Does a clear search mean my trademark will be registered?", "acceptedAnswer": { "@type": "Answer", "text": "No. The search is a preliminary check. Final registrability is decided by the Trade Marks Registry after examination, so a professional review is recommended before you file." } },
         { "@type": "Question", "name": "Which trademark class should I choose?", "acceptedAnswer": { "@type": "Answer", "text": "India follows the Nice Classification with 45 classes: 1–34 for goods and 35–45 for services. Tell us your business category and we will suggest the right class in your report." } },
@@ -136,40 +135,101 @@ main > section:not(.hero), .site-footer{content-visibility:auto;contain-intrinsi
 .hdr-cta:hover{background:var(--ink);color:#fff}
 @media (min-width:900px){.site-header nav{display:block}.site-header .wrap{height:68px}}
 
-/* ===== Hero ===== */
-.hero{position:relative;overflow:hidden;overflow:clip;padding:22px 0 40px;background:#fff}
-.hero::before,.hero::after{content:"";position:absolute;border-radius:50%;pointer-events:none;z-index:0}
-.hero::before{width:170px;height:170px;left:-105px;top:-110px;background:var(--brand);box-shadow:22px 22px 0 16px rgba(252,196,25,.2)}
-.hero::after{width:150px;height:150px;right:-95px;bottom:-105px;background:var(--brand-2);box-shadow:-16px -16px 0 14px rgba(252,196,25,.18)}
-@media (min-width:600px){.hero::before{width:260px;height:260px;left:-140px;top:-160px;box-shadow:36px 36px 0 26px rgba(252,196,25,.22)}.hero::after{width:220px;height:220px;right:-110px;bottom:-140px}}
-@media (min-width:960px){.hero{padding:46px 0 10px}.hero::before{width:380px;height:380px;left:-200px;top:-230px;box-shadow:40px 40px 0 30px rgba(252,196,25,.22)}.hero::after{width:300px;height:300px;right:-140px;bottom:-190px;box-shadow:-30px -30px 0 26px rgba(252,196,25,.2)}}
+/* ===== Hero (search page look) ===== */
+.hero{position:relative;overflow:hidden;overflow:clip;padding:26px 0 30px;background:linear-gradient(180deg,#fff3c4 0%,#fffbef 55%,#fff 100%)}
+@media (min-width:960px){.hero{padding:40px 0 24px;background:#fffbef url(/Images/trbg.jpeg) 70% top/cover no-repeat}}
 .hero .wrap{position:relative;z-index:1}
-.hero-grid{display:grid;gap:18px;grid-template-columns:minmax(0,1fr)}
-.hero-grid > *{min-width:0}
-@media (min-width:960px){.hero-grid{grid-template-columns:1.08fr minmax(440px,.92fr);gap:56px;align-items:start}}
-
+.hero-top{position:relative}
 .hero-copy{text-align:center}
-@media (min-width:960px){.hero-copy{text-align:left;padding-top:8px}}
-.badge{display:inline-block;font-size:.78rem;font-weight:600;letter-spacing:.08em;color:#d39a00;background:var(--brand-cream);border:1px solid #fde9a8;border-radius:999px;padding:8px 18px;text-transform:uppercase}
-@media (min-width:960px){.badge{font-size:.9rem;padding:10px 24px}}
-.hero h1{margin:14px 0 10px;font-size:clamp(1.6rem,7.6vw,3.05rem);font-weight:700;line-height:1.12;letter-spacing:-.03em}
-.hero h1 span{display:block;color:#f5b301}
-.lede{font-size:clamp(1rem,3.8vw,1.25rem);color:var(--muted);max-width:520px;margin:0 auto}
-@media (min-width:960px){.lede{margin:0}}
-.art{position:relative;margin:14px auto 0;width:min(300px,82%)}
-.art img{width:100%;height:auto}
-@media (min-width:960px){.art{width:auto;max-width:540px;margin:22px 0 0}}
+@media (min-width:1024px){.hero-copy{width:63%}}
+.badge{display:inline-block;font-size:.74rem;font-weight:600;letter-spacing:.08em;color:#9a5b06;background:#fff6d6;border:1px solid #fde9a8;border-radius:999px;padding:7px 16px;text-transform:uppercase}
+.hero h1{margin:14px 0 0;font-size:clamp(2.05rem,9.6vw,4.1rem);font-weight:700;line-height:1.08;letter-spacing:-.035em;color:#0b0b0b}
+.hero h1 span{color:#f5b301}
+.lede{font-size:clamp(.94rem,3.7vw,1.06rem);line-height:1.65;color:var(--muted);max-width:660px;margin:16px auto 0}
+.hero-art{display:none}
+@media (min-width:1024px){.hero-art{display:block;position:absolute;right:-10px;top:0;width:min(35%,430px);height:auto}}
+.hl{display:none;list-style:none;margin:0;padding:0}
+@media (min-width:640px){.hl{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:30px}}
+@media (min-width:1024px){.hl{grid-template-columns:repeat(4,1fr);gap:22px;margin-top:38px;padding-right:70px}}
+.hl li{display:flex;align-items:center;gap:14px;background:#fff;border-radius:16px;padding:16px 18px;min-height:96px;box-shadow:0 8px 30px rgba(0,0,0,.06)}
+.hl .ic{flex:0 0 48px;height:48px;border-radius:12px;background:#fff6d6;color:#f5b400;display:grid;place-items:center}
+.hl b{display:block;color:var(--ink);font-weight:600}
+.hl small{display:block;color:var(--muted);font-size:.84rem;line-height:1.35}
 
-/* ===== Form card ===== */
+/* Search bar */
+.search{margin:26px auto 0;max-width:1100px;scroll-margin-top:84px}
+@media (min-width:640px){.search{margin-top:44px}}
+.tabs{display:flex;justify-content:center;gap:6px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;height:36px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:#fff;font:500 .9rem var(--font);color:var(--ink-2);cursor:pointer}
+.tab:hover{border-color:var(--ink);color:var(--ink)}
+.tab[aria-selected="true"]{background:#111827;border-color:#111827;color:#fff}
+@media (max-width:399px){.tabs{gap:4px}.tab{padding:0 10px;font-size:.8rem;height:34px}}
+.srow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px}
+.sbox{grid-column:1/-1;display:flex;align-items:center;gap:10px;min-width:0;height:56px;padding:0 8px 0 16px;background:#fff;border:1.5px solid var(--line-2);border-radius:14px;box-shadow:0 2px 10px rgba(15,23,42,.05);transition:border-color .15s,box-shadow .15s}
+.sbox:focus-within{border-color:#f5b301;box-shadow:0 0 0 4px rgba(252,196,25,.3)}
+.sbox > svg{flex:0 0 auto;color:#94a3b8}
+.sbox input[type=search]{flex:1;min-width:0;height:100%;border:0;outline:none;background:transparent;font:400 16px var(--font);color:var(--ink);-webkit-appearance:none;appearance:none}
+.sbox input::placeholder{color:#94a3b8}
+.sbox input[type=search]::-webkit-search-cancel-button{display:none}
+.drop{flex:1;min-width:0;height:100%;border:0;background:none;text-align:left;font:400 16px var(--font);color:#94a3b8;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0}
+.chip{display:flex;align-items:center;gap:6px;min-width:0;max-width:50%;padding:4px 4px 4px 6px;border:1px solid var(--line);border-radius:10px;font-size:.82rem;color:var(--ink)}
+.chip img{width:28px;height:28px;object-fit:contain;border-radius:4px;flex:0 0 auto}
+.chip span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip button{flex:0 0 auto;width:28px;height:28px;border:0;background:none;font-size:1.2rem;color:var(--muted);cursor:pointer}
+.sbox.is-logo .drop{flex:1}
+.addlogo{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:#fff;font:500 .82rem var(--font);color:var(--ink-2);cursor:pointer}
+.addlogo:hover{border-color:#f5b301}
+@media (max-width:399px){.addlogo span{display:none}}
+.cls{min-width:0;height:52px;padding:0 38px 0 14px;font:400 15px var(--font);color:var(--ink);background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1.5 1.5l4.5 4.5 4.5-4.5' fill='none' stroke='%230f172a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center;border:1.5px solid var(--line-2);border-radius:14px;-webkit-appearance:none;appearance:none;cursor:pointer;text-overflow:ellipsis}
+.cls:focus{border-color:#f5b301;outline:none;box-shadow:0 0 0 4px rgba(252,196,25,.3)}
+.sbtn{height:52px;padding:0 26px;border:0;border-radius:14px;background:var(--brand);font:600 1rem var(--font);color:var(--ink);cursor:pointer;box-shadow:0 10px 22px rgba(252,196,25,.35);transition:background .15s}
+.sbtn:hover{background:#f5b301}
+.hist{grid-column:1/-1;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:48px;padding:0 20px;border:1.5px solid #f5d76e;border-radius:14px;background:#fffdf3;font-weight:600;color:var(--ink);text-decoration:none}
+@media (min-width:768px){.srow{display:flex}.sbox{flex:1;height:60px}.cls{width:210px;height:60px}.sbtn{height:60px;padding:0 36px}.hist{height:60px}}
+.search .err{margin:12px 0 0}
+.quota{margin-top:10px;font-size:.84rem;color:var(--muted);text-align:center}
+.res{max-width:1100px;margin:22px auto 0;padding:18px 16px 20px;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 12px 32px rgba(15,23,42,.08);text-align:left;scroll-margin-top:84px}
+.res[hidden]{display:none}
+.res-ok{margin:0 0 14px;padding:10px 14px;border-radius:12px;background:#ecfdf3;color:#166534;font-size:.9rem;font-weight:500}
+.res-ok.warn{background:#fff7e6;color:#8a5300}
+.res-head{display:grid;gap:14px}
+@media (min-width:640px){.res-head{grid-template-columns:auto 1fr;align-items:center}.res{padding:22px 24px 24px}}
+.res-score{display:flex;align-items:center;gap:14px}
+.res-score[hidden]{display:none}
+.ring{--p:0;--c:#16a34a;width:76px;height:76px;flex:0 0 auto;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--c) calc(var(--p)*1%),#eef2f7 0)}
+.ring span{width:58px;height:58px;border-radius:50%;background:#fff;display:grid;place-items:center;font-weight:700;font-size:1.15rem;color:var(--ink)}
+.res-k{margin:0;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.res-v{margin:2px 0 0;font-weight:700;color:var(--ink)}
+.res-q{margin:2px 0 0;font-size:1.25rem;font-weight:700;color:var(--ink);word-break:break-word}
+.res-n{margin:2px 0 0;font-size:.88rem;color:var(--muted)}
+.res-why{margin:14px 0 0;font-size:.9rem;color:var(--ink-2)}
+.res-why[hidden]{display:none}
+.res-list{list-style:none;margin:16px 0 0;padding:0;border-top:1px solid var(--line)}
+.res-list li{display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.res-list .lg{flex:0 0 auto;width:44px;height:44px;border-radius:10px;background:#f8fafc;border:1px solid var(--line);display:grid;place-items:center;overflow:hidden;font-weight:700;color:var(--brand-d)}
+.res-list .lg img{width:100%;height:100%;object-fit:contain}
+.res-list .t{min-width:0;flex:1}
+.res-list .t b{display:block;color:var(--ink);word-break:break-word}
+.res-list .t small{display:block;color:var(--muted);font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.res-list .st{flex:0 0 auto;max-width:42%;padding:3px 10px;border-radius:999px;font-size:.74rem;font-weight:600;background:#f1f5f9;color:#475569;text-align:center}
+.res-list .st.reg{background:#ecfdf3;color:#166534}
+.res-list .st.obj{background:#fff7e6;color:#8a5300}
+.res-list .st.dead{background:#fef2f2;color:#991b1b}
+.res-empty{padding:16px 0;color:var(--muted);text-align:center}
+.res-act{margin-top:6px;text-align:center}
+.res-act .btn{max-width:380px;margin-left:auto;margin-right:auto}
+.res-act .btn[hidden],.res-alt[hidden]{display:none}
+.res-alt{margin:14px 0 0;font-size:.9rem;color:var(--muted)}
+@media (min-width:768px){.quota{text-align:left}}
+
+/* ===== Popup card (the 2-step free report) ===== */
 .card{background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 18px 50px rgba(15,23,42,.08);padding:20px 18px 22px}
-@media (min-width:960px){.card{padding:32px 36px 34px;margin-top:4px;scroll-margin-top:90px}}
-.card{scroll-margin-top:76px}
 .stepbar{display:flex;align-items:center;gap:16px;padding-bottom:16px;margin-bottom:18px;border-bottom:1px solid var(--line)}
 .stepbar b{font-size:.82rem;font-weight:700;letter-spacing:.06em;color:var(--ink);text-transform:uppercase;white-space:nowrap}
 .stepbar .bar{flex:1;height:8px;border-radius:999px;background:#e9edf3;overflow:hidden}
 .stepbar .bar i{display:block;height:100%;width:50%;border-radius:inherit;background:var(--brand);transition:width .4s ease}
-.card h2{font-size:clamp(1.2rem,4.8vw,1.55rem);font-weight:700;margin-bottom:16px;text-align:center}
-@media (min-width:960px){.card h2{text-align:left;margin-bottom:20px}}
+.card h2{font-size:clamp(1.2rem,4.8vw,1.55rem);font-weight:700;margin-bottom:16px}
 
 .field{margin-bottom:16px}
 .field label{display:block;font-size:.92rem;font-weight:600;color:var(--ink);margin-bottom:7px}
@@ -216,27 +276,42 @@ main > section:not(.hero), .site-footer{content-visibility:auto;contain-intrinsi
 .btn-wa .t{flex:1}
 .safe{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;font-size:.88rem;color:var(--ink-2)}
 
-/* OTP + done */
-.back-link{display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:0;margin-bottom:10px;font:500 .9rem var(--font);color:var(--ink-2);cursor:pointer;min-height:40px}
-.otp-sub{color:var(--muted);font-size:.95rem;margin:-6px 0 20px;text-align:center}
-.otp-sub b{color:var(--ink);font-weight:600}
-.otp-sub button,.resend button{background:none;border:0;padding:0 0 0 6px;font:600 .9rem var(--font);color:var(--brand-d);cursor:pointer}
-.otp-in{width:100%;height:64px;text-align:center;font:600 1.9rem var(--font);letter-spacing:.9em;text-indent:.9em;color:var(--ink);border:1.5px solid var(--line-2);border-radius:14px;background:#fff}
-.otp-in:focus{border-color:#f5b301;outline:none;box-shadow:0 0 0 4px rgba(252,196,25,.3)}
-.otp-in[aria-invalid="true"]{border-color:var(--err)}
-.resend{margin-top:14px;text-align:center;font-size:.88rem;color:var(--muted)}
-.resend button[disabled]{color:var(--muted);cursor:default}
+/* Done */
 .done{text-align:center}
 .done .tick{width:72px;height:72px;margin:4px auto 14px;border-radius:50%;background:#dcfce7;display:grid;place-items:center}
 .done ol{text-align:left;margin:16px auto 4px;padding-left:20px;max-width:380px;display:grid;gap:8px;font-size:.95rem}
 .done .btn{max-width:380px;margin-left:auto;margin-right:auto}
+.done .btn[hidden]{display:none}
+.done-alt{display:inline-block;margin-top:14px;font-weight:600;color:var(--brand-d,#9a5b06);text-decoration:underline;text-underline-offset:3px}
 [hidden]{display:none!important}
 
-/* Step 2 on phones: the card becomes the page (like the design) */
-@media (max-width:959px){
-  body.is-s2 .hero-copy{display:none}
-  body.is-s2 .card{border:0;box-shadow:none;padding:4px 2px 8px}
+/* ===== Popup shell ===== */
+.modal{position:fixed;inset:0;z-index:80;display:flex;align-items:flex-end;justify-content:center;background:rgba(15,23,42,.55);opacity:0;transition:opacity .2s ease}
+.modal.open{opacity:1}
+.sheet{position:relative;width:100%;max-height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:#fff;border-radius:22px 22px 0 0;transform:translateY(24px);transition:transform .22s ease}
+.modal.open .sheet{transform:none}
+.sheet .card{border:0;box-shadow:none;padding:16px 18px calc(22px + env(safe-area-inset-bottom))}
+.sheet .stepbar{padding-right:40px}
+.m-copy{display:none}
+.x{position:absolute;top:6px;right:6px;z-index:2;width:44px;height:44px;border:0;border-radius:50%;background:none;color:var(--ink-2);font-size:1.8rem;line-height:1;cursor:pointer}
+.x:hover{background:#f1f5f9}
+@media (max-width:599px){.sheet{max-height:calc(100% - 24px)}}
+@media (min-width:600px){.modal{align-items:center;padding:24px}.sheet{max-width:520px;border-radius:22px;box-shadow:0 30px 80px rgba(15,23,42,.3)}.sheet .card{padding:24px 30px 28px}}
+@media (min-width:960px){
+  .sheet{max-width:1040px;display:grid;grid-template-columns:1fr 470px;gap:28px;align-items:center;padding:36px 36px 36px 44px;background:#fff}
+  .sheet .card{border:1px solid var(--line);box-shadow:0 18px 50px rgba(15,23,42,.08);padding:28px 32px 30px}
+  .m-copy{display:block}
+  .m-h{margin:14px 0 10px;font-size:2.6rem;font-weight:700;line-height:1.1;letter-spacing:-.03em;color:var(--ink)}
+  .m-h span{display:block;color:#f5b301}
+  .m-lede{font-size:1.1rem;color:var(--muted);max-width:440px}
+  .m-art{width:100%;max-width:440px;margin-top:20px}
+  .x{top:10px;right:10px}
+  .sheet .stepbar{padding-right:0}
 }
+.card h2{text-align:center}
+@media (min-width:960px){.card h2{text-align:left}}
+body.modal-open{overflow:hidden}
+@media (prefers-reduced-motion:reduce){.modal,.sheet{transition:none}}
 
 /* ===== Trust row + notes ===== */
 .trust{display:grid;grid-template-columns:repeat(3,1fr);margin:24px 0 0;padding:0;list-style:none}
@@ -336,136 +411,87 @@ main > section:not(.hero), .site-footer{content-visibility:auto;contain-intrinsi
 </header>
 
 <main>
-<!-- ================= HERO + 2-STEP FORM ================= -->
+<!-- ================= HERO + SEARCH ================= -->
 <section class="hero" aria-labelledby="hero-title">
   <div class="wrap">
-    <div class="hero-grid">
+    <div class="hero-top">
+      <svg class="hero-art" viewBox="0 0 420 340" role="img" aria-label="Trademark registration certificate, ® medallion and magnifying glass">
+          <defs>
+            <linearGradient id="tg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE07A"/><stop offset=".45" stop-color="#F7B500"/><stop offset="1" stop-color="#C97A00"/></linearGradient>
+            <linearGradient id="tgi" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFF3C4"/><stop offset="1" stop-color="#F5B300"/></linearGradient>
+            <linearGradient id="tp" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#ECEDF1"/></linearGradient>
+            <linearGradient id="tb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD54A"/><stop offset="1" stop-color="#E8A400"/></linearGradient>
+            <radialGradient id="tl" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#DDE6F0" stop-opacity=".35"/></radialGradient>
+            <filter id="ts" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#B07A00" flood-opacity=".25"/></filter>
+          </defs>
+          <g filter="url(#ts)"><rect x="270" y="250" width="140" height="26" rx="5" fill="url(#tb)"/><rect x="270" y="270" width="140" height="6" fill="#FFF6D6"/><rect x="282" y="226" width="118" height="26" rx="5" fill="#FFF2C2"/><rect x="282" y="226" width="118" height="8" rx="4" fill="#FFE38A"/></g>
+          <g transform="rotate(-10 230 140)" filter="url(#ts)"><rect x="150" y="30" width="170" height="220" rx="16" fill="url(#tp)" stroke="#E2E4EA"/><circle cx="235" cy="72" r="13" fill="none" stroke="#6B7280" stroke-width="2"/><path d="M229 78L235 62L241 78Z" fill="#6B7280"/><rect x="227" y="88" width="16" height="3" rx="1.5" fill="#9CA3AF"/><text x="235" y="118" text-anchor="middle" font-size="13" font-weight="800" fill="#374151" font-family="Arial,sans-serif">TRADEMARK</text><text x="235" y="134" text-anchor="middle" font-size="11" font-weight="700" fill="#4B5563" font-family="Arial,sans-serif">REGISTRATION</text><rect x="185" y="152" width="100" height="5" rx="2.5" fill="#E5E7EB"/><rect x="195" y="164" width="80" height="5" rx="2.5" fill="#E5E7EB"/><rect x="190" y="176" width="90" height="5" rx="2.5" fill="#E5E7EB"/></g>
+          <g transform="translate(372 46) rotate(12)" filter="url(#ts)"><path d="M0-26L22-18V2C22 16 11 26 0 31-11 26-22 16-22 2V-18Z" fill="url(#tg)"/><path d="M-9 1L-2 8 10-6" stroke="#FFF7D6" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+          <g filter="url(#ts)"><circle cx="130" cy="200" r="78" fill="url(#tg)"/><circle cx="130" cy="200" r="62" fill="url(#tgi)" stroke="#D18A00" stroke-width="3"/><text x="130" y="232" text-anchor="middle" font-size="92" font-weight="900" fill="#E39A00" stroke="#B86E00" stroke-width="2" font-family="Georgia,'Times New Roman',serif">R</text><ellipse cx="102" cy="160" rx="26" ry="12" fill="#fff" opacity=".35" transform="rotate(-30 102 160)"/></g>
+          <g filter="url(#ts)"><line x1="352" y1="210" x2="392" y2="282" stroke="#111827" stroke-width="18" stroke-linecap="round"/><line x1="344" y1="196" x2="354" y2="214" stroke="#374151" stroke-width="14" stroke-linecap="round"/><circle cx="318" cy="148" r="52" fill="url(#tl)" stroke="#111827" stroke-width="12"/><path d="M290 128A34 34 0 0 1 320 112" stroke="#fff" stroke-width="6" fill="none" stroke-linecap="round" opacity=".8"/></g>
+          <g stroke="#F5B300" stroke-width="4" stroke-linecap="round"><line x1="60" y1="96" x2="44" y2="84"/><line x1="54" y1="118" x2="34" y2="118"/><line x1="76" y1="80" x2="70" y2="62"/></g>
+        </svg>
       <div class="hero-copy">
-        <p class="badge">Free trademark search</p>
-        <h1 id="hero-title">Check your brand name. <span>Get a free report.</span></h1>
-        <p class="lede">Find out whether your brand name may be available for trademark registration.</p>
-        <div class="art">
-          <img src="/trademark-search/img/tm-report-800.webp"
-               srcset="/trademark-search/img/tm-report-480.webp 480w, /trademark-search/img/tm-report-800.webp 800w, /trademark-search/img/tm-report-1200.webp 1200w"
-               sizes="(min-width:960px) 540px, 300px" width="800" height="440" decoding="async"
-               alt="Illustration of a trademark search report with a magnifying glass and TM coin" fetchpriority="high">
-        </div>
-      </div>
-
-      <div class="card" id="check" aria-live="polite">
-        <div class="stepbar"><b id="step-label">Step 1 of 2</b><span class="bar" aria-hidden="true"><i id="step-fill"></i></span></div>
-
-        <!-- Step 1: brand -->
-        <div id="v1">
-          <h2>What name would you like to check?</h2>
-          <div class="err" id="err1" role="alert"></div>
-          <form id="f1" novalidate>
-            <div class="field">
-              <label for="f-brand">Brand name</label>
-              <input class="inp" id="f-brand" name="brand" type="text" required maxlength="100" autocomplete="organization" autocapitalize="words" enterkeyhint="next" placeholder="eg. AURA, NOVA, ZENVIA">
-            </div>
-            <div class="field">
-              <label for="f-cat">Business category <small>(optional)</small></label>
-              <input class="inp" id="f-cat" name="category" type="text" maxlength="100" list="cat-list" placeholder="eg. Clothing, Food, Tech">
-              <datalist id="cat-list">
-                <option value="Clothing &amp; Fashion"><option value="Food &amp; Beverages"><option value="Restaurant / Cafe"><option value="Technology / Software">
-                <option value="Cosmetics &amp; Beauty"><option value="Health &amp; Pharma"><option value="Education &amp; Training"><option value="Jewellery">
-                <option value="Furniture &amp; Home"><option value="Real Estate &amp; Construction"><option value="Consulting &amp; Services"><option value="E-commerce / Retail">
-              </datalist>
-            </div>
-            <div class="field">
-              <label for="f-state">Your state</label>
-              <select id="f-state" name="state" required autocomplete="address-level1">
-                <option value="" disabled selected>Select state</option>
-                <option>Andhra Pradesh</option><option>Arunachal Pradesh</option><option>Assam</option><option>Bihar</option>
-                <option>Chhattisgarh</option><option>Goa</option><option>Gujarat</option><option>Haryana</option>
-                <option>Himachal Pradesh</option><option>Jharkhand</option><option>Karnataka</option><option>Kerala</option>
-                <option>Madhya Pradesh</option><option>Maharashtra</option><option>Manipur</option><option>Meghalaya</option>
-                <option>Mizoram</option><option>Nagaland</option><option>Odisha</option><option>Punjab</option>
-                <option>Rajasthan</option><option>Sikkim</option><option>Tamil Nadu</option><option>Telangana</option>
-                <option>Tripura</option><option>Uttar Pradesh</option><option>Uttarakhand</option><option>West Bengal</option>
-                <option>Andaman and Nicobar Islands</option><option>Chandigarh</option>
-                <option>Dadra and Nagar Haveli and Daman and Diu</option><option>Delhi</option>
-                <option>Jammu and Kashmir</option><option>Ladakh</option><option>Lakshadweep</option><option>Puducherry</option>
-              </select>
-            </div>
-            <button class="btn" type="submit">Continue to free report
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
-            </button>
-          </form>
-        </div>
-
-        <!-- Step 2: where to send -->
-        <div id="v2" hidden>
-          <div class="s2-head">
-            <h2 tabindex="-1" id="s2-title">Your free report is <mark>almost ready!</mark></h2>
-            <p>Where should we send your trademark search report?</p>
-            <div class="s2-art"><img src="/trademark-search/img/tm-ready-400.webp" srcset="/trademark-search/img/tm-ready-400.webp 400w, /trademark-search/img/tm-ready-700.webp 700w" sizes="220px" width="400" height="252" alt="" loading="lazy" decoding="async"></div>
-          </div>
-          <div class="brandbox">
-            <span class="ck" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-            <span class="bx"><small>Your brand name:</small><strong id="s2-brand">Your Brand Name</strong></span>
-            <button type="button" id="s2-edit" aria-label="Edit brand name">Edit</button>
-          </div>
-          <div class="err" id="err2" role="alert"></div>
-          <form id="f2" novalidate>
-            <div class="field">
-              <label for="f-mobile">Your WhatsApp number <span class="req" aria-hidden="true">*</span></label>
-              <div class="grp">
-                <span class="cc"><svg width="26" height="18" viewBox="0 0 26 18" aria-hidden="true"><rect width="26" height="6" fill="#ff9933" rx="1"/><rect y="6" width="26" height="6" fill="#fff"/><rect y="12" width="26" height="6" fill="#138808" rx="1"/><circle cx="13" cy="9" r="2.2" fill="none" stroke="#000080" stroke-width=".8"/></svg>+91</span>
-                <input id="f-mobile" name="mobile" type="tel" inputmode="numeric" autocomplete="tel-national" required placeholder="10-digit number" aria-describedby="err2">
-              </div>
-            </div>
-            <div class="field">
-              <label for="f-name">Your name <small>(optional)</small></label>
-              <div class="grp">
-                <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.4-4 4.4-6 8-6s6.6 2 8 6"/></svg></span>
-                <input id="f-name" name="name" type="text" autocomplete="name" maxlength="150" placeholder="Enter your name">
-              </div>
-            </div>
-            <div class="hp" aria-hidden="true">
-              <label for="f-hp">Company website</label>
-              <input id="f-hp" name="company_website" type="text" tabindex="-1" autocomplete="off">
-            </div>
-            <button class="btn btn-wa" type="submit" id="f2-btn">
-              <span class="wa"><svg width="34" height="34" viewBox="0 0 32 32" aria-hidden="true"><path fill="#25d366" d="M16 3C8.8 3 3 8.7 3 15.8c0 2.5.7 4.9 2 6.9L3 29l6.5-2c2 1.1 4.2 1.6 6.5 1.6 7.2 0 13-5.7 13-12.8S23.2 3 16 3z"/><path fill="#fff" d="M23.3 19.6c-.3.9-1.8 1.7-2.5 1.8-.6.1-1.5.1-2.4-.2-.5-.2-1.3-.4-2.2-.8-3.8-1.6-6.3-5.4-6.5-5.7-.2-.2-1.5-2-1.5-3.8s.9-2.7 1.3-3.1c.3-.4.7-.4 1-.4h.7c.2 0 .5-.1.8.6.3.7 1 2.5 1.1 2.7.1.2.1.4 0 .6-.1.2-.2.4-.3.6l-.5.6c-.2.2-.4.4-.2.7.2.4 1 1.6 2.1 2.6 1.4 1.3 2.6 1.7 3 1.9.4.2.6.2.8-.1.2-.3.9-1.1 1.2-1.4.2-.4.5-.3.8-.2.3.1 2.1 1 2.5 1.2.4.2.6.3.7.4.1.2.1.9-.1 1.8z"/></svg></span>
-              <span class="t" id="f2-txt">Send My Free Report on WhatsApp</span>
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
-            </button>
-          </form>
-          <p class="safe"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5z" fill="#22c55e"/><path d="M8 12l3 3 5-5.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Your details are kept private. No spam.</p>
-        </div>
-
-        <!-- Step 2b: verify number -->
-        <div id="v3" hidden>
-          <button type="button" class="back-link" id="otp-back">← Back</button>
-          <div class="s2-head"><h2 tabindex="-1" id="otp-title">Verify your number</h2></div>
-          <p class="otp-sub">Enter the 4-digit code sent by SMS to <b id="otp-to">+91</b><button type="button" id="otp-edit">Edit</button></p>
-          <div class="err" id="err3" role="alert"></div>
-          <form id="f3" novalidate>
-            <div class="field">
-              <label for="f-otp" class="sr-only">One-time code</label>
-              <input id="f-otp" class="otp-in" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="••••" required>
-            </div>
-            <button class="btn" type="submit" id="f3-btn">Verify &amp; send my report</button>
-          </form>
-          <p class="resend"><span id="resend-txt">Didn't get it? Resend in <b id="resend-sec">30</b>s</span><button type="button" id="resend-btn" hidden>Resend code</button></p>
-        </div>
-
-        <!-- Done -->
-        <div id="v4" class="done" hidden>
-          <div class="tick" aria-hidden="true"><svg width="36" height="36" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#16a34a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-          <h2 tabindex="-1" id="done-title">Your report is on its way<span id="done-name"></span>!</h2>
-          <p style="color:var(--muted)">We're checking <b id="done-brand" style="color:var(--ink)"></b> against the trademark registry.</p>
-          <ol>
-            <li>Your free search report arrives on WhatsApp shortly.</li>
-            <li>A trademark expert explains the result and the right class for you.</li>
-            <li>If the name looks clear, file early and start using ™.</li>
-          </ol>
-          <a class="btn" href="/trademark-registration">See trademark registration →</a>
-        </div>
+        <p class="badge">Indian Trademark Registry</p>
+        <h1 id="hero-title">Protect your <span>brand.</span><br>Start with a <span>search.</span></h1>
+        <p class="lede">Check whether your brand name or logo is already registered or applied for before you file in India. Search by brand name, owner, application number or logo and narrow it down by class.</p>
       </div>
     </div>
+
+    <ul class="hl" aria-label="About this search">
+      <li><span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></span><span><b>Official Database</b><small>Data from Indian Trademark Registry</small></span></li>
+      <li><span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></span><span><b>Up to date</b><small>Latest trademark records</small></span></li>
+      <li><span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span><span><b>Fast &amp; Accurate</b><small>Get results in seconds</small></span></li>
+      <li><span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><span><b>Trusted Information</b><small>For reference only</small></span></li>
+    </ul>
+
+    <form class="search" id="check" novalidate>
+      <div class="tabs" role="tablist" aria-label="Search by">
+        <button type="button" class="tab" role="tab" aria-selected="true" data-type="WORD_MARK" data-ph="Enter your brand name (e.g. Bizpole)" data-ph-s="Enter your brand name">Brand name</button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-type="PROPRIETOR_NAME" data-ph="e.g. Bizpole India Pvt Ltd">Owner</button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-type="APPLICATION_NUMBER" data-ph="e.g. 5123456">Application no.</button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-type="IMAGE">Logo</button>
+      </div>
+      <div class="srow">
+        <div class="sbox" id="sbox">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <label for="q" class="sr-only">Search</label>
+          <input id="q" name="q" type="search" maxlength="100" autocomplete="off" autocapitalize="words" enterkeyhint="search" placeholder="Enter your brand name (e.g. Bizpole)">
+          <button type="button" class="drop" id="drop" hidden>Upload your logo (PNG or JPG, up to 2 MB)</button>
+          <span class="chip" id="chip" hidden><img id="chip-img" alt="" width="28" height="28"><span id="chip-name"></span><button type="button" id="chip-x" aria-label="Remove logo">&times;</button></span>
+          <button type="button" class="addlogo" id="addlogo"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span>Add logo</span></button>
+          <input type="file" id="logo" accept="image/png,image/jpeg" hidden>
+        </div>
+        <label for="cls" class="sr-only">Trademark class</label>
+        <select class="cls" id="cls" name="cls"><option value="">All classes</option><option value="1">Class 1 – Industrial &amp; Scientific Chemicals</option><option value="2">Class 2 – Paints, Varnishes &amp; Colorants</option><option value="3">Class 3 – Cosmetics &amp; Cleaning Preparations</option><option value="4">Class 4 – Industrial Oils, Lubricants &amp; Fuels</option><option value="5">Class 5 – Pharmaceuticals &amp; Medical Preparations</option><option value="6">Class 6 – Common Metals &amp; Metal Goods</option><option value="7">Class 7 – Machines &amp; Machine Tools</option><option value="8">Class 8 – Hand Tools &amp; Cutlery</option><option value="9">Class 9 – Software, Electronics &amp; Scientific Apparatus</option><option value="10">Class 10 – Medical &amp; Surgical Instruments</option><option value="11">Class 11 – Lighting, Heating &amp; Sanitary Apparatus</option><option value="12">Class 12 – Vehicles</option><option value="13">Class 13 – Firearms &amp; Fireworks</option><option value="14">Class 14 – Jewellery &amp; Precious Metals</option><option value="15">Class 15 – Musical Instruments</option><option value="16">Class 16 – Paper, Stationery &amp; Printed Matter</option><option value="17">Class 17 – Rubber, Plastics &amp; Insulating Materials</option><option value="18">Class 18 – Leather Goods &amp; Bags</option><option value="19">Class 19 – Building Materials (Non-metallic)</option><option value="20">Class 20 – Furniture &amp; Furnishings</option><option value="21">Class 21 – Household &amp; Kitchen Utensils</option><option value="22">Class 22 – Ropes, Nets &amp; Tents</option><option value="23">Class 23 – Yarns &amp; Threads</option><option value="24">Class 24 – Textiles &amp; Textile Goods</option><option value="25">Class 25 – Clothing, Footwear &amp; Headgear</option><option value="26">Class 26 – Lace, Embroidery &amp; Fancy Goods</option><option value="27">Class 27 – Carpets &amp; Floor Coverings</option><option value="28">Class 28 – Games, Toys &amp; Sporting Goods</option><option value="29">Class 29 – Meat, Fish, Dairy &amp; Preserved Foods</option><option value="30">Class 30 – Coffee, Tea, Bakery &amp; Staple Foods</option><option value="31">Class 31 – Agricultural &amp; Horticultural Products</option><option value="32">Class 32 – Beers &amp; Non-alcoholic Beverages</option><option value="33">Class 33 – Alcoholic Beverages</option><option value="34">Class 34 – Tobacco &amp; Smokers&#39; Articles</option><option value="35">Class 35 – Advertising &amp; Business Management</option><option value="36">Class 36 – Insurance &amp; Financial Services</option><option value="37">Class 37 – Construction &amp; Repair Services</option><option value="38">Class 38 – Telecommunications</option><option value="39">Class 39 – Transport, Packaging &amp; Storage</option><option value="40">Class 40 – Treatment of Materials</option><option value="41">Class 41 – Education, Training &amp; Entertainment</option><option value="42">Class 42 – IT, Scientific &amp; Design Services</option><option value="43">Class 43 – Food, Drink &amp; Accommodation Services</option><option value="44">Class 44 – Medical, Beauty &amp; Agricultural Services</option><option value="45">Class 45 – Legal &amp; Security Services</option></select>
+        <button class="sbtn" type="submit">Search</button>
+        <a class="hist" id="hist" href="/dashboard/bizpoleone/trademark-search" hidden><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>History</a>
+      </div>
+      <div class="err" id="err0" role="alert"></div>
+      <p class="quota">10 free searches included · report on WhatsApp</p>
+    </form>
+
+    <!-- Filled after the popup sends the report: score + matches under the search bar -->
+    <section class="res" id="res" aria-live="polite" hidden>
+      <p class="res-ok" id="res-ok"></p>
+      <div class="res-head">
+        <div class="res-score" id="res-score" hidden>
+          <div class="ring" id="res-ring"><span id="res-pct"></span></div>
+          <div><p class="res-k">Probability of registration</p><p class="res-v" id="res-verdict"></p></div>
+        </div>
+        <div class="res-sum">
+          <p class="res-k">Results for</p>
+          <p class="res-q" id="res-q"></p>
+          <p class="res-n" id="res-n"></p>
+        </div>
+      </div>
+      <p class="res-why" id="res-why" hidden></p>
+      <ul class="res-list" id="res-list"></ul>
+      <div class="res-act">
+        <a class="btn" id="res-report" href="#" hidden>View full report →</a>
+        <p class="res-alt" id="res-alt" hidden>Open the report link we sent you on WhatsApp to see the full report.</p>
+      </div>
+    </section>
 
     <ul class="trust" aria-label="Why use this search">
       <li><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="#fcc419"/><path d="M15 24.5l6 6 12-13" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>100%</b> Free</span></li>
@@ -479,6 +505,117 @@ main > section:not(.hero), .site-footer{content-visibility:auto;contain-intrinsi
   </div>
 </section>
 
+<!-- Free-report popup: opened by Search for visitors who aren't signed in -->
+<div class="modal" id="tm-modal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="m-title">
+    <button type="button" class="x" id="modal-x" aria-label="Close">&times;</button>
+    <div class="m-copy">
+      <p class="badge">Free trademark search</p>
+      <p class="m-h">Check your brand name. <span>Get a free report.</span></p>
+      <p class="m-lede">Find out whether your brand name may be available for trademark registration.</p>
+      <img class="m-art" src="/trademark-search/img/tm-report-800.webp" srcset="/trademark-search/img/tm-report-480.webp 480w, /trademark-search/img/tm-report-800.webp 800w" sizes="400px" width="800" height="440" loading="lazy" decoding="async" alt="">
+    </div>
+    <div class="card">
+      <div class="stepbar"><b id="step-label">Step 1 of 2</b><span class="bar" aria-hidden="true"><i id="step-fill"></i></span></div>
+
+      <!-- Step 1: brand (prefilled from the search) -->
+      <div id="v1">
+        <h2 tabindex="-1" id="m-title">What name would you like to check?</h2>
+        <div class="err" id="err1" role="alert"></div>
+        <form id="f1" novalidate>
+          <div class="field">
+            <label for="f-brand">Brand name</label>
+            <input class="inp" id="f-brand" name="brand" type="text" required maxlength="100" autocomplete="organization" autocapitalize="words" enterkeyhint="next" placeholder="eg. AURA, NOVA, ZENVIA">
+          </div>
+          <div class="field">
+            <label for="f-cat">Business category <small>(optional)</small></label>
+            <input class="inp" id="f-cat" name="category" type="text" maxlength="100" list="cat-list" placeholder="eg. Clothing, Food, Tech">
+            <datalist id="cat-list">
+                <option value="Clothing &amp; Fashion"><option value="Food &amp; Beverages"><option value="Restaurant / Cafe"><option value="Technology / Software">
+                <option value="Cosmetics &amp; Beauty"><option value="Health &amp; Pharma"><option value="Education &amp; Training"><option value="Jewellery">
+                <option value="Furniture &amp; Home"><option value="Real Estate &amp; Construction"><option value="Consulting &amp; Services"><option value="E-commerce / Retail">
+              </datalist>
+          </div>
+          <div class="field">
+            <label for="f-state">Your state</label>
+            <select id="f-state" name="state" required autocomplete="address-level1">
+                <option value="" disabled selected>Select state</option>
+                <option>Andhra Pradesh</option><option>Arunachal Pradesh</option><option>Assam</option><option>Bihar</option>
+                <option>Chhattisgarh</option><option>Goa</option><option>Gujarat</option><option>Haryana</option>
+                <option>Himachal Pradesh</option><option>Jharkhand</option><option>Karnataka</option><option>Kerala</option>
+                <option>Madhya Pradesh</option><option>Maharashtra</option><option>Manipur</option><option>Meghalaya</option>
+                <option>Mizoram</option><option>Nagaland</option><option>Odisha</option><option>Punjab</option>
+                <option>Rajasthan</option><option>Sikkim</option><option>Tamil Nadu</option><option>Telangana</option>
+                <option>Tripura</option><option>Uttar Pradesh</option><option>Uttarakhand</option><option>West Bengal</option>
+                <option>Andaman and Nicobar Islands</option><option>Chandigarh</option>
+                <option>Dadra and Nagar Haveli and Daman and Diu</option><option>Delhi</option>
+                <option>Jammu and Kashmir</option><option>Ladakh</option><option>Lakshadweep</option><option>Puducherry</option>
+              </select>
+          </div>
+          <button class="btn" type="submit">Continue to free report
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+          </button>
+        </form>
+      </div>
+
+      <!-- Step 2: where to send -->
+      <div id="v2" hidden>
+        <div class="s2-head">
+          <h2 tabindex="-1" id="s2-title">Your free report is <mark>almost ready!</mark></h2>
+          <p>Where should we send your trademark search report?</p>
+          <div class="s2-art"><img src="/trademark-search/img/tm-ready-400.webp" srcset="/trademark-search/img/tm-ready-400.webp 400w, /trademark-search/img/tm-ready-700.webp 700w" sizes="220px" width="400" height="252" alt="" loading="lazy" decoding="async"></div>
+        </div>
+        <div class="brandbox">
+          <span class="ck" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <span class="bx"><small>Your brand name:</small><strong id="s2-brand">Your Brand Name</strong></span>
+          <button type="button" id="s2-edit" aria-label="Edit brand name">Edit</button>
+        </div>
+        <div class="err" id="err2" role="alert"></div>
+        <form id="f2" novalidate>
+          <div class="field">
+            <label for="f-mobile">Your WhatsApp number <span class="req" aria-hidden="true">*</span></label>
+            <div class="grp">
+              <span class="cc"><svg width="26" height="18" viewBox="0 0 26 18" aria-hidden="true"><rect width="26" height="6" fill="#ff9933" rx="1"/><rect y="6" width="26" height="6" fill="#fff"/><rect y="12" width="26" height="6" fill="#138808" rx="1"/><circle cx="13" cy="9" r="2.2" fill="none" stroke="#000080" stroke-width=".8"/></svg>+91</span>
+              <input id="f-mobile" name="mobile" type="tel" inputmode="numeric" autocomplete="tel-national" required placeholder="10-digit number" aria-describedby="err2">
+            </div>
+          </div>
+          <div class="field">
+            <label for="f-name">Your name <span class="req" aria-hidden="true">*</span></label>
+            <div class="grp">
+              <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.4-4 4.4-6 8-6s6.6 2 8 6"/></svg></span>
+              <input id="f-name" name="name" type="text" autocomplete="name" maxlength="100" required placeholder="Enter your name">
+            </div>
+          </div>
+          <div class="hp" aria-hidden="true">
+            <label for="f-hp">Company website</label>
+            <input id="f-hp" name="company_website" type="text" tabindex="-1" autocomplete="off">
+          </div>
+          <button class="btn btn-wa" type="submit" id="f2-btn">
+            <span class="wa"><svg width="34" height="34" viewBox="0 0 32 32" aria-hidden="true"><path fill="#25d366" d="M16 3C8.8 3 3 8.7 3 15.8c0 2.5.7 4.9 2 6.9L3 29l6.5-2c2 1.1 4.2 1.6 6.5 1.6 7.2 0 13-5.7 13-12.8S23.2 3 16 3z"/><path fill="#fff" d="M23.3 19.6c-.3.9-1.8 1.7-2.5 1.8-.6.1-1.5.1-2.4-.2-.5-.2-1.3-.4-2.2-.8-3.8-1.6-6.3-5.4-6.5-5.7-.2-.2-1.5-2-1.5-3.8s.9-2.7 1.3-3.1c.3-.4.7-.4 1-.4h.7c.2 0 .5-.1.8.6.3.7 1 2.5 1.1 2.7.1.2.1.4 0 .6-.1.2-.2.4-.3.6l-.5.6c-.2.2-.4.4-.2.7.2.4 1 1.6 2.1 2.6 1.4 1.3 2.6 1.7 3 1.9.4.2.6.2.8-.1.2-.3.9-1.1 1.2-1.4.2-.4.5-.3.8-.2.3.1 2.1 1 2.5 1.2.4.2.6.3.7.4.1.2.1.9-.1 1.8z"/></svg></span>
+            <span class="t" id="f2-txt">Send My Free Report on WhatsApp</span>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+          </button>
+        </form>
+        <p class="safe"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5z" fill="#22c55e"/><path d="M8 12l3 3 5-5.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Your details are kept private. No spam.</p>
+      </div>
+
+      <!-- Done -->
+      <div id="v4" class="done" hidden>
+        <div class="tick" aria-hidden="true"><svg width="36" height="36" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#16a34a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h2 tabindex="-1" id="done-title">Your report is ready<span id="done-name"></span>!</h2>
+        <p style="color:var(--muted)" id="done-msg"></p>
+        <a class="btn" id="done-report" href="#" hidden>See your report →</a>
+        <ol>
+          <li>See the matching marks for <b id="done-brand" style="color:var(--ink)"></b> in your report — the link is on WhatsApp too.</li>
+          <li>A trademark expert explains the result and the right class for you.</li>
+          <li>If the name looks clear, file early and start using ™.</li>
+        </ol>
+        <a class="done-alt" href="/trademark-registration">See trademark registration →</a>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ================= HOW IT WORKS ================= -->
 <section class="sec sec-soft" id="how-it-works" aria-labelledby="how-title">
   <div class="wrap center">
@@ -487,7 +624,7 @@ main > section:not(.hero), .site-footer{content-visibility:auto;contain-intrinsi
     <p class="intro">No sign-up, no payment. Tell us the name, and our trademark team checks it against the Indian Trade Marks Registry for you.</p>
     <ol class="steps">
       <li><h3>Enter your brand name</h3><p>Type the name you want to protect and, if you like, your business category so we search the right class.</p></li>
-      <li><h3>Add your WhatsApp number</h3><p>Verify your number with a one-time code so your report reaches only you.</p></li>
+      <li><h3>Add your WhatsApp number</h3><p>Enter your name and WhatsApp number — the report link is sent there right away.</p></li>
       <li><h3>Get your free report</h3><p>Receive your trademark search report on WhatsApp, with an expert's view on what to do next.</p></li>
     </ol>
   </div>
@@ -550,7 +687,7 @@ main > section:not(.hero), .site-footer{content-visibility:auto;contain-intrinsi
     <div class="center"><p class="eyebrow">FAQs</p><h2 id="faq-title" style="margin-bottom:28px">Free trademark search: common questions</h2></div>
     <div class="faq">
       <details><summary>Is the trademark search really free?</summary><p>Yes. The trademark search and the report are 100% free. No payment or card details are needed.</p></details>
-      <details><summary>How will I receive my trademark search report?</summary><p>Your report is sent to the WhatsApp number you enter. We verify the number with a one-time code first so the report reaches the right person.</p></details>
+      <details><summary>How will I receive my trademark search report?</summary><p>Your report link is sent to the WhatsApp number you enter, usually within a minute. Open it to see the matching trademarks for your brand name.</p></details>
       <details><summary>What does the trademark search check?</summary><p>We search the Indian trademark registry for identical marks, similar-sounding and similar-looking marks, and marks in the class that fits your business, and note the status of any conflicting marks.</p></details>
       <details><summary>Does a clear search mean my trademark will be registered?</summary><p>No. The search is a preliminary check. Final registrability is decided by the Trade Marks Registry after examination, so a professional review is recommended before you file.</p></details>
       <details><summary>Which trademark class should I choose?</summary><p>India follows the Nice Classification with 45 classes: 1–34 for goods and 35–45 for services. Tell us your business category and we will suggest the right class in your report.</p></details>
@@ -618,24 +755,38 @@ main > section:not(.hero), .site-footer{content-visibility:auto;contain-intrinsi
   // ---- API ----
   var isLocal = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   var BASE = isLocal ? "http://localhost:3000" : "https://api.bizpole.io";
-  var API_KEY = "ad5c04dcf7248dc0fdc8efdf78f1c1f5b77da7a2aaefa926"; // public by design (CORS + rate limit + OTP)
-  function post(url, data, headers) {
-    return fetch(url, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, headers || {}), body: JSON.stringify(data) })
-      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); });
-  }
 
   // ---- Views ----
-  var card = $("check"), views = [$("v1"), $("v2"), $("v3"), $("v4")];
-  var label = $("step-label"), fill = $("step-fill");
+  // The search bar is on the page; the free-report steps (1 brand → 2 WhatsApp →
+  // done) live in a popup that Search opens for visitors not signed in.
+  var card = $("check"), modal = $("tm-modal"), views = [$("v1"), $("v2"), null, $("v4")];
+  var label = $("step-label"), fill = $("step-fill"), lastFocus = null, timer = null;
+  function signedIn() { try { return !!localStorage.getItem("token"); } catch (x) { return false; } }
+  function openModal() {
+    if (!modal.hidden) return;
+    lastFocus = document.activeElement;
+    modal.hidden = false;
+    document.body.classList.add("modal-open");
+    requestAnimationFrame(function () { requestAnimationFrame(function () { modal.classList.add("open"); }); });
+  }
+  function closeModal() {
+    if (modal.hidden) return;
+    modal.classList.remove("open"); modal.hidden = true;
+    document.body.classList.remove("modal-open");
+    clearInterval(timer);
+    if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
+  }
   function show(n, focusId) {
-    views.forEach(function (v, i) { v.hidden = i !== n - 1; });
+    views.forEach(function (v, i) { if (v) v.hidden = i !== n - 1; });
     label.textContent = n === 1 ? "Step 1 of 2" : n === 4 ? "Done" : "Step 2 of 2";
     fill.style.width = n === 1 ? "50%" : "100%";
-    document.body.classList.toggle("is-s2", n > 1);
-    var r = card.getBoundingClientRect();
-    if (r.top < 0 || r.top > window.innerHeight * 0.5) toCard();
+    openModal();
+    modal.querySelector(".sheet").scrollTop = 0;
     if (focusId) { var f = $(focusId); if (f) f.focus({ preventScroll: true }); }
   }
+  $("modal-x").addEventListener("click", closeModal);
+  modal.addEventListener("click", function (e) { if (e.target === modal) closeModal(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
   function fail(box, input, text) {
     box.textContent = text; box.classList.add("show");
     if (input) { input.setAttribute("aria-invalid", "true"); input.focus(); }
@@ -646,15 +797,72 @@ main > section:not(.hero), .site-footer{content-visibility:auto;contain-intrinsi
       form.addEventListener(ev, function (e) { e.target.removeAttribute("aria-invalid"); box.classList.remove("show"); });
     });
   }
-
   // Vertical-only scroll (scrollIntoView would also nudge the overflow-hidden hero sideways)
-  function toCard() { window.scrollTo({ top: Math.max(0, card.getBoundingClientRect().top + window.scrollY - 76) }); }
+  function toCard() { window.scrollTo({ top: Math.max(0, card.getBoundingClientRect().top + window.scrollY - 84) }); }
   var data = {};
 
-  // ---- Step 1 ----
+  // ---- Search bar ----
+  var q = $("q"), err0 = $("err0"), sbox = $("sbox"), type = "WORD_MARK", logo = null;
+  var tabs = card.querySelectorAll(".tab"), drop = $("drop"), chip = $("chip"), addlogo = $("addlogo"), fileIn = $("logo");
+  var narrow = window.matchMedia("(max-width:639px)");
+  clearOn(card, err0);
+  if (signedIn()) $("hist").hidden = false;
+  paint();
+  function paint() {
+    var t = card.querySelector('.tab[data-type="' + type + '"]');
+    tabs.forEach(function (b) { b.setAttribute("aria-selected", b === t ? "true" : "false"); });
+    var isLogo = type === "IMAGE";
+    q.hidden = isLogo && true;
+    q.placeholder = (narrow.matches && t.dataset.phS) || t.dataset.ph || "";
+    q.inputMode = type === "APPLICATION_NUMBER" ? "numeric" : "text";
+    drop.hidden = !isLogo || !!logo;
+    chip.hidden = !logo || (type !== "IMAGE" && type !== "WORD_MARK");
+    addlogo.hidden = type !== "WORD_MARK" || !!logo;
+  }
+  tabs.forEach(function (b) {
+    b.addEventListener("click", function () { type = b.dataset.type; err0.classList.remove("show"); paint(); if (type !== "IMAGE") q.focus(); });
+  });
+  narrow.addEventListener && narrow.addEventListener("change", paint);
+  function pickLogo() { fileIn.click(); }
+  drop.addEventListener("click", pickLogo);
+  addlogo.addEventListener("click", pickLogo);
+  fileIn.addEventListener("change", function () {
+    var f = fileIn.files && fileIn.files[0];
+    if (!f) return;
+    if (!/^image\/(png|jpeg)$/.test(f.type)) { fileIn.value = ""; return fail(err0, null, "Choose your logo as a PNG or JPG image."); }
+    if (f.size > 2 * 1024 * 1024) { fileIn.value = ""; return fail(err0, null, "Logo must be 2 MB or smaller."); }
+    logo = { name: f.name, file: f };
+    $("chip-name").textContent = f.name;
+    $("chip-img").src = URL.createObjectURL(f);
+    paint();
+  });
+  $("chip-x").addEventListener("click", function () { logo = null; fileIn.value = ""; paint(); });
+  if (qs.get("brand")) q.value = qs.get("brand").slice(0, 100);
+
+  card.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var text = q.value.replace(/\s+/g, " ").trim(), cls = $("cls").value;
+    if (type === "IMAGE") { if (!logo) return fail(err0, null, "Choose your logo image (PNG or JPG) to search."); }
+    else if (text.length < 2) return fail(err0, q, "Enter at least 2 characters to search.");
+    var kind = type === "WORD_MARK" && logo ? "COMPOSITE" : type;
+    (window.dataLayer = window.dataLayer || []).push({ event: "trademark_search", search_type: kind });
+    // Signed-in customer: the live search in their dashboard — no popup.
+    if (signedIn()) {
+      var u = "/dashboard/bizpoleone/trademark-search?type=" + encodeURIComponent(type === "IMAGE" ? "IMAGE" : type);
+      if (text && type !== "IMAGE") u += "&q=" + encodeURIComponent(text);
+      if (cls) u += "&class=" + cls;
+      location.href = u; return;
+    }
+    data.search = { type: kind, q: type === "IMAGE" ? "" : text, cls: cls, file: (type === "IMAGE" || type === "WORD_MARK") && logo ? logo.file : null };
+    // The popup's brand name starts as what they searched (brand-name searches).
+    f1.brand.value = type === "WORD_MARK" ? text : f1.brand.value;
+    err1.classList.remove("show");
+    show(1, f1.brand.value ? "m-title" : "f-brand");
+  });
+
+  // ---- Step 1 (popup) ----
   var f1 = $("f1"), err1 = $("err1");
   clearOn(f1, err1);
-  if (qs.get("brand")) f1.brand.value = qs.get("brand").slice(0, 100);
   f1.addEventListener("submit", function (e) {
     e.preventDefault();
     var brand = f1.brand.value.replace(/\s+/g, " ").trim();
@@ -667,7 +875,11 @@ main > section:not(.hero), .site-footer{content-visibility:auto;contain-intrinsi
   });
   $("s2-edit").addEventListener("click", function () { show(1); f1.brand.focus(); f1.brand.select(); });
 
-  // ---- Step 2: number → send OTP ----
+  // ---- Step 2: name + WhatsApp → run the search and send the report ----
+  // Same endpoint the old React search page used for signed-out visitors:
+  // POST /api/trademark/whatsapp-report (multipart). The server runs the search,
+  // saves it for the customer with this mobile (made if new), raises the Lead
+  // for a new customer and sends the report link on WhatsApp.
   var f2 = $("f2"), err2 = $("err2"), mob = $("f-mobile"), btn2 = $("f2-btn"), txt2 = $("f2-txt");
   clearOn(f2, err2);
   // Keep digits, drop a +91 / 0 prefix (paste/autofill), cap at 10. No maxlength: it would cut "+91 98…" first.
@@ -678,100 +890,103 @@ main > section:not(.hero), .site-footer{content-visibility:auto;contain-intrinsi
     mob.value = d.slice(0, 10);
   });
 
-  var timer = null;
-  function countdown(sec) {
-    clearInterval(timer);
-    var left = sec || 30, rb = $("resend-btn"), rt = $("resend-txt");
-    rb.hidden = true; rt.hidden = false; $("resend-sec").textContent = left;
-    timer = setInterval(function () {
-      left -= 1; $("resend-sec").textContent = left;
-      if (left <= 0) { clearInterval(timer); rt.hidden = true; rb.hidden = false; }
-    }, 1000);
-  }
-  function sendOtp() {
-    return post(BASE + "/mobile-otp/send", { mobile: data.mobile, purpose: "trademark-search" }).then(function (res) {
-      if (!res.ok) {
-        var x = new Error((res.j && res.j.message) || "Could not send the code. Please try again.");
-        x.retryAfter = res.j && res.j.retryAfter; throw x;
-      }
-      countdown((res.j && res.j.resendAfter) || 30);
-    });
-  }
-  function toOtp() {
-    $("otp-to").textContent = "+91 " + data.mobile.slice(0, 5) + " " + data.mobile.slice(5);
-    otpIn.value = ""; err3.classList.remove("show"); otpIn.removeAttribute("aria-invalid");
-    show(3); otpIn.focus();
-  }
-
   f2.addEventListener("submit", function (e) {
     e.preventDefault();
     if (btn2.disabled) return;
-    var m = mob.value.trim();
+    var m = mob.value.trim(), name = f2.name.value.replace(/\s+/g, " ").trim();
     if (!/^[6-9]\d{9}$/.test(m)) { mob.closest(".grp").setAttribute("aria-invalid", "true"); return fail(err2, mob, "Please enter a valid 10-digit WhatsApp number."); }
     mob.closest(".grp").removeAttribute("aria-invalid");
-    data.mobile = m; data.name = f2.name.value.trim();
-    if (f2.company_website.value) { show(4); return; } // honeypot: fake success, send nothing
-    btn2.disabled = true; txt2.textContent = "Sending code…";
-    sendOtp().then(toOtp).catch(function (x) {
-      if (x.retryAfter) { toOtp(); countdown(x.retryAfter); return; } // earlier code still valid
-      fail(err2, null, x.message || "Network error. Please check your connection and try again.");
-    }).finally(function () { btn2.disabled = false; txt2.textContent = "Send My Free Report on WhatsApp"; });
-  });
+    if (name.length < 2) { f2.name.closest(".grp").setAttribute("aria-invalid", "true"); return fail(err2, f2.name, "Please enter your name."); }
+    if (!/^[A-Za-z][A-Za-z .']*$/.test(name)) { f2.name.closest(".grp").setAttribute("aria-invalid", "true"); return fail(err2, f2.name, "Name can contain only letters, spaces, dots and apostrophes."); }
+    f2.name.closest(".grp").removeAttribute("aria-invalid");
+    data.mobile = m; data.name = name;
+    if (f2.company_website.value) { done("Your Trademark Search Report has been sent to WhatsApp +91 " + m + "."); return; } // honeypot: fake success, send nothing
 
-  // ---- Step 2b: OTP → create lead (server verifies the code) ----
-  var f3 = $("f3"), err3 = $("err3"), otpIn = $("f-otp"), btn3 = $("f3-btn");
-  function otpFail(t) { fail(err3, otpIn, t); otpIn.select(); }
-  otpIn.addEventListener("input", function () {
-    otpIn.value = otpIn.value.replace(/\D/g, "").slice(0, 4);
-    err3.classList.remove("show"); otpIn.removeAttribute("aria-invalid");
-    if (otpIn.value.length === 4) f3.requestSubmit ? f3.requestSubmit() : btn3.click();
-  });
-  $("otp-back").addEventListener("click", function () { show(2); });
-  $("otp-edit").addEventListener("click", function () { show(2); mob.focus(); mob.select(); });
-  $("resend-btn").addEventListener("click", function () {
-    var rb = this; rb.disabled = true;
-    sendOtp().then(function () { otpIn.value = ""; otpIn.focus(); })
-      .catch(function (x) { otpFail(x.message); rb.hidden = false; })
-      .finally(function () { rb.disabled = false; });
-  });
+    var s = data.search || {}, fd = new FormData();
+    fd.append("name", name);
+    fd.append("mobile", m);
+    fd.append("state", data.state);
+    // Brand-name search: the (possibly edited) brand from step 1. Owner /
+    // application no.: what they searched. Logo only: no q, the image is the search.
+    var q = s.type === "PROPRIETOR_NAME" || s.type === "APPLICATION_NUMBER" ? s.q : data.brand;
+    if (s.file) { fd.append("image", s.file); if (s.type === "COMPOSITE") fd.append("q", q); }
+    else { fd.append("q", q); fd.append("type", s.type || "WORD_MARK"); }
+    if (s.cls) fd.append("classes", s.cls);
+    fd.append("limit", "10");
+    var a = Object.assign({}, attr); delete a.landing_cta;
+    fd.append("attribution", JSON.stringify(a));
 
-  f3.addEventListener("submit", function (e) {
-    e.preventDefault();
-    if (btn3.disabled) return;
-    var code = otpIn.value.trim();
-    if (!/^\d{4}$/.test(code)) return otpFail("Please enter the 4-digit code.");
-    var note = ["Free trademark search report requested (send on WhatsApp)", "Brand: " + data.brand];
-    if (data.category) note.push("Category: " + data.category);
-    if (!data.name) note.push("Name not given");
-    var body = Object.assign({}, attr, {
-      name: data.name || data.brand,          // name is optional on this page; the API needs one
-      mobile: data.mobile,
-      otp: code,
-      state: data.state,
-      service: "Trademark Registration",
-      form_name: "trademark-search-lp",
-      site: "bizpole.io",
-      brand_name: data.brand,
-      business_category: data.category,
-      message: note.join(" | "),
-      page_url: attr.landing || location.href,
-      referrer: attr.referrer || document.referrer
-    });
-    btn3.disabled = true; btn3.textContent = "Verifying…";
-    post(BASE + "/lead-generation/website-lead", body, { "x-api-key": API_KEY })
+    btn2.disabled = true; txt2.textContent = "Sending your report…";
+    fetch(BASE + "/api/trademark/whatsapp-report", { method: "POST", body: fd })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); })
       .then(function (res) {
-        if (!res.ok) return otpFail(res.status === 429 ? "Too many attempts. Please try again in a few minutes." : ((res.j && res.j.message) || "Something went wrong. Please try again."));
-        clearInterval(timer);
-        $("done-name").textContent = data.name ? ", " + data.name.split(" ")[0] : "";
-        $("done-brand").textContent = data.brand;
-        show(4, "done-title");
-        try { sessionStorage.removeItem("tm_attr"); } catch (x) {}
-        (window.dataLayer = window.dataLayer || []).push({ event: "lead_submit", form: "trademark-search-lp", mobile_verified: true });
+        if (res.j && res.j.limitReached) return fail(err2, null, "This number has used its 10 free searches. Sign in to see your saved reports, or talk to our trademark experts.");
+        if (!res.ok) return fail(err2, null, (res.j && res.j.message) || "Could not send your report right now. Please try again.");
+        done(res.j.message || "Your Trademark Search Report has been sent to WhatsApp +91 " + m + ".", res.j, q);
+        (window.dataLayer = window.dataLayer || []).push({ event: "generate_lead", lead_source: "trademark_whatsapp", form: "trademark-search-lp", whatsapp_sent: res.j.whatsappSent !== false });
         if (window.fbq) fbq("track", "Lead", { content_name: "Free Trademark Search" });
       })
-      .catch(function () { otpFail("Network error. Please check your connection and try again."); })
-      .finally(function () { btn3.disabled = false; btn3.textContent = "Verify & send my report"; });
+      .catch(function () { fail(err2, null, "Network error. Please check your connection and try again."); })
+      .finally(function () { btn2.disabled = false; txt2.textContent = "Send My Free Report on WhatsApp"; });
   });
+
+  // Success: close the popup and show the result under the search bar —
+  // WhatsApp status, score, first matches and "View full report".
+  function done(msg, j, q) {
+    j = j || {};
+    var first = data.name ? data.name.split(" ")[0] : "";
+    var ok = $("res-ok");
+    ok.textContent = (j.whatsappSent === false ? "" : "✓ ") + (first ? first + ", " : "") + msg.charAt(0).toLowerCase() + msg.slice(1);
+    ok.className = "res-ok" + (j.whatsappSent === false ? " warn" : "");
+
+    var s = data.search || {};
+    $("res-q").textContent = s.type === "IMAGE" ? "Your logo" : (q || data.brand || "Your search") + (s.type === "COMPOSITE" ? " + logo" : "");
+    var r = j.results || { total: 0, items: [] };
+    $("res-n").textContent = r.total ? r.total + " matching mark" + (r.total === 1 ? "" : "s") + " found" + (s.cls ? " in Class " + s.cls : "") : "No matching marks found" + (s.cls ? " in Class " + s.cls : "");
+
+    // Score (brand-name searches with matches)
+    var a = j.assessment, sc = $("res-score"), why = $("res-why");
+    if (a && typeof a.probability === "number") {
+      var p = Math.max(0, Math.min(100, Math.round(a.probability)));
+      var ring = $("res-ring");
+      ring.style.setProperty("--p", p);
+      ring.style.setProperty("--c", p >= 75 ? "#16a34a" : p >= 50 ? "#f59e0b" : "#dc2626");
+      $("res-pct").textContent = p + "%";
+      $("res-verdict").textContent = { can_apply: "Good to apply", apply_with_changes: "Apply with changes", not_advisable: "Not advisable as is" }[a.verdict] || "";
+      sc.hidden = false;
+      why.textContent = a.why || ""; why.hidden = !a.why;
+    } else { sc.hidden = true; why.hidden = true; }
+
+    // First matches
+    var list = $("res-list"); list.textContent = "";
+    if (!r.items || !r.items.length) {
+      var e = document.createElement("li"); e.className = "res-empty"; e.textContent = "No identical or similar marks found in the Registry for this search."; list.appendChild(e);
+    } else r.items.forEach(function (t) {
+      var li = document.createElement("li");
+      var lg = document.createElement("span"); lg.className = "lg";
+      if (t.image) { var im = document.createElement("img"); im.src = t.image; im.alt = ""; im.loading = "lazy"; im.onerror = function () { lg.textContent = (t.wordMark || "?").charAt(0).toUpperCase(); }; lg.appendChild(im); }
+      else lg.textContent = (t.wordMark || "?").charAt(0).toUpperCase();
+      var tx = document.createElement("span"); tx.className = "t";
+      var b = document.createElement("b"); b.textContent = t.wordMark || "(Device mark)";
+      var sm = document.createElement("small"); sm.textContent = ["Class " + (t.classNumber || "—"), t.applicationNumber ? "App. " + t.applicationNumber : "", t.proprietorName].filter(Boolean).join(" · ");
+      tx.appendChild(b); tx.appendChild(sm);
+      var st = document.createElement("span"), sv = t.status || "—";
+      st.className = "st" + (/regist/i.test(sv) ? " reg" : /abandon|refus|withdr|expir|remov|reject/i.test(sv) ? " dead" : /object|oppos|accept|advert|formal|pending|marked|exam/i.test(sv) ? " obj" : "");
+      st.textContent = sv;
+      li.appendChild(lg); li.appendChild(tx); li.appendChild(st); list.appendChild(li);
+    });
+
+    // View full report: open it on this site (/trademark-report?t=…), whatever host the server's link names.
+    var rep = $("res-report"), href = "";
+    if (j.reportUrl) { try { var u = new URL(j.reportUrl, location.href); if (u.pathname === "/trademark-report") href = u.pathname + u.search; } catch (x) {} }
+    rep.hidden = !href; if (href) rep.href = href;
+    $("res-alt").hidden = !!href || j.whatsappSent === false;
+
+    var box = $("res"); box.hidden = false;
+    closeModal();
+    setTimeout(function () { box.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60);
+    try { sessionStorage.removeItem("tm_attr"); } catch (x) {}
+  }
 
   // Sticky phone CTA: visible only while the hero form is scrolled away above
   var mbar = $("mbar");
@@ -784,13 +999,12 @@ main > section:not(.hero), .site-footer{content-visibility:auto;contain-intrinsi
     }).observe(card);
   }
 
-  // "Check my brand name free" buttons further down: jump to the form and focus it
+  // "Check my brand name free" buttons further down: back to the search bar
   document.querySelectorAll("a[data-top]").forEach(function (a) {
     a.addEventListener("click", function (e) {
       e.preventDefault();
-      if (!$("v4").hidden) show(1);
       toCard();
-      if (!$("v1").hidden) f1.brand.focus({ preventScroll: true });
+      if (type !== "IMAGE") q.focus({ preventScroll: true });
     });
   });
 })();

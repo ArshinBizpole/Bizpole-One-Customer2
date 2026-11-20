@@ -12,6 +12,7 @@ const STATIC_PAGES = [
   '/gst-registration',
   '/gst-registration/apply',
   '/trademark-search',
+  '/trademark-classes',
 ]
 
 function staticLandingPages() {
