@@ -851,6 +851,8 @@ body.modal-open{overflow:hidden}
       var u = "/dashboard/bizpoleone/trademark-search?type=" + encodeURIComponent(type === "IMAGE" ? "IMAGE" : type);
       if (text && type !== "IMAGE") u += "&q=" + encodeURIComponent(text);
       if (cls) u += "&class=" + cls;
+      // One-time flag: the dashboard auto-runs only searches sent from here.
+      if (text && type !== "IMAGE") { try { sessionStorage.setItem("tm_autorun", String(text).trim().slice(0, 100)); } catch (x) {} }
       location.href = u; return;
     }
     data.search = { type: kind, q: type === "IMAGE" ? "" : text, cls: cls, file: (type === "IMAGE" || type === "WORD_MARK") && logo ? logo.file : null };

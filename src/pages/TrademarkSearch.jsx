@@ -425,7 +425,17 @@ export default function TrademarkSearch({ embedded = false }) {
     const q = (sp.get("q") || "").trim().slice(0, 100);
     if (t === "IMAGE" || q.length < 2) return;
     setQuery(q);
-    runSearch({ q, type: t, tmClass: cls }, 0);
+    // Only auto-run when our own /trademark-search page sent the visitor here
+    // (it sets this one-time, same-tab flag) — a link from anywhere else just
+    // prefills, so it can't spend the customer's free searches.
+    let fromLanding = false;
+    try {
+      fromLanding = sessionStorage.getItem("tm_autorun") === q;
+      sessionStorage.removeItem("tm_autorun");
+    } catch {
+      fromLanding = false;
+    }
+    if (fromLanding) runSearch({ q, type: t, tmClass: cls }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
