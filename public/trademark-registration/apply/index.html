@@ -339,7 +339,9 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
 (function () {
   // Website-lead API (public key by design: protection = CORS allowlist + per-IP limit + honeypot).
   var isLocal = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-  var API = (isLocal ? "http://localhost:3000" : "https://api.bizpole.io") + "/lead-generation/website-lead";
+  var ENV_API = "__VITE_API_BASE_URL__"; // replaced by vite with VITE_API_BASE_URL
+  var ENV_BASE = /^https?:\/\//.test(ENV_API) ? ENV_API : "";
+  var API = (ENV_BASE || (isLocal ? "http://localhost:3000" : "https://api.bizpole.io")) + "/lead-generation/website-lead";
   var API_KEY = "ad5c04dcf7248dc0fdc8efdf78f1c1f5b77da7a2aaefa926";
 
   // Attribution: saved by the landing page in sessionStorage, and/or forwarded in this URL.
@@ -376,7 +378,7 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
     return false;
   }
 
-  var BASE = isLocal ? "http://localhost:3000" : "https://api.bizpole.io";
+  var BASE = ENV_BASE || (isLocal ? "http://localhost:3000" : "https://api.bizpole.io");
   var formView = document.getElementById("form-view");
   var otpView = document.getElementById("otp-view");
   var otpForm = document.getElementById("otp-form");

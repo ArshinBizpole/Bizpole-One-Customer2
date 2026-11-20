@@ -754,7 +754,8 @@ body.modal-open{overflow:hidden}
 
   // ---- API ----
   var isLocal = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-  var BASE = isLocal ? "http://localhost:3000" : "https://api.bizpole.io";
+  var ENV_API = "__VITE_API_BASE_URL__"; // replaced by vite with VITE_API_BASE_URL
+  var BASE = /^https?:\/\//.test(ENV_API) ? ENV_API : isLocal ? "http://localhost:3000" : "https://api.bizpole.io";
 
   // ---- Views ----
   // The search bar is on the page; the free-report steps (1 brand → 2 WhatsApp →

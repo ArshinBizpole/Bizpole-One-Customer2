@@ -23,7 +23,9 @@
 
   // ---------- API base: local server, test server or production ----------
   var host = location.hostname;
-  var API = /^(localhost|127\.0\.0\.1)$/.test(host) ? "http://localhost:3000"
+  var ENV_API = "__VITE_API_BASE_URL__"; // replaced by vite with VITE_API_BASE_URL
+  var API = /^https?:\/\//.test(ENV_API) ? ENV_API
+    : /^(localhost|127\.0\.0\.1)$/.test(host) ? "http://localhost:3000"
     : /^test/.test(host) ? "https://testapi.bizpole.io"
     : "https://api.bizpole.io";
   window.LP_API = API;
