@@ -1,7 +1,7 @@
 import { forwardRef } from "react";
 import {
-  FiCalendar, FiSearch, FiLayers, FiUser, FiFileText, FiHome, FiCreditCard, FiPhone, FiMail, FiMapPin,
-  FiNavigation, FiBriefcase, FiUserCheck, FiCheck,
+  FiCalendar, FiSearch, FiLayers, FiUser, FiHome,
+  FiNavigation, FiBriefcase, FiCheck,
 } from "react-icons/fi";
 // Same logo as the site navbar (public/Images/image.png — same origin, so it renders in the PDF too).
 const BIZPOLE_ONE_LOGO = "/Images/image.png";
@@ -85,43 +85,68 @@ const Card = ({ className = "", children, ...rest }) => (
 
 // Meter bands: 0–49 low, 50–74 moderate, 75–100 high.
 const BANDS = [
-  { from: 0, to: 50, color: "#EF4444", light: "#FEE2E2", fill: 30, label: "0 – 49%", title: "Low chance", note: "Strong prior marks exist. Consider a new mark.", pill: "bg-red-50 text-red-600" },
-  { from: 50, to: 75, color: "#FBBF24", light: "#FEF3C7", fill: 60, label: "50 – 74%", title: "Moderate chance", note: "Objection possible. File with suggested changes.", pill: "bg-amber-50 text-amber-700" },
-  { from: 75, to: 100, color: "#4ADE80", light: "#DCFCE7", fill: 100, label: "75 – 100%", title: "High chance", note: "Mark is largely clear. File at the earliest.", pill: "bg-emerald-50 text-emerald-600" },
+  { from: 0, to: 50, color: "#EF4444", light: "#FEE2E2", text: "#DC2626", fill: 30, label: "0 – 49%", title: "Low chance", note: "Strong prior marks exist. Consider a new mark.", pill: "bg-red-50 text-red-600" },
+  { from: 50, to: 75, color: "#F59E0B", light: "#FEF3C7", text: "#B45309", fill: 60, label: "50 – 74%", title: "Moderate chance", note: "Objection possible. File with suggested changes.", pill: "bg-amber-50 text-amber-700" },
+  { from: 75, to: 100, color: "#16A34A", light: "#DCFCE7", text: "#15803D", fill: 100, label: "75 – 100%", title: "High chance", note: "Mark is largely clear. File at the earliest.", pill: "bg-emerald-50 text-emerald-600" },
 ];
 const bandOf = (v) => BANDS.find((b) => v < b.to) || BANDS[BANDS.length - 1];
 
-const G = { cx: 200, cy: 190, r: 150, w: 36 };
-const at = (pct) => {
+const G = { cx: 200, cy: 190, r: 150, w: 26 };
+const at = (pct, r = G.r) => {
   const a = Math.PI * (1 - pct / 100);
-  return [G.cx + G.r * Math.cos(a), G.cy - G.r * Math.sin(a)];
+  return [G.cx + r * Math.cos(a), G.cy - r * Math.sin(a)];
 };
 const arc = (from, to) => {
   const [x1, y1] = at(from);
   const [x2, y2] = at(to);
   return `M${x1} ${y1} A${G.r} ${G.r} 0 0 1 ${x2} ${y2}`;
 };
+const GAP = 0.6; // % of the dial left white between bands
+const TICKS = Array.from({ length: 11 }, (_, i) => i * 10);
 
 function RegistrationMeter({ value }) {
   const v = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
   const band = bandOf(v);
-  const pillW = band.title.length * 6.4 + 28;
+  const pillW = band.title.length * 7.6 + 30;
   return (
-    <svg viewBox="0 0 400 250" className="w-full max-w-[440px]" role="img" aria-label={`Registration chance ${v}%`}>
-      {/* Red and green ends are rounded; yellow sits flush between them. */}
-      <path d={arc(0, 50)} stroke={BANDS[0].color} strokeWidth={G.w} fill="none" strokeLinecap="round" />
-      <path d={arc(50, 75)} stroke={BANDS[1].color} strokeWidth={G.w} fill="none" strokeLinecap="butt" />
-      <path d={arc(75, 100)} stroke={BANDS[2].color} strokeWidth={G.w} fill="none" strokeLinecap="round" />
-      <text x={G.cx} y={G.cy - 72} textAnchor="middle" fontSize="11" fontWeight="600" letterSpacing="0.5" fill="#6B7280">
+    <svg viewBox="0 0 400 320" className="w-full max-w-[440px]" role="img" aria-label={`Registration chance ${v}%`}>
+      {/* Flat-ended bands with a thin white gap between them. */}
+      {BANDS.map((b) => (
+        <path
+          key={b.from}
+          d={arc(b.from ? b.from + GAP / 2 : 0, b.to < 100 ? b.to - GAP / 2 : 100)}
+          stroke={b.color}
+          strokeWidth={G.w}
+          fill="none"
+          strokeLinecap="butt"
+        />
+      ))}
+      {/* Tick marks every 10%, just inside the dial. */}
+      {TICKS.map((t) => {
+        const [x1, y1] = at(t, G.r - G.w / 2 - 14);
+        const [x2, y2] = at(t, G.r - G.w / 2 - 24);
+        return <line key={t} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#94A3B8" strokeWidth="2.5" strokeLinecap="round" />;
+      })}
+      {/* Needle: slim tapered pointer from the hub to the value. */}
+      <g transform={`rotate(${-180 * (1 - v / 100)} ${G.cx} ${G.cy})`}>
+        <path
+          d={`M${G.cx} ${G.cy - 6} L${G.cx + G.r - G.w / 2 - 22} ${G.cy - 1} L${G.cx + G.r - G.w / 2 - 22} ${G.cy + 1} L${G.cx} ${G.cy + 6} Z`}
+          fill="#0F172A"
+        />
+      </g>
+      <circle cx={G.cx} cy={G.cy} r="14" fill="#0F172A" />
+      <circle cx={G.cx} cy={G.cy} r="6" fill="#FBBF24" />
+      <text x={G.cx - G.r} y={G.cy + 42} textAnchor="middle" fontSize="15" fill="#6B7280">0%</text>
+      <text x={G.cx + G.r} y={G.cy + 42} textAnchor="middle" fontSize="15" fill="#6B7280">100%</text>
+      {/* Readout sits below the pivot so the needle never covers it. */}
+      <text x={G.cx} y={G.cy + 44} textAnchor="middle" fontSize="13.5" fontWeight="600" letterSpacing="0.5" fill="#6B7280">
         REGISTRATION CHANCE
       </text>
-      <text x={G.cx} y={G.cy - 18} textAnchor="middle" fontSize="50" fontWeight="800" fill="#111827">{v}%</text>
-      <rect x={G.cx - pillW / 2} y={G.cy - 6} width={pillW} height="22" rx="11" fill={band.light} />
-      <text x={G.cx} y={G.cy + 9} textAnchor="middle" fontSize="12" fontWeight="500" fill={band.color === "#FBBF24" ? "#B45309" : band.color}>
+      <text x={G.cx} y={G.cy + 92} textAnchor="middle" fontSize="46" fontWeight="800" fill="#111827">{v}%</text>
+      <rect x={G.cx - pillW / 2} y={G.cy + 102} width={pillW} height="26" rx="13" fill={band.light} />
+      <text x={G.cx} y={G.cy + 120} textAnchor="middle" fontSize="14" fontWeight="600" fill={band.text}>
         {band.title}
       </text>
-      <text x={G.cx - G.r} y={G.cy + 42} textAnchor="middle" fontSize="12" fill="#6B7280">0%</text>
-      <text x={G.cx + G.r} y={G.cy + 42} textAnchor="middle" fontSize="12" fill="#6B7280">100%</text>
     </svg>
   );
 }
@@ -129,20 +154,56 @@ function RegistrationMeter({ value }) {
 // ------------------------------------------------------------- tables
 
 // Soft-yellow header table used inside the report (class-wise, closest marks…).
-function ReportTable({ head, align = [], children, minWidth = 640 }) {
+// Tablets and up (and the PDF, captured at 1100px) get the table; phones get one
+// stacked card per row so nothing scrolls sideways.
+//   columns: { head, cell(row) → node, align?, td?, title? (card heading), hideOnPhone? }
+function ReportTable({ columns, rows, rowKey }) {
+  const titles = columns.filter((c) => c.title);
+  const rest = columns.filter((c) => !c.title && !c.hideOnPhone);
   return (
-    <div className="rounded-xl border border-[#FBEFC4] overflow-x-auto">
-      <table className="w-full text-[13.5px]" style={{ minWidth }}>
-        <thead>
-          <tr className="bg-[#FFF6D1] text-gray-900">
-            {head.map((h, i) => (
-              <th key={h} className={`px-4 py-3 font-semibold ${align[i] === "center" ? "text-center" : "text-left"}`}>{h}</th>
+    <>
+      <div className="hidden md:block rounded-xl border border-[#FBEFC4] overflow-x-auto">
+        <table className="w-full text-[13.5px]">
+          <thead>
+            <tr className="bg-[#FFF6D1] text-gray-900">
+              {columns.map((c) => (
+                <th key={c.head} className={`px-4 py-3 font-semibold ${c.align === "center" ? "text-center" : "text-left"}`}>{c.head}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 text-gray-700 bg-white">
+            {rows.map((r, i) => (
+              <tr key={rowKey(r, i)}>
+                {columns.map((c) => (
+                  <td key={c.head} className={`px-4 py-3 ${c.align === "center" ? "text-center" : ""} ${c.td || ""}`}>{c.cell(r)}</td>
+                ))}
+              </tr>
             ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100 text-gray-700 bg-white">{children}</tbody>
-      </table>
-    </div>
+          </tbody>
+        </table>
+      </div>
+      <div className="md:hidden space-y-2.5">
+        {rows.map((r, i) => (
+          <div key={rowKey(r, i)} className="rounded-xl border border-[#FBEFC4] bg-white overflow-hidden text-[13.5px]">
+            {titles.length > 0 && (
+              <div className="px-4 py-2.5 bg-[#FFF6D1] text-gray-900 font-semibold break-words">
+                {titles.map((c, j) => (
+                  <span key={c.head}>{j > 0 && <span className="mx-1.5 text-gray-400">·</span>}{c.cell(r)}</span>
+                ))}
+              </div>
+            )}
+            <dl className="divide-y divide-gray-100">
+              {rest.map((c) => (
+                <div key={c.head} className="flex items-start justify-between gap-4 px-4 py-2.5">
+                  <dt className="shrink-0 text-gray-500">{c.head}</dt>
+                  <dd className="min-w-0 text-right text-gray-800 break-words">{c.cell(r)}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -185,6 +246,8 @@ const PRIORITY = {
 // anchor per class) — the class text never changes, so the report links to it
 // instead of repeating each mark's long goods / services description.
 const CLASSES_PAGE = "/trademark-classes";
+// Trademark Registration service — same target as the page's "Get Started" button.
+const TRADEMARK_SERVICE_PATH = "/services/344";
 
 function ClassLink({ no }) {
   const n = Number.parseInt(no, 10);
@@ -244,17 +307,24 @@ const TrademarkReport = forwardRef(function TrademarkReport(
       <div data-pdf-hide className="pointer-events-none absolute top-[28px] right-[48px] w-[230px] h-[230px] rounded-full bg-[#FFF3C9]" />
 
       {/* Header */}
-      <div data-pdf-section className="relative px-6 sm:px-10 pt-8">
+      <div data-pdf-section className="relative px-4 sm:px-10 pt-6 sm:pt-8">
         <div className="flex items-start justify-between gap-6">
           <div className="min-w-0">
             <img src={BIZPOLE_ONE_LOGO} alt="Bizpole One" className="h-[44px] sm:h-[54px] w-auto" />
             <div className="w-10 h-1 rounded-full bg-yellow-400 mt-8 mb-5" />
-            <h2 className="text-[34px] sm:text-[52px] font-extrabold tracking-tight text-gray-900 leading-tight">
+            <h2 className="text-[30px] sm:text-[52px] font-extrabold tracking-tight text-gray-900 leading-tight break-words">
               Trade Mark Search <span className="text-[#F5B800]">Report</span>
             </h2>
-            <p className="mt-3 max-w-[620px] text-gray-500 text-[15px] sm:text-[17px] leading-relaxed">
-              Pre-filing availability assessment based on the trademark query and class details from the official
-              trademark database · India · Trade Marks Act, 1999
+            <p className="mt-3 max-w-[620px] text-gray-500 text-[14px] sm:text-[15px] leading-relaxed">
+              Bizpole is India's one-stop platform for business registration, trademark, tax and compliance services.{" "}
+              <a
+                href="https://bizpole.io"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-blue-600 underline underline-offset-2 hover:text-blue-700"
+              >
+                Know more
+              </a>
             </p>
             {a?.reportRef && (
               <span className="mt-4 inline-block px-3.5 py-1 rounded-full bg-white border border-yellow-300 text-[13.5px] text-gray-800">
@@ -272,7 +342,7 @@ const TrademarkReport = forwardRef(function TrademarkReport(
         </div>
       </div>
 
-      <div className="relative px-4 sm:px-8 pb-2">
+      <div className="relative px-3 sm:px-8 pb-2">
         {/* 1 · Applicant details */}
         {applicant && (
           <div data-pdf-section className="mt-8">
@@ -280,15 +350,9 @@ const TrademarkReport = forwardRef(function TrademarkReport(
               <SectionHeader number={next()}>Applicant Details</SectionHeader>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2.5">
                 <DetailRow icon={FiUser} label="Applicant Name" value={applicant.name} />
-                <DetailRow icon={FiFileText} label="Applicant Type" value={applicant.applicantType} />
-                <DetailRow icon={FiHome} label="Entity" value={applicant.entity} />
-                <DetailRow icon={FiCreditCard} label="PAN / CIN" value={applicant.panOrCin} />
-                <DetailRow icon={FiPhone} label="Contact Person" value={applicant.contactPerson} />
-                <DetailRow icon={FiMail} label="Mobile / Email" value={[applicant.mobile, applicant.email].filter(Boolean).join(" / ")} />
-                <DetailRow icon={FiMapPin} label="Address" value={applicant.address} />
                 <DetailRow icon={FiNavigation} label="State" value={applicant.state} />
+                <DetailRow icon={FiHome} label="Constitution" value={applicant.entity} />
                 <DetailRow icon={FiBriefcase} label="Nature of Business" value={applicant.businessNature} />
-                <DetailRow icon={FiUserCheck} label="Business Advisor" value={applicant.advisor} />
               </div>
             </Card>
           </div>
@@ -299,7 +363,7 @@ const TrademarkReport = forwardRef(function TrademarkReport(
           <SectionHeader number={next()}>{isMarkSearch ? "Mark Searched & Mark Type" : "Search Details"}</SectionHeader>
           <Card className="overflow-hidden grid grid-cols-1 sm:grid-cols-[2fr_1fr]">
             <div
-              className="px-6 py-6"
+              className="px-5 sm:px-6 py-5 sm:py-6 min-w-0"
               style={{ background: "linear-gradient(90deg, #FFFFFF 0%, #FFFBEB 45%, #FFF2C6 100%)" }}
             >
               <p className="text-[12px] font-semibold tracking-wider text-gray-500 uppercase">
@@ -335,10 +399,10 @@ const TrademarkReport = forwardRef(function TrademarkReport(
                 return (
                   <div
                     key={o.key}
-                    className={`px-4 py-4 text-center ${i ? "border-l border-gray-200" : ""} ${on ? "bg-[#FBBF24]" : ""}`}
+                    className={`px-2 sm:px-4 py-3 sm:py-4 text-center min-w-0 ${i ? "border-l border-gray-200" : ""} ${on ? "bg-[#FBBF24]" : ""}`}
                   >
-                    <p className="text-[17px] font-semibold text-gray-900">{o.title}</p>
-                    <p className={`text-[13px] mt-1 ${on ? "text-gray-800" : "text-gray-500"}`}>{o.sub}</p>
+                    <p className="text-[14px] sm:text-[17px] font-semibold text-gray-900">{o.title}</p>
+                    <p className={`text-[11.5px] sm:text-[13px] mt-1 leading-snug ${on ? "text-gray-800" : "text-gray-500"}`}>{o.sub}</p>
                   </div>
                 );
               })}
@@ -414,21 +478,27 @@ const TrademarkReport = forwardRef(function TrademarkReport(
             {a.recommendedClasses?.length > 0 && (
               <div data-pdf-section className="mt-6 px-2">
                 <p className="mb-2 font-semibold text-gray-900">Classes you should apply in</p>
-                <ReportTable head={["Class", "Covers", "Why this class", "Priority"]}>
-                  {a.recommendedClasses.map((c) => {
-                    const p = PRIORITY[c.priority] || PRIORITY.optional;
-                    return (
-                      <tr key={c.classNumber}>
-                        <td className="px-4 py-3 font-semibold text-gray-900">{c.classNumber}</td>
-                        <td className="px-4 py-3">{c.covers}</td>
-                        <td className="px-4 py-3">{c.reason}</td>
-                        <td className={`px-4 py-3 font-semibold whitespace-nowrap ${p.cls}`}>
-                          <span className={`inline-block w-2 h-2 rounded-full mr-1.5 ${p.dot}`} />{p.label}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </ReportTable>
+                <ReportTable
+                  rows={a.recommendedClasses}
+                  rowKey={(c) => c.classNumber}
+                  columns={[
+                    { head: "Class", title: true, td: "font-semibold text-gray-900", cell: (c) => <>Class {c.classNumber}</> },
+                    { head: "Covers", cell: (c) => c.covers },
+                    { head: "Why this class", cell: (c) => c.reason },
+                    {
+                      head: "Priority",
+                      td: "whitespace-nowrap",
+                      cell: (c) => {
+                        const p = PRIORITY[c.priority] || PRIORITY.optional;
+                        return (
+                          <span className={`font-semibold whitespace-nowrap ${p.cls}`}>
+                            <span className={`inline-block w-2 h-2 rounded-full mr-1.5 ${p.dot}`} />{p.label}
+                          </span>
+                        );
+                      },
+                    },
+                  ]}
+                />
                 <p className="mt-1.5 text-[13px] text-gray-500">
                   <b>Must apply</b> — core business, file now · <b>Recommended</b> — closely related, protects against copycats ·{" "}
                   <b>Optional</b> — future expansion.
@@ -442,23 +512,24 @@ const TrademarkReport = forwardRef(function TrademarkReport(
                 <SectionHeader number={next()} size="lg">Class-wise Search Details</SectionHeader>
                 {a.classWise?.length > 0 ? (
                   <ReportTable
-                    head={["Class", "Description of Goods / Services", "Identical Marks", "Similar Marks", "Chance in Class"]}
-                    align={["center", "left", "center", "center", "center"]}
-                  >
-                    {a.classWise.map((c) => (
-                      <tr key={c.classNumber}>
-                        <td className="px-4 py-3 font-semibold text-gray-900 text-center">{c.classNumber}</td>
-                        <td className="px-4 py-3">{c.title || "—"}</td>
-                        <td className="px-4 py-3 text-center">{c.identical}</td>
-                        <td className="px-4 py-3 text-center">{c.similar}</td>
-                        <td className="px-4 py-3 text-center">
+                    rows={a.classWise}
+                    rowKey={(c) => c.classNumber}
+                    columns={[
+                      { head: "Class", title: true, align: "center", td: "font-semibold text-gray-900", cell: (c) => c.classNumber },
+                      { head: "Description of Goods / Services", title: true, cell: (c) => c.title || "—" },
+                      { head: "Identical Marks", align: "center", cell: (c) => c.identical },
+                      { head: "Similar Marks", align: "center", cell: (c) => c.similar },
+                      {
+                        head: "Chance in Class",
+                        align: "center",
+                        cell: (c) => (
                           <span className={`inline-block px-2.5 py-0.5 rounded-full text-[12px] font-semibold ${chancePill(c.chance)}`}>
                             {c.chance}%
                           </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </ReportTable>
+                        ),
+                      },
+                    ]}
+                  />
                 ) : (
                   <p className="text-[15px] text-gray-600">No identical or similar live marks were found in any class.</p>
                 )}
@@ -469,38 +540,46 @@ const TrademarkReport = forwardRef(function TrademarkReport(
                   <h3 className="text-[22px] font-bold text-gray-900 tracking-tight">Closest marks found</h3>
                   <div className="w-8 h-[3px] rounded-full bg-yellow-400 mt-1 mb-4" />
                   <ReportTable
-                    head={["Similar Mark", "App. No.", "Class", "Status", "Owner", "Similarity"]}
-                    align={["left", "left", "left", "left", "left", "center"]}
-                  >
-                    {a.closestMarks.map((m, i) => {
-                      const owner = splitOwner(m.proprietorName || "");
-                      return (
-                        <tr key={`${m.applicationNumber}-${i}`}>
-                          <td className="px-4 py-3.5 font-semibold text-gray-900 break-words">{m.wordMark || "(Device mark)"}</td>
-                          <td className="px-4 py-3.5 whitespace-nowrap">{m.applicationNumber ?? "—"}</td>
-                          <td className="px-4 py-3.5">{m.classNumber ?? "—"}</td>
-                          <td className="px-4 py-3.5">
-                            {m.status ? (
-                              <span className={`inline-block px-2.5 py-0.5 rounded-full border text-[12px] font-medium whitespace-nowrap ${statusTone(m.status).pill}`}>
-                                {m.status}
-                              </span>
-                            ) : "—"}
-                          </td>
-                          <td className="px-4 py-3.5 max-w-[240px] break-words">
-                            <p className="text-[13px] font-semibold uppercase text-gray-800">{owner.name || "—"}</p>
-                            {owner.entity && <p className="text-[12px] text-gray-500 mt-0.5">{owner.entity}</p>}
-                          </td>
-                          <td className="px-4 py-3.5 text-center">
-                            {m.similarity ? (
-                              <span className={`inline-block px-2.5 py-0.5 rounded-full border text-[12px] font-medium whitespace-nowrap ${similarityTone(m.similarity)}`}>
-                                {m.similarity}
-                              </span>
-                            ) : "—"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </ReportTable>
+                    rows={a.closestMarks}
+                    rowKey={(m, i) => `${m.applicationNumber}-${i}`}
+                    columns={[
+                      { head: "Similar Mark", title: true, td: "font-semibold text-gray-900 break-words", cell: (m) => m.wordMark || "(Device mark)" },
+                      { head: "App. No.", td: "whitespace-nowrap", cell: (m) => m.applicationNumber ?? "—" },
+                      { head: "Class", cell: (m) => m.classNumber ?? "—" },
+                      {
+                        head: "Status",
+                        cell: (m) =>
+                          m.status ? (
+                            <span className={`inline-block px-2.5 py-0.5 rounded-full border text-[12px] font-medium ${statusTone(m.status).pill}`}>
+                              {m.status}
+                            </span>
+                          ) : "—",
+                      },
+                      {
+                        head: "Owner",
+                        td: "max-w-[240px] break-words",
+                        cell: (m) => {
+                          const owner = splitOwner(m.proprietorName || "");
+                          return (
+                            <>
+                              <p className="text-[13px] font-semibold uppercase text-gray-800">{owner.name || "—"}</p>
+                              {owner.entity && <p className="text-[12px] text-gray-500 mt-0.5">{owner.entity}</p>}
+                            </>
+                          );
+                        },
+                      },
+                      {
+                        head: "Similarity",
+                        align: "center",
+                        cell: (m) =>
+                          m.similarity ? (
+                            <span className={`inline-block px-2.5 py-0.5 rounded-full border text-[12px] font-medium ${similarityTone(m.similarity)}`}>
+                              {m.similarity}
+                            </span>
+                          ) : "—",
+                      },
+                    ]}
+                  />
                   <p className="mt-3 text-[12px] text-gray-500">
                     Sources: IP India Trade Marks Registry (word, phonetic &amp; logo search), Well-known Marks list, Trade Marks Journal.
                   </p>
@@ -523,7 +602,63 @@ const TrademarkReport = forwardRef(function TrademarkReport(
         </div>
       </div>
 
-      <div className="relative mx-4 sm:mx-10 rounded-xl border border-gray-100 shadow-[0_4px_20px_rgba(17,24,39,0.06)] overflow-x-auto">
+      {/* Phones: one card per result instead of the wide table. */}
+      <div className="md:hidden relative mx-4 space-y-3">
+        {results.length === 0 ? (
+          <p className="rounded-xl border border-gray-100 px-4 py-8 text-center text-[13.5px] text-gray-500">
+            No matching trademarks found for this query.
+          </p>
+        ) : (
+          results.map((tm, i) => {
+            const tone = statusTone(tm.status);
+            return (
+              <div
+                key={`${tm.applicationNumber}-${tm.classNumber}-${i}`}
+                className="rounded-xl border border-gray-100 bg-white shadow-[0_2px_12px_rgba(17,24,39,0.05)] overflow-hidden text-[13.5px]"
+              >
+                <div className="flex items-center gap-3 px-4 py-3 bg-[#FFF6D1]">
+                  <span className="shrink-0 text-[12px] font-semibold text-gray-500">#{startIndex + i + 1}</span>
+                  {tm.image && <img src={tm.image} alt="" className="shrink-0 h-9 w-14 object-contain bg-white rounded" loading="lazy" />}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-gray-900 max-w-full break-words">{tm.wordMark || "(Device mark)"}</p>
+                    {tm.matchedBy && (
+                      <span
+                        className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[11.5px] font-semibold ${
+                          tm.matchedBy === "logo" ? "bg-yellow-400 text-gray-900" : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {tm.matchedBy === "logo" ? "Logo match" : "Name match"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <dl className="divide-y divide-gray-100 text-gray-700">
+                  {[
+                    ["Status", tm.status ? (
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[12px] font-medium ${tone.pill}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${tone.dot}`} />
+                        {tm.status}
+                      </span>
+                    ) : "—"],
+                    ["App. No.", tm.applicationNumber ?? "—"],
+                    ["Class", tm.classNumber ?? "—"],
+                    ["Owner", tm.proprietorName || "—"],
+                    ["User Detail", tm.userDetail || "—"],
+                    ["G&S", <ClassLink key="gs" no={tm.classNumber} />],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex items-start justify-between gap-4 px-4 py-2.5">
+                      <dt className="shrink-0 text-gray-500">{label}</dt>
+                      <dd className="min-w-0 text-right text-gray-800 break-words">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className="hidden md:block relative mx-4 sm:mx-10 rounded-xl border border-gray-100 shadow-[0_4px_20px_rgba(17,24,39,0.06)] overflow-x-auto">
         <table className="w-full min-w-[860px] text-[13.5px]">
           <thead>
             <tr className="bg-[#F4C524] text-gray-900 text-left">
@@ -555,9 +690,9 @@ const TrademarkReport = forwardRef(function TrademarkReport(
                         {tm.image ? (
                           <img src={tm.image} alt={tm.wordMark} className="h-10 w-full object-contain" loading="lazy" />
                         ) : (
-                          <span className="text-[15px] font-bold text-gray-900 break-words">{tm.wordMark || "—"}</span>
+                          <span className="text-[15px] font-bold text-gray-900 max-w-full break-words">{tm.wordMark || "—"}</span>
                         )}
-                        <span className="mt-1 text-[12px] text-gray-700 break-words">{tm.wordMark || "(Device mark)"}</span>
+                        <span className="mt-1 text-[12px] text-gray-700 max-w-full break-words">{tm.wordMark || "(Device mark)"}</span>
                         {/* Name + logo searches: which of the two found this mark. */}
                         {tm.matchedBy && (
                           <span
@@ -598,35 +733,60 @@ const TrademarkReport = forwardRef(function TrademarkReport(
       </p>
 
       {/* Last · Disclaimer + sign-off */}
-      <div data-pdf-section className="relative mt-12 px-6 sm:px-12">
+      <div data-pdf-section className="relative mt-12 px-4 sm:px-12">
         <SectionHeader number={next()} size="lg">Disclaimer</SectionHeader>
-        <p className="sm:pl-11 text-[13.5px] leading-relaxed text-gray-600">
-          This report is an advisory opinion based on records available on the IP India Trade Marks Registry and related public
-          databases as on the search date. Applications filed recently, or not yet digitised, and unregistered use of similar
-          marks may not appear in the search. The probability shown is Bizpole's professional estimate and not a guarantee; the
-          final decision on registration rests with the Registrar of Trade Marks, and third parties may oppose the application.
-          Bizpole is not liable for any objection, opposition or infringement claim arising from adoption or use of the mark.
-          This report is confidential and intended only for the applicant named above.
-        </p>
-        <div className="sm:pl-11 mt-6 grid grid-cols-3 gap-6 text-[15px]">
-          {[
-            ["Prepared by", "Bizpole One · Trademark Search"],
-            ["Reviewed by", "TM Attorney / Agent"],
-            ["Date of Issue", searchDate],
-          ].map(([label, value]) => (
-            <div key={label}>
-              <div className="w-8 h-[3px] rounded-full bg-yellow-400 mb-3" />
-              <p className="font-semibold text-gray-900">{label}</p>
-              <p className="text-[13.5px] text-gray-500 mt-1">{value}</p>
-            </div>
-          ))}
+        <div className="sm:pl-11 space-y-1.5 text-[11px] leading-relaxed text-gray-500">
+          <p>
+            This Trademark Search Report has been generated through Bizpole (The Brand) using records available on the IP India
+            Trade Marks Registry and related public databases as on the search date. The search may not capture applications
+            filed recently, records not yet digitised, or unregistered marks in use, so the results should not be treated as
+            exhaustive.
+          </p>
+          <p>
+            The registrability probability in this report is an indicative assessment made by Bizpole search and analysis tools
+            and reviewed by Bizpole's professionals. It is not a guarantee of registration. The final decision on any application
+            rests with the Registrar of Trade Marks, and third parties may oppose the application after it is advertised.
+          </p>
+          <p>
+            Bizpole (The Brand) accept no liability for any objection, opposition, infringement claim or loss arising from
+            adopting, applying for or using the mark based on this report. We recommend a detailed legal opinion before you
+            commit significant investment in branding.
+          </p>
+          <p>
+            This report is confidential and intended solely for the applicant named above. It may not be shared, reproduced or
+            relied upon by any other person without Bizpole's written consent.
+          </p>
+        </div>
+        <div className="sm:pl-11 mt-6 text-[15px]">
+          <div className="w-8 h-[3px] rounded-full bg-yellow-400 mb-3" />
+          <p className="font-semibold text-gray-900">Date of Issue</p>
+          <p className="text-[13.5px] text-gray-500 mt-1">{searchDate}</p>
+        </div>
+      </div>
+
+      {/* PDF only — the page shows its own banner below the report. "Get Started"
+          is a real link so it stays clickable in the PDF. */}
+      <div data-pdf-section data-pdf-show="block" className="hidden relative mt-12 px-6 sm:px-12">
+        <div
+          className="rounded-[24px] px-12 py-10 flex items-center justify-between gap-6"
+          style={{ background: "radial-gradient(90% 160% at 45% 0%, #3d3f45 0%, #16171a 45%, #000000 100%)" }}
+        >
+          <h3 className="text-white text-5xl font-semibold tracking-tight">Ready to Protect Your Brand?</h3>
+          <a
+            href={TRADEMARK_SERVICE_PATH}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 inline-flex items-center gap-10 pl-6 pr-5 py-3 rounded-full bg-[#FFC72C] text-black text-sm font-semibold"
+          >
+            Get Started <span aria-hidden="true">→</span>
+          </a>
         </div>
       </div>
 
       {/* On screen only — the PDF draws this footer on every page. */}
-      <div data-pdf-hide className="relative mx-6 sm:mx-16 mt-14 mb-8 pt-6 border-t border-gray-200 flex items-center justify-between gap-4 text-[15px] text-gray-600">
-        <div className="flex items-center gap-3">
-          <img src={BIZPOLE_ONE_LOGO} alt="Bizpole One" className="h-[28px] w-auto" />
+      <div data-pdf-hide className="relative mx-4 sm:mx-16 mt-14 mb-8 pt-6 border-t border-gray-200 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-[13px] sm:text-[15px] text-gray-600">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <img src={BIZPOLE_ONE_LOGO} alt="Bizpole One" className="h-[22px] sm:h-[28px] w-auto" />
           <span className="text-gray-300">|</span>
           <span>Trademark Search Report</span>
         </div>

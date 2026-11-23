@@ -16,8 +16,13 @@
       "permanent": true
     },
     {
-      "source": "/trademark-search/index.html",
-      "destination": "/trademark-search",
+      "source": "/trademark-search/meta/",
+      "destination": "/trademark-search/meta",
+      "permanent": true
+    },
+    {
+      "source": "/trademark-search/meta/index.html",
+      "destination": "/trademark-search/meta",
       "permanent": true
     },
     {
@@ -87,8 +92,8 @@
       "destination": "/trademark-classes/index.html"
     },
     {
-      "source": "/trademark-search",
-      "destination": "/trademark-search/index.html"
+      "source": "/trademark-search/meta",
+      "destination": "/trademark-search/meta/index.html"
     },
     {
       "source": "/trademark-registration",

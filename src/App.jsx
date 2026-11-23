@@ -210,9 +210,9 @@ function App() {
           <Route path="/services/:id" element={<ServiceDetails />} />
           <Route path="/products" element={<ProductList />} />
           <Route path="/partners" element={<Partners />} />
-          {/* /trademark-search is now a static SEO page (public/trademark-search/index.html).
-              In-app links land here — do a full load so the server serves the static page. */}
-          <Route path="/trademark-search" element={<StaticPageRedirect to="/trademark-search" />} />
+          {/* General trademark search = React page. Only the ads landing copy
+              (/trademark-search/meta) is static: public/trademark-search/meta/index.html */}
+          <Route path="/trademark-search" element={<TrademarkSearch />} />
           <Route path="/startbusiness/apply" element={<NewCompanyFlow />} />
           <Route path="/startbusiness/about" element={<Tellabout />} />
           <Route path="/startbusiness/subscriptions" element={<Subscription />} />

@@ -21,13 +21,11 @@
   var store = function (k, v) { try { if (v === undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); } catch (e) { return null; } };
   var keep = function (k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } };
 
-  // ---------- API base: local server, test server or production ----------
+  // ---------- API base: VITE_API_BASE_URL from .env only (no hardcoded host) ----------
   var host = location.hostname;
   var ENV_API = "__VITE_API_BASE_URL__"; // replaced by vite with VITE_API_BASE_URL
-  var API = /^https?:\/\//.test(ENV_API) ? ENV_API
-    : /^(localhost|127\.0\.0\.1)$/.test(host) ? "http://localhost:3000"
-    : /^test/.test(host) ? "https://testapi.bizpole.io"
-    : "https://api.bizpole.io";
+  var API = /^https?:\/\//.test(ENV_API) ? ENV_API : "";
+  if (!API) console.error("VITE_API_BASE_URL is not set in .env — API calls from this page will fail");
   window.LP_API = API;
 
   // ---------- 1. Attribution ----------

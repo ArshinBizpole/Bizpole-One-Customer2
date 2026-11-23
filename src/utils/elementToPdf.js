@@ -72,6 +72,7 @@ function paginate(height, breaks, forced, firstH, restH) {
  * then sliced into pages at row boundaries (tr / [data-pdf-section]).
  *  - [data-pdf-break] always starts a new page
  *  - [data-pdf-hide] is left out of the PDF
+ *  - [data-pdf-show="flex"] is hidden on screen but shown in the PDF (value = display)
  *  - [data-pdf-grow] is stretched to fill the blank space left at the bottom of
  *    its page (when the next section doesn't fit), so the page ends flush
  *
@@ -103,6 +104,7 @@ export async function saveElementAsPdf(
     const headerLogo = runningHeader?.logo ? await loadImage(runningHeader.logo) : null;
     let breaksCss = [];
     let forcedCss = [];
+    let linksCss = [];
     const canvas = await html2canvas(element, {
       scale: SCALE,
       useCORS: true,
@@ -116,6 +118,7 @@ export async function saveElementAsPdf(
         el.style.boxShadow = "none";
         el.style.border = "none";
         el.querySelectorAll("[data-pdf-hide]").forEach((n) => { n.style.display = "none"; });
+        el.querySelectorAll("[data-pdf-show]").forEach((n) => { n.style.display = n.getAttribute("data-pdf-show") || "block"; });
         el.querySelectorAll(".overflow-x-auto").forEach((n) => { n.style.overflow = "visible"; });
         el.querySelectorAll("img").forEach((img) => {
           const inline = images.get(img.src);
@@ -149,6 +152,22 @@ export async function saveElementAsPdf(
           g.style.alignContent = "center";
           top = measure();
         });
+
+        // The PDF is a picture, so remember where each link sits (after any
+        // [data-pdf-grow] stretching) and lay clickable areas over it later.
+        const box = el.getBoundingClientRect();
+        linksCss = Array.from(el.querySelectorAll("a[href]"))
+          .map((a) => {
+            const href = a.getAttribute("href");
+            if (!href || href.startsWith("#") || /^javascript:/i.test(href)) return null;
+            let url;
+            try { url = new URL(href, window.location.href).href; } catch { return null; }
+            return Array.from(a.getClientRects())
+              .filter((r) => r.width > 0 && r.height > 0)
+              .map((r) => ({ url, x: r.left - box.left, y: r.top - box.top, w: r.width, h: r.height }));
+          })
+          .filter(Boolean)
+          .flat();
       },
     });
 
@@ -167,6 +186,20 @@ export async function saveElementAsPdf(
       slice.getContext("2d").drawImage(canvas, 0, s, canvas.width, e - s, 0, 0, canvas.width, e - s);
       const topPt = i === 0 ? firstTopPt : headerPt;
       pdf.addImage(slice.toDataURL("image/jpeg", 0.92), "JPEG", marginPt, topPt, imgWPt, (e - s) * ptPerPx);
+
+      // Clickable areas for the links on this slice (clipped to the slice).
+      linksCss.forEach((l) => {
+        const y1 = Math.max(l.y * SCALE, s);
+        const y2 = Math.min((l.y + l.h) * SCALE, e);
+        if (y2 - y1 < 2) return;
+        pdf.link(
+          marginPt + l.x * SCALE * ptPerPx,
+          topPt + (y1 - s) * ptPerPx,
+          l.w * SCALE * ptPerPx,
+          (y2 - y1) * ptPerPx,
+          { url: l.url }
+        );
+      });
 
       // Brand white / yellow page furniture (no dark bands).
       if (runningHeader && i > 0) {

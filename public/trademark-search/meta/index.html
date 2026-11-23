@@ -1,14 +1,28 @@
 <!doctype html>
-<html lang="en-IN">
+<!--
+  META ADS landing page — /trademark-search/meta
+  Separate copy of /trademark-search for Facebook/Instagram ad traffic; edit freely,
+  the general /trademark-search is the React page (src/pages/TrademarkSearch.jsx).
+  - noindex (ad-only), canonical points at the general page
+  - full site navbar like the general page; html.campaign CSS only trims the footer to Legal links (ad policy)
+  - leads tagged utm_source=meta → lead source "Facebook/Instagram"
+
+  TRACKING — put this in each Meta ad › Tracking › URL parameters:
+    utm_source=facebook&utm_medium=paid-social&utm_campaign={{campaign.name}}&utm_term={{adset.name}}&utm_content={{ad.name}}&campaign_id={{campaign.id}}&adset_id={{adset.id}}&ad_id={{ad.id}}&placement={{placement}}&site_source={{site_source_name}}
+  → saved on the CRM lead (Campaign / Ad set / Ad columns + raw_payload.attribution)
+    and sent with every GA4 / Meta Pixel event. Events: see track() calls in the script.
+  Set META_PIXEL_ID in the script to switch the Pixel on (GA4 is always on, live site only).
+-->
+<html lang="en-IN" class="campaign">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
 <!-- ============ PRIMARY SEO ============ -->
-<title>Free Trademark Search India – Check Brand Name Availability | Bizpole</title>
-<meta name="description" content="Free trademark search in India. Check if your brand name is available for trademark registration across all 45 classes and get a free trademark search report on WhatsApp. No payment needed.">
+<title>Free Trademark Search – Check Your Brand Before You Invest | Bizpole</title>
+<meta name="description" content="Search your brand name, understand trademark results and get guided registration support with Bizpole One. Free trademark search report on WhatsApp. No payment needed.">
 <link rel="canonical" href="https://www.bizpole.io/trademark-search">
-<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="robots" content="noindex, follow">
 <meta name="theme-color" content="#ffffff">
 <meta name="format-detection" content="telephone=no">
 
@@ -16,16 +30,16 @@
 <meta property="og:site_name" content="Bizpole">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="en_IN">
-<meta property="og:title" content="Free Trademark Search – Check Your Brand Name | Bizpole">
-<meta property="og:description" content="Find out whether your brand name may be available for trademark registration. Free report on WhatsApp. No payment required.">
+<meta property="og:title" content="Check Your Brand Name Before You Invest | Bizpole">
+<meta property="og:description" content="Free trademark search, clear insights and guided registration support — all in one place. Free report on WhatsApp.">
 <meta property="og:url" content="https://www.bizpole.io/trademark-search">
 <meta property="og:image" content="https://www.bizpole.io/trademark-search/img/og-trademark-search.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Free trademark search report from Bizpole">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Free Trademark Search India | Bizpole">
-<meta name="twitter:description" content="Check your brand name and get a free trademark search report on WhatsApp.">
+<meta name="twitter:title" content="Check Your Brand Before You Invest | Bizpole">
+<meta name="twitter:description" content="Free trademark search, clear insights and guided registration support. Report on WhatsApp.">
 <meta name="twitter:image" content="https://www.bizpole.io/trademark-search/img/og-trademark-search.jpg">
 
 <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -84,12 +98,12 @@
       "@type": "FAQPage",
       "@id": "https://www.bizpole.io/trademark-search#faq",
       "mainEntity": [
-        { "@type": "Question", "name": "Is the trademark search really free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. The trademark search and the report are 100% free. No payment or card details are needed." } },
-        { "@type": "Question", "name": "How will I receive my trademark search report?", "acceptedAnswer": { "@type": "Answer", "text": "Your report link is sent to the WhatsApp number you enter, usually within a minute. Open it to see the matching trademarks for your brand name." } },
-        { "@type": "Question", "name": "What does the trademark search check?", "acceptedAnswer": { "@type": "Answer", "text": "We search the Indian trademark registry for identical marks, similar-sounding and similar-looking marks, and marks in the class that fits your business, and note the status of any conflicting marks." } },
-        { "@type": "Question", "name": "Does a clear search mean my trademark will be registered?", "acceptedAnswer": { "@type": "Answer", "text": "No. The search is a preliminary check. Final registrability is decided by the Trade Marks Registry after examination, so a professional review is recommended before you file." } },
+        { "@type": "Question", "name": "Is the trademark search free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. The trademark search and the report are 100% free. No payment or card details are needed." } },
+        { "@type": "Question", "name": "Does an available search result guarantee registration?", "acceptedAnswer": { "@type": "Answer", "text": "No. A preliminary search is not a guarantee of registration. The result needs to be assessed in context, and the final decision rests with the Trade Marks Registry after examination." } },
+        { "@type": "Question", "name": "Can I search a logo as well as a brand name?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Choose the Logo tab and upload your logo as a PNG or JPG (up to 2 MB). You can also search by owner name or trademark application number." } },
+        { "@type": "Question", "name": "What happens after I complete a search?", "acceptedAnswer": { "@type": "Answer", "text": "Your report link is sent to the WhatsApp number you enter, usually within a minute. It shows your approval score, matching marks and their status, and a trademark expert can walk you through the findings and next steps." } },
         { "@type": "Question", "name": "Which trademark class should I choose?", "acceptedAnswer": { "@type": "Answer", "text": "India follows the Nice Classification with 45 classes: 1–34 for goods and 35–45 for services. Tell us your business category and we will suggest the right class in your report." } },
-        { "@type": "Question", "name": "What should I do after the search?", "acceptedAnswer": { "@type": "Answer", "text": "If your name looks available, file your trademark application early, because rights in India generally go to whoever files first. Bizpole can file it for you and you can use the ™ symbol once it is filed." } }
+        { "@type": "Question", "name": "Can Bizpole help with trademark registration?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. If your name looks available, Bizpole experts can file your trademark application for ₹3,000 incl. GST + Govt. fee, and you get your TM application number in 24–48 hours. File early, because rights in India generally go to whoever files first, and you can use the ™ symbol once it is filed." } }
       ]
     }
   ]
@@ -126,34 +140,74 @@ a,button,summary,select{-webkit-tap-highlight-color:transparent;touch-action:man
 main > section:not(.hero), .site-footer{content-visibility:auto;contain-intrinsic-size:auto 700px}
 
 /* ===== Header ===== */
-.site-header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.97);border-bottom:1px solid var(--line)}
-.site-header .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
-.site-header nav{display:none}
-.site-header nav a{text-decoration:none;font-size:.93rem;font-weight:500;color:var(--ink-2);margin-left:26px}
-.site-header nav a:hover{color:var(--ink)}
-.hdr-cta{font-size:.88rem;font-weight:600;text-decoration:none;color:var(--ink);border:1.5px solid var(--ink);border-radius:999px;padding:7px 14px;white-space:nowrap}
-.hdr-cta:hover{background:var(--ink);color:#fff}
-@media (min-width:900px){.site-header nav{display:block}.site-header .wrap{height:68px}}
+/* Mirrors the main site navbar (src/components/Navbar.jsx). The site runs html{font-size:13px},
+   so Tailwind rem sizes there = px values here (1rem = 13px). */
+.site-header{position:relative;z-index:50;background:#fff}
+.site-header [hidden]{display:none!important}
+.nav-bar{height:65px;padding:0 13px;display:flex;align-items:center;justify-content:space-between;gap:13px}
+.nav-logo img{display:block;height:32.5px;width:auto}
+.nav-links,.nav-right{display:none}
+.nav-links{list-style:none;margin:0;padding:0;align-items:center;gap:22.75px;font-weight:500;font-size:13px;line-height:19.5px}
+.nav-links li{position:relative}
+.nav-links a{text-decoration:none;color:#1f2937;transition:color .2s}
+.nav-links a:hover,.nav-links a[aria-current="page"]{color:#000}
+.nav-links a[aria-current="page"]::after{content:"";position:absolute;left:0;right:0;bottom:-6.5px;height:2px;background:#000;border-radius:999px}
+.nav-pill{position:relative;display:inline-block;padding:4.875px 13px;border-radius:999px;border:1px solid #FBE08A;background:#FEF1B8;color:#000!important}
+.nav-pill:hover{background:#FCE38A}
+.nav-new{position:absolute;top:-8.125px;right:9.75px;border-radius:999px;background:#F5C518;padding:1px 4.875px;font-size:9px;font-weight:600;line-height:1.25;color:#000;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.nav-new svg{position:absolute;top:-9.75px;right:-9.75px;width:13px;height:13px;color:#F5C518;pointer-events:none}
+.nav-right{align-items:center;gap:9.75px}
+.nav-btn{display:inline-block;text-decoration:none;border-radius:999px;padding:8.125px 16.25px;font-size:11.375px;line-height:16.25px;font-weight:500;white-space:nowrap;transition:transform .15s}
+.nav-btn:hover{transform:scale(1.05)}
+.nav-signin{color:#374151}.nav-signin:hover{color:#000}
+.nav-cta{background:linear-gradient(to right,#facc15,#eab308);color:#000;font-weight:600;box-shadow:0 10px 15px -3px rgba(0,0,0,.1)}
+.nav-dash{background:#000;color:#fff;box-shadow:0 4px 6px -1px rgba(0,0,0,.1)}
+.nav-toggle{background:none;border:0;padding:0;color:#000;cursor:pointer;line-height:0}
+.nav-mobile{position:absolute;left:9.75px;right:9.75px;top:100%;background:#fff;border:1px solid #e5e7eb;border-radius:13px;box-shadow:0 20px 25px -5px rgba(0,0,0,.1);padding:19.5px}
+.nav-mobile[hidden]{display:none}
+.nav-mobile ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:16.25px}
+.nav-mobile ul a{text-decoration:none;color:#1f2937;font-weight:500;font-size:13px;line-height:19.5px}
+.nav-mobile ul a[aria-current="page"]{color:#000}
+.nav-mobile .nav-new{position:static;margin-left:6.5px;font-size:10px;padding:2px 6.5px;vertical-align:middle}
+.nav-mobile-ctas{display:flex;flex-direction:column;gap:16.25px;margin-top:16.25px}
+.nav-mobile-ctas a{display:block;text-align:center;text-decoration:none;padding:9.75px;border-radius:999px;color:#000;font-size:13px;line-height:19.5px}
+.nav-m-signin{border:1px solid #d1d5db}
+.nav-m-cta{background:#facc15;font-weight:600}
+.nav-m-dash{background:#000;color:#fff!important;font-weight:500}
+@media (min-width:640px){.nav-bar{padding:0 19.5px}.nav-logo img{height:39px}.nav-mobile ul a{font-size:14.625px;line-height:22.75px}}
+@media (min-width:1024px){
+  .nav-bar{height:78px;padding:0 32.5px}.nav-logo img{height:45.5px}
+  .nav-links,.nav-right{display:flex}.nav-toggle,.nav-mobile{display:none!important}
+}
+@media (min-width:1280px){.nav-links{gap:39px;font-size:14.625px;line-height:22.75px}.nav-btn{font-size:13px;line-height:19.5px}.nav-dash{padding:8.125px 19.5px}.nav-cta{padding:9.75px 22.75px}}
 
 /* ===== Hero (search page look) ===== */
 .hero{position:relative;overflow:hidden;overflow:clip;padding:26px 0 30px;background:linear-gradient(180deg,#fff3c4 0%,#fffbef 55%,#fff 100%)}
 @media (min-width:960px){.hero{padding:40px 0 24px;background:#fffbef url(/Images/trbg.jpeg) 70% top/cover no-repeat}}
 .hero .wrap{position:relative;z-index:1}
 .hero-top{position:relative}
-.hero-copy{text-align:center}
+.hero-copy{text-align:left}
+.hero-copy .lede{margin-left:0}
+@media (max-width:639px){.hero h1 br{display:none}}
 @media (min-width:1024px){.hero-copy{width:63%}}
 .badge{display:inline-block;font-size:.74rem;font-weight:600;letter-spacing:.08em;color:#9a5b06;background:#fff6d6;border:1px solid #fde9a8;border-radius:999px;padding:7px 16px;text-transform:uppercase}
 .hero h1{margin:14px 0 0;font-size:clamp(2.05rem,9.6vw,4.1rem);font-weight:700;line-height:1.08;letter-spacing:-.035em;color:#0b0b0b}
 .hero h1 span{color:#f5b301}
 .lede{font-size:clamp(.94rem,3.7vw,1.06rem);line-height:1.65;color:var(--muted);max-width:660px;margin:16px auto 0}
+/* Search count shown in the pill above the headline */
+.badge.live{display:inline-flex;align-items:center;gap:8px;padding:6px 16px 6px 13px}
+.live b{color:#0b0b0b;font-size:1.15rem;font-weight:800;line-height:1;letter-spacing:0;font-variant-numeric:tabular-nums}
+.live-dot{width:9px;height:9px;border-radius:50%;background:#16a34a;box-shadow:0 0 0 0 rgba(22,163,74,.5);animation:livePulse 2s infinite}
+@keyframes livePulse{70%{box-shadow:0 0 0 8px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
+@media (prefers-reduced-motion:reduce){.live-dot{animation:none}}
 .hero-art{display:none}
 @media (min-width:1024px){.hero-art{display:block;position:absolute;right:-10px;top:0;width:min(35%,430px);height:auto}}
 .hl{display:none;list-style:none;margin:0;padding:0}
 @media (min-width:640px){.hl{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:30px}}
 @media (min-width:1024px){.hl{grid-template-columns:repeat(4,1fr);gap:22px;margin-top:38px;padding-right:70px}}
-.hl li{display:flex;align-items:center;gap:14px;background:#fff;border-radius:16px;padding:16px 18px;min-height:96px;box-shadow:0 8px 30px rgba(0,0,0,.06)}
-.hl .ic{flex:0 0 48px;height:48px;border-radius:12px;background:#fff6d6;color:#f5b400;display:grid;place-items:center}
-.hl b{display:block;color:var(--ink);font-weight:600}
+.hl li{display:flex;flex-direction:column;align-items:flex-start;gap:12px;background:#fff;border-radius:16px;padding:18px 20px;box-shadow:0 8px 30px rgba(0,0,0,.06)}
+.hl .ic{flex:0 0 auto;width:48px;height:48px;border-radius:12px;background:#fff6d6;color:#f5b400;display:grid;place-items:center}
+.hl b{display:block;color:var(--ink);font-weight:600;line-height:1.3;margin-bottom:4px}
 .hl small{display:block;color:var(--muted);font-size:.84rem;line-height:1.35}
 
 /* Search bar */
@@ -164,7 +218,11 @@ main > section:not(.hero), .site-footer{content-visibility:auto;contain-intrinsi
 .tab{flex:0 0 auto;height:36px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:#fff;font:500 .9rem var(--font);color:var(--ink-2);cursor:pointer}
 .tab:hover{border-color:var(--ink);color:var(--ink)}
 .tab[aria-selected="true"]{background:#111827;border-color:#111827;color:#fff}
-@media (max-width:399px){.tabs{gap:4px}.tab{padding:0 10px;font-size:.8rem;height:34px}}
+/* Phones: the 4 tabs share the row (no clipped/scrolling last tab) */
+@media (max-width:639px){.tabs{justify-content:flex-start;gap:5px}.tab{flex:1 1 auto;min-width:0;padding:0 8px;font-size:.84rem;white-space:nowrap}}
+.tab .t-short{display:none}
+@media (max-width:379px){.badge.live{letter-spacing:.03em;font-size:.66rem;padding:6px 12px 6px 10px;white-space:nowrap}}
+@media (max-width:379px){.tab .t-long{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.tab .t-short{display:inline}.tabs{gap:4px}.tab{padding:0 6px;font-size:.8rem;height:34px}}
 .srow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px}
 .sbox{grid-column:1/-1;display:flex;align-items:center;gap:10px;min-width:0;height:56px;padding:0 8px 0 16px;background:#fff;border:1.5px solid var(--line-2);border-radius:14px;box-shadow:0 2px 10px rgba(15,23,42,.05);transition:border-color .15s,box-shadow .15s}
 .sbox:focus-within{border-color:#f5b301;box-shadow:0 0 0 4px rgba(252,196,25,.3)}
@@ -346,6 +404,37 @@ body.modal-open{overflow:hidden}
 .steps li{counter-increment:s;background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;text-align:left;display:grid;grid-template-columns:40px 1fr;column-gap:14px;align-items:start}
 .steps li::before{content:counter(s);grid-row:span 2;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--brand);color:var(--ink);font-weight:700}
 @media (min-width:768px){.steps li{display:block;padding:22px 22px 24px;border-radius:18px}.steps li::before{margin-bottom:14px}}
+/* How it works: steps left, sample score gauge right */
+.how-grid{display:grid;gap:32px;align-items:center}
+@media (min-width:960px){.how-grid{grid-template-columns:1.1fr .9fr;gap:56px}}
+.how-copy .intro b{color:var(--ink)}
+@media (max-width:959px){.how-copy{text-align:center}.how-copy .intro{margin-left:auto;margin-right:auto}}
+@media (min-width:768px){.steps-v{grid-template-columns:1fr;gap:14px}.steps-v li{display:grid;padding:18px 20px}.steps-v li::before{margin-bottom:0}}
+.how-cta{display:inline-flex;align-items:center;gap:8px;margin-top:22px;padding:13px 24px;border-radius:999px;background:var(--brand);color:var(--ink);font-weight:600;text-decoration:none;box-shadow:0 10px 22px rgba(252,196,25,.35);transition:transform .1s}
+.how-cta:hover{transform:translateY(-1px)}
+.gauge-card{margin:0;background:#fff;border:1px solid var(--line);border-radius:22px;padding:20px 18px 22px;box-shadow:0 24px 48px -24px rgba(15,23,42,.18);text-align:center;width:100%;max-width:440px;justify-self:center}
+@media (min-width:640px){.gauge-card{padding:24px 26px 26px}}
+.gc-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.gc-tag{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--brand-d);background:var(--brand-soft);border-radius:999px;padding:4px 10px}
+.gc-brand{font-size:.82rem;color:var(--muted)}
+.gauge{display:block;width:100%;max-width:300px;height:auto;margin:0 auto}
+.g-needle{transform-box:view-box;transform-origin:120px 120px;transform:rotate(0deg);transition:transform 1.4s cubic-bezier(.22,1.2,.36,1)}
+.gauge-card.on .g-needle{transform:rotate(147.6deg)}
+@media (prefers-reduced-motion:reduce){.g-needle{transition:none}}
+.gc-pct{margin:6px 0 0;font-size:2.6rem;font-weight:700;line-height:1;color:var(--ink)}
+.gc-pct span{font-size:1.4rem}
+.gc-k{margin:6px 0 10px;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.gc-verdict{display:inline-block;padding:6px 14px;border-radius:999px;background:#ecfdf3;color:#166534;font-size:.88rem;font-weight:600}
+.gc-legend{list-style:none;margin:18px 0 0;padding:14px 0 0;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:.72rem;line-height:1.35;color:var(--muted)}
+.gc-legend i{display:block;width:22px;height:5px;border-radius:3px;margin:0 auto 6px}
+.gc-legend b{color:var(--ink-2);font-weight:600}
+.gc-checks{list-style:none;margin:16px 0 0;padding:0;text-align:left;font-size:.88rem;color:var(--ink-2)}
+.gc-checks li{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px dashed var(--line)}
+.gc-checks b{margin-left:auto;font-weight:600;color:var(--ink);white-space:nowrap}
+.gc-checks span{flex:0 0 auto;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:.75rem;font-weight:700}
+.gc-checks .ok{background:#ecfdf3;color:#16a34a}
+.gc-checks .mid{background:#fff7e6;color:#b45309}
+.gauge-card figcaption{margin-top:14px;font-size:.82rem;color:var(--muted)}
 .steps h3,.covers h3{font-size:1.08rem;font-weight:600;margin-bottom:6px}
 .steps p,.covers p{font-size:.95rem;color:var(--muted)}
 .covers{display:grid;gap:14px;list-style:none;margin:0;padding:0}
@@ -392,21 +481,59 @@ body.modal-open{overflow:hidden}
 .mbar .btn{margin:0;min-height:50px;font-size:1rem;box-shadow:none}
 @media (min-width:960px){.mbar{display:none}}
 @media (max-width:959px){body.has-mbar .site-footer{padding-bottom:96px}}
+
+/* ===== Campaign mode (/trademark-search/<campaign>) — full site navbar (same as general page); footer trimmed ===== */
+.campaign .site-footer nav[aria-label="Services"],.campaign .site-footer nav[aria-label="Company"]{display:none!important}
 </style>
 </head>
 <body>
 
 <header class="site-header">
-  <div class="wrap">
-    <a href="/" aria-label="Bizpole home">
-      <img src="/trademark-registration/img/logo-one.webp" alt="Bizpole One" width="77" height="43">
+  <nav class="nav-bar" aria-label="Main">
+    <a class="nav-logo" href="/" aria-label="Bizpole home">
+      <img src="/trademark-registration/img/logo-one.webp" alt="Bizpole One" width="100" height="56">
     </a>
-    <nav aria-label="Page sections">
-      <a href="#how-it-works">How it works</a>
-      <a href="#report">Your report</a>
-      <a href="#faq">FAQs</a>
-    </nav>
-    <a class="hdr-cta" href="/services/344">Register trademark</a>
+
+    <ul class="nav-links">
+      <li><a href="/services">Services</a></li>
+      <li><a href="/products">Product</a></li>
+      <li>
+        <a class="nav-pill" href="/bizpoleone">Bizpole One
+          <span class="nav-new">New<svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4.5 7.5 L5.5 2.5"/><path d="M7.5 9 L11.5 5"/><path d="M8.5 12 L13.5 11"/></svg></span>
+        </a>
+      </li>
+      <li><a href="/partners">Partners</a></li>
+      <li><a href="/trademark-search" aria-current="page">Trademark Search</a></li>
+    </ul>
+
+    <div class="nav-right" data-auth="out">
+      <a class="nav-btn nav-signin" href="/?signin=1">Sign In</a>
+      <a class="nav-btn nav-cta" href="/startbusiness">Get Started Business</a>
+    </div>
+    <div class="nav-right" data-auth="in" hidden>
+      <a class="nav-btn nav-dash" href="/dashboard/bizpoleone">Dashboard →</a>
+    </div>
+
+    <button class="nav-toggle" id="navToggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="navMobile">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path id="navToggleIcon" d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
+  </nav>
+
+  <div class="nav-mobile" id="navMobile" hidden>
+    <ul>
+      <li><a href="/services">Services</a></li>
+      <li><a href="/products">Product</a></li>
+      <li><a href="/bizpoleone">Bizpole One<span class="nav-new">New</span></a></li>
+      <li><a href="/partners">Partners</a></li>
+      <li><a href="/trademark-search" aria-current="page">Trademark Search</a></li>
+    </ul>
+    <div class="nav-mobile-ctas" data-auth="out">
+      <a class="nav-m-signin" href="/?signin=1">Sign In</a>
+      <a class="nav-m-cta" href="/startbusiness">Get Started</a>
+    </div>
+    <div class="nav-mobile-ctas" data-auth="in" hidden>
+      <a class="nav-m-dash" href="/dashboard">Dashboard</a>
+    </div>
   </div>
 </header>
 
@@ -432,24 +559,24 @@ body.modal-open{overflow:hidden}
           <g stroke="#F5B300" stroke-width="4" stroke-linecap="round"><line x1="60" y1="96" x2="44" y2="84"/><line x1="54" y1="118" x2="34" y2="118"/><line x1="76" y1="80" x2="70" y2="62"/></g>
         </svg>
       <div class="hero-copy">
-        <p class="badge">Indian Trademark Registry</p>
-        <h1 id="hero-title">Protect your <span>brand.</span><br>Start with a <span>search.</span></h1>
-        <p class="lede">Check whether your brand name or logo is already registered or applied for before you file in India. Search by brand name, owner, application number or logo and narrow it down by class.</p>
+        <p class="badge live"><span class="live-dot" aria-hidden="true"></span><b id="tm-count">247</b>&nbsp;brand names checked so far</p>
+        <h1 id="hero-title">Check your brand name<br> before you <span>invest.</span></h1>
+        <p class="lede">Free trademark search, clear insights and guided registration support — all in one place. Get your report instantly on WhatsApp.</p>
       </div>
     </div>
 
-    <ul class="hl" aria-label="About this search">
-      <li><span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></span><span><b>Official Database</b><small>Data from Indian Trademark Registry</small></span></li>
-      <li><span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></span><span><b>Up to date</b><small>Latest trademark records</small></span></li>
-      <li><span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span><span><b>Fast &amp; Accurate</b><small>Get results in seconds</small></span></li>
-      <li><span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><span><b>Trusted Information</b><small>For reference only</small></span></li>
+    <ul class="hl" aria-label="What you get that others don't">
+      <li><span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21l1.65-4.6A8.5 8.5 0 1 1 7.6 19.4z"/><path d="M9 10.5c.5 1.6 1.9 3 3.5 3.5l1.2-1.1 2 .9c-.2 1.3-1.2 2-2.4 1.8-2.9-.5-5.3-2.9-5.8-5.8-.2-1.2.5-2.2 1.8-2.4l.9 2z"/></svg></span><span><b>Check availability</b><small>Report saved in your WhatsApp chat</small></span></li>
+      <li><span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 17a9 9 0 1 1 17 0"/><path d="M12 14l4-5"/><circle cx="12" cy="14" r="1.5"/></svg></span><span><b>Get insights</b><small>Your approval odds, <span style="white-space:nowrap">0–100</span></small></span></li>
+      <li><span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 11v2"/></svg></span><span><b>Sound-alike check</b><small>Spots matching and similar marks</small></span></li>
+      <li><span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/><path d="M16.5 3.5l1.5 1.5 3-3"/></svg></span><span><b>Protect your brand</b><small>Guided support to file it</small></span></li>
     </ul>
 
     <form class="search" id="check" novalidate>
       <div class="tabs" role="tablist" aria-label="Search by">
         <button type="button" class="tab" role="tab" aria-selected="true" data-type="WORD_MARK" data-ph="Enter your brand name (e.g. Bizpole)" data-ph-s="Enter your brand name">Brand name</button>
         <button type="button" class="tab" role="tab" aria-selected="false" data-type="PROPRIETOR_NAME" data-ph="e.g. Bizpole India Pvt Ltd">Owner</button>
-        <button type="button" class="tab" role="tab" aria-selected="false" data-type="APPLICATION_NUMBER" data-ph="e.g. 5123456">Application no.</button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-type="APPLICATION_NUMBER" data-ph="e.g. 5123456"><span class="t-long">Application no.</span><span class="t-short" aria-hidden="true">App. no.</span></button>
         <button type="button" class="tab" role="tab" aria-selected="false" data-type="IMAGE">Logo</button>
       </div>
       <div class="srow">
@@ -500,7 +627,7 @@ body.modal-open{overflow:hidden}
     </ul>
     <div class="notes">
       <p><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5z" fill="#fcc419"/><path d="M8 12l3 3 5-5.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Your details are used only to prepare and send your report. No spam.</p>
-      <p><em>Preliminary search only; final registrability requires professional review.</em></p>
+      <p><em>Search results are preliminary information, not a legal opinion or a guarantee that a mark can be registered. Final availability depends on detailed review and the Registry process.</em></p>
     </div>
   </div>
 </section>
@@ -618,15 +745,53 @@ body.modal-open{overflow:hidden}
 
 <!-- ================= HOW IT WORKS ================= -->
 <section class="sec sec-soft" id="how-it-works" aria-labelledby="how-title">
-  <div class="wrap center">
-    <p class="eyebrow">How it works</p>
-    <h2 id="how-title">Free trademark search in 3 simple steps</h2>
-    <p class="intro">No sign-up, no payment. Tell us the name, and our trademark team checks it against the Indian Trade Marks Registry for you.</p>
-    <ol class="steps">
-      <li><h3>Enter your brand name</h3><p>Type the name you want to protect and, if you like, your business category so we search the right class.</p></li>
-      <li><h3>Add your WhatsApp number</h3><p>Enter your name and WhatsApp number — the report link is sent there right away.</p></li>
-      <li><h3>Get your free report</h3><p>Receive your trademark search report on WhatsApp, with an expert's view on what to do next.</p></li>
-    </ol>
+  <div class="wrap how-grid">
+    <div class="how-copy">
+      <p class="eyebrow">How it works</p>
+      <h2 id="how-title">From search to registration</h2>
+      <p class="intro">A simple, guided process to help you make informed decisions about your brand. Find out if you can register your name <b>before</b> you spend money on it. No sign-up, no payment.</p>
+      <ol class="steps steps-v">
+        <li><h3>Search</h3><p>Check a brand name, logo or application number. Add your business category and we search the class that protects you.</p></li>
+        <li><h3>Analyse</h3><p>Your report arrives on WhatsApp with your approval score, matching marks, classes and their status.</p></li>
+        <li><h3>Consult</h3><p>Discuss your findings and next steps with a trademark expert.</p></li>
+        <li><h3>Register</h3><p>Get guided assistance with the filing process once the name looks clear.</p></li>
+      </ol>
+      <a class="how-cta" href="#q">Check my brand name — free <span aria-hidden="true">→</span></a>
+    </div>
+
+    <figure class="gauge-card" aria-labelledby="gauge-cap">
+      <div class="gc-top">
+        <span class="gc-tag">Sample report</span>
+        <span class="gc-brand">Your brand · Class 30</span>
+      </div>
+      <svg class="gauge" viewBox="0 0 240 132" role="img" aria-label="Gauge showing an 82% probability of registration, in the Good to apply zone">
+        <g fill="none" stroke-width="16">
+          <path d="M28 120 A92 92 0 0 1 212 120" stroke="#eef2f7"/>
+          <path d="M28 120 A92 92 0 0 1 212 120" pathLength="100" stroke="#ef4444" stroke-dasharray="49 101"/>
+          <path d="M28 120 A92 92 0 0 1 212 120" pathLength="100" stroke="#f59e0b" stroke-dasharray="0 50.5 24 101"/>
+          <path d="M28 120 A92 92 0 0 1 212 120" pathLength="100" stroke="#16a34a" stroke-dasharray="0 75.5 24.5 101"/>
+        </g>
+        <g stroke="#94a3b8" stroke-width="2" stroke-linecap="round"><line x1="58.0" y1="120.0" x2="48.0" y2="120.0"/><line x1="57.2" y1="99.6" x2="51.5" y2="97.8"/><line x1="66.6" y1="81.2" x2="61.8" y2="77.7"/><line x1="81.2" y1="66.6" x2="77.7" y2="61.8"/><line x1="99.6" y1="57.2" x2="97.8" y2="51.5"/><line x1="120.0" y1="58.0" x2="120.0" y2="48.0"/><line x1="140.4" y1="57.2" x2="142.2" y2="51.5"/><line x1="158.8" y1="66.6" x2="162.3" y2="61.8"/><line x1="173.4" y1="81.2" x2="178.2" y2="77.7"/><line x1="182.8" y1="99.6" x2="188.5" y2="97.8"/><line x1="182.0" y1="120.0" x2="192.0" y2="120.0"/></g>
+        <g class="g-needle" id="g-needle"><path d="M120 115 L52 120 L120 125 Z" fill="#0f172a"/></g>
+        <circle cx="120" cy="120" r="10" fill="#0f172a"/><circle cx="120" cy="120" r="4" fill="#fcc419"/>
+      </svg>
+      <div class="gc-score">
+        <p class="gc-pct">82<span>%</span></p>
+        <p class="gc-k">Probability of registration</p>
+        <span class="gc-verdict">✓ Good to apply</span>
+      </div>
+      <ul class="gc-legend" aria-label="Score zones">
+        <li><i style="background:#ef4444"></i>Below 50<br><b>Not advisable</b></li>
+        <li><i style="background:#f59e0b"></i>50 – 74<br><b>Apply with changes</b></li>
+        <li><i style="background:#16a34a"></i>75 and up<br><b>Good to apply</b></li>
+      </ul>
+      <ul class="gc-checks">
+        <li><span class="ok">✓</span>Identical marks<b>None found</b></li>
+        <li><span class="mid">!</span>Similar-sounding names<b>2 to review</b></li>
+        <li><span class="ok">✓</span>Conflicts in your class<b>Low risk</b></li>
+      </ul>
+      <figcaption id="gauge-cap">Every report scores your name from 0 to 100, so you know at a glance whether to file, tweak or rethink.</figcaption>
+    </figure>
   </div>
 </section>
 
@@ -634,8 +799,8 @@ body.modal-open{overflow:hidden}
 <section class="sec" id="report" aria-labelledby="report-title">
   <div class="wrap">
     <p class="eyebrow">Your free report</p>
-    <h2 id="report-title">What your trademark search report covers</h2>
-    <p class="intro">A brand name can be refused if it clashes with an existing mark, even one that only sounds similar. Your report shows these risks before you spend on branding or filing.</p>
+    <h2 id="report-title">Know before you apply</h2>
+    <p class="intro">Understand the search findings before moving ahead. Your report helps you review matching marks, relevant classes and potential issues that may need expert attention — before you spend on branding or filing.</p>
     <ul class="covers">
       <li><span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><div><h3>Identical marks</h3><p>Exact matches of your brand name already filed or registered in India.</p></div></li>
       <li><span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 11v2"/></svg></span><div><h3>Similar-sounding names</h3><p>Phonetic matches and spelling variants that the Registry treats as confusingly similar.</p></div></li>
@@ -670,11 +835,11 @@ body.modal-open{overflow:hidden}
   <div class="wrap">
     <div class="cta-band">
       <div>
-        <h2 id="cta-title">Name looks available? Protect it today.</h2>
-        <p>Trademark filing by Bizpole experts at ₹3,000 incl. GST + Govt. fee. Get your TM application number in 24–48 hours.</p>
+        <h2 id="cta-title">Secure your brand journey today.</h2>
+        <p>Start with a free search. Take the next step with informed guidance — trademark filing by Bizpole experts at ₹3,000 incl. GST + Govt. fee, with your TM application number in 24–48 hours.</p>
       </div>
       <div>
-        <a class="btn" href="#check" data-top>Check my brand name free</a>
+        <a class="btn" href="#check" data-top>Search your brand free</a>
         <a class="ghost" href="/trademark-registration">Trademark registration details →</a>
       </div>
     </div>
@@ -684,14 +849,14 @@ body.modal-open{overflow:hidden}
 <!-- ================= FAQ ================= -->
 <section class="sec sec-soft" id="faq" aria-labelledby="faq-title">
   <div class="wrap">
-    <div class="center"><p class="eyebrow">FAQs</p><h2 id="faq-title" style="margin-bottom:28px">Free trademark search: common questions</h2></div>
+    <div class="center"><p class="eyebrow">FAQs</p><h2 id="faq-title" style="margin-bottom:28px">Frequently asked questions</h2></div>
     <div class="faq">
-      <details><summary>Is the trademark search really free?</summary><p>Yes. The trademark search and the report are 100% free. No payment or card details are needed.</p></details>
-      <details><summary>How will I receive my trademark search report?</summary><p>Your report link is sent to the WhatsApp number you enter, usually within a minute. Open it to see the matching trademarks for your brand name.</p></details>
-      <details><summary>What does the trademark search check?</summary><p>We search the Indian trademark registry for identical marks, similar-sounding and similar-looking marks, and marks in the class that fits your business, and note the status of any conflicting marks.</p></details>
-      <details><summary>Does a clear search mean my trademark will be registered?</summary><p>No. The search is a preliminary check. Final registrability is decided by the Trade Marks Registry after examination, so a professional review is recommended before you file.</p></details>
+      <details><summary>Is the trademark search free?</summary><p>Yes. The trademark search and the report are 100% free. No payment or card details are needed.</p></details>
+      <details><summary>Does an available search result guarantee registration?</summary><p>No. A preliminary search is not a guarantee of registration. The result needs to be assessed in context, and the final decision rests with the Trade Marks Registry after examination.</p></details>
+      <details><summary>Can I search a logo as well as a brand name?</summary><p>Yes. Choose the Logo tab and upload your logo as a PNG or JPG (up to 2 MB). You can also search by owner name or trademark application number.</p></details>
+      <details><summary>What happens after I complete a search?</summary><p>Your report link is sent to the WhatsApp number you enter, usually within a minute. It shows your approval score, matching marks and their status, and a trademark expert can walk you through the findings and next steps.</p></details>
       <details><summary>Which trademark class should I choose?</summary><p>India follows the Nice Classification with 45 classes: 1–34 for goods and 35–45 for services. Tell us your business category and we will suggest the right class in your report.</p></details>
-      <details><summary>What should I do after the search?</summary><p>If your name looks available, file your trademark application early, because rights in India generally go to whoever files first. Bizpole can file it for you and you can use the ™ symbol once it is filed.</p></details>
+      <details><summary>Can Bizpole help with trademark registration?</summary><p>Yes. If your name looks available, Bizpole experts can file your trademark application for ₹3,000 incl. GST + Govt. fee, and you get your TM application number in 24–48 hours. File early, because rights in India generally go to whoever files first, and you can use the ™ symbol once it is filed.</p></details>
     </div>
   </div>
 </section>
@@ -730,12 +895,12 @@ body.modal-open{overflow:hidden}
         </ul>
       </nav>
     </div>
-    <p class="legal">© <span id="yr">2026</span> Bizpole. All rights reserved. Bizpole is a private business-services provider and is not affiliated with the Government of India or the Trade Marks Registry. The free search is preliminary and not legal advice.</p>
+    <p class="legal">© <span id="yr">2026</span> Bizpole. All rights reserved. Bizpole is a private business-services provider and is not affiliated with the Government of India or the Trade Marks Registry. The free search is preliminary and not legal advice; registration is subject to Registry examination.</p>
   </div>
 </footer>
 
 <div class="mbar" id="mbar" aria-hidden="true">
-  <a class="btn" href="#check" data-top tabindex="-1">Check my brand name free →</a>
+  <a class="btn" href="#check" data-top tabindex="-1">Search your brand free →</a>
 </div>
 
 <script>
@@ -743,19 +908,146 @@ body.modal-open{overflow:hidden}
   var $ = function (id) { return document.getElementById(id); };
   document.getElementById("yr").textContent = new Date().getFullYear();
 
+  // ---- "Brand names checked" counter: starts at 200 on 20 Nov 2026 (IST) and climbs
+  // 10-20 a day (fixed per date, spread across the day). Never shows a round number.
+  (function () {
+    var el = $("tm-count"); if (!el) return;
+    var DAY = 864e5, start = Date.UTC(2026, 10, 20) - 19800000; // midnight IST
+    var t = Date.now() - start, days = Math.max(0, Math.floor(t / DAY)), frac = t > 0 ? (t % DAY) / DAY : 0;
+    var inc = function (i) { return 10 + ((Math.imul(i + 7, 2654435761) >>> 0) % 11); };
+    var v = 200;
+    for (var i = 0; i < days; i++) v += inc(i);
+    v += Math.floor(inc(days) * frac);
+    if (v % 10 === 0) v += 1;
+    el.textContent = v.toLocaleString("en-IN");
+  })();
+
+  // ---- Sample score gauge: swing the needle in when the card scrolls into view ----
+  var gCard = document.querySelector(".gauge-card");
+  if (gCard) {
+    if ("IntersectionObserver" in window) {
+      var gObs = new IntersectionObserver(function (en) {
+        if (en[0].isIntersecting) { gCard.classList.add("on"); gObs.disconnect(); }
+      }, { threshold: 0.4 });
+      gObs.observe(gCard);
+    } else gCard.classList.add("on");
+  }
+
+  // ---- Site navbar: signed-in state + mobile menu ----
+  // (not named signedIn — that var would overwrite the signedIn() function below
+  //  and throw "signedIn is not a function", killing the search + popup script)
+  var navSignedIn = false;
+  try { navSignedIn = !!localStorage.getItem("token"); } catch (e) {}
+  if (navSignedIn) {
+    document.querySelectorAll('[data-auth="out"]').forEach(function (el) { el.hidden = true; });
+    document.querySelectorAll('[data-auth="in"]').forEach(function (el) { el.hidden = false; });
+  }
+  var navToggle = $("navToggle"), navMobile = $("navMobile"), navIcon = $("navToggleIcon");
+  navToggle.addEventListener("click", function () {
+    var open = navMobile.hidden;
+    navMobile.hidden = !open;
+    navToggle.setAttribute("aria-expanded", String(open));
+    navToggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+    navIcon.setAttribute("d", open ? "M6 6l12 12M18 6L6 18" : "M3 6h18M3 12h18M3 18h18");
+  });
+
   // ---- Ad attribution (shared key with /trademark-registration) ----
-  var keys = ["utm_source","utm_medium","utm_campaign","utm_content","utm_term","fbclid","gclid"];
+  // utm_* + click ids, plus the Meta ad dynamic parameters (see TRACKING note at
+  // the top of this file) — they land on the lead's Campaign / Ad set / Ad fields.
+  var keys = ["utm_source","utm_medium","utm_campaign","utm_content","utm_term","utm_id","fbclid","gclid",
+              "campaign_id","campaign_name","adset_id","adset_name","ad_id","ad_name","placement","site_source"];
   var qs = new URLSearchParams(location.search), attr = {};
   try { attr = JSON.parse(sessionStorage.getItem("tm_attr") || "{}"); } catch (e) {}
   keys.forEach(function (k) { if (qs.get(k)) attr[k] = qs.get(k); });
+  // Meta-ads page: every visitor here came from a Facebook/Instagram ad, so tag the
+  // lead as Meta even when the ad link has no fbclid/utm_source. Landing is re-stamped
+  // so the lead records this page, not an earlier one from the same tab.
+  if (!qs.get("utm_source")) attr.utm_source = "meta";
+  if (!qs.get("utm_medium") && !attr.utm_medium) attr.utm_medium = "paid-social";
+  attr.landing = location.href;
   if (!attr.landing) attr.landing = location.href;
   if (!attr.referrer && document.referrer) attr.referrer = document.referrer;
   try { sessionStorage.setItem("tm_attr", JSON.stringify(attr)); } catch (e) {}
+  // Same first-touch record the React site uses (src/utils/leadAttribution.js,
+  // localStorage "leadAttribution", 30 days) — so a visitor who goes on via the
+  // navbar and signs up / searches / books there is still sourced to this Meta ad.
+  try {
+    var LA = "leadAttribution", prev = JSON.parse(localStorage.getItem(LA) || "null");
+    if (!prev || Date.now() - prev.ts >= 30 * 864e5) {
+      var la = { landing: location.pathname.slice(0, 200), referrer: (document.referrer || "").slice(0, 200), ts: Date.now() };
+      keys.forEach(function (k) { if (attr[k]) la[k] = String(attr[k]).slice(0, 200); });
+      localStorage.setItem(LA, JSON.stringify(la));
+    }
+  } catch (e) {}
+
+  // ---- Tracking: GA4 + Meta Pixel (live bizpole.io only; local / test runs don't count) ----
+  // Every event carries the ad it came from, so GA reports and Meta Events Manager
+  // can be split by campaign / ad set / ad / placement.
+  var GA_ID = "G-PNZSLDSE7D";        // same GA4 property as the main site
+  var META_PIXEL_ID = "";             // ← Meta Events Manager › Data sources › Pixel ID
+  var LIVE = /(^|\.)bizpole\.io$/.test(location.hostname);
+  var adCtx = {
+    utm_source: attr.utm_source, utm_medium: attr.utm_medium, utm_campaign: attr.utm_campaign,
+    utm_content: attr.utm_content, utm_term: attr.utm_term,
+    campaign_id: attr.campaign_id || attr.utm_id, adset_id: attr.adset_id, ad_id: attr.ad_id,
+    placement: attr.placement, site_source: attr.site_source, page: "trademark-search-meta"
+  };
+  Object.keys(adCtx).forEach(function (k) { if (!adCtx[k]) delete adCtx[k]; });
+  window.dataLayer = window.dataLayer || [];
+  if (LIVE) {
+    var gs = document.createElement("script"); gs.async = true;
+    gs.src = "https://www.googletagmanager.com/gtag/js?id=" + GA_ID;
+    document.head.appendChild(gs);
+    window.gtag = function () { dataLayer.push(arguments); };
+    gtag("js", new Date());
+    gtag("config", GA_ID, { page_title: document.title, page_location: location.href });
+    if (META_PIXEL_ID) {
+      /* Meta Pixel base code */
+      !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version="2.0";n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,"script","https://connect.facebook.net/en_US/fbevents.js");
+      fbq("init", META_PIXEL_ID);
+      fbq("track", "PageView");
+    }
+  }
+  // track(gaEvent, params, metaEvent, metaIsStandard, eventId)
+  function track(name, params, metaName, metaStd, eventId) {
+    var p = Object.assign({}, adCtx, params || {});
+    dataLayer.push(Object.assign({ event: name }, p));
+    if (window.gtag && LIVE) gtag("event", name, p);
+    if (metaName && window.fbq) fbq(metaStd ? "track" : "trackCustom", metaName, p, eventId ? { eventID: eventId } : undefined);
+  }
+  track("tm_landing_view", { referrer: document.referrer || "" }, "TMLandingView");
+
+  // CTA / link clicks, labelled by the section they sit in
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest("a[href]");
+    if (!a) return;
+    var sec = a.closest("section[id], section[aria-labelledby], header, footer, .mbar, .modal");
+    var where = !sec ? "page" : sec.id || sec.getAttribute("aria-labelledby") || sec.className.split(" ")[0] || sec.tagName.toLowerCase();
+    track("cta_click", { cta_text: (a.textContent || "").replace(/\s+/g, " ").trim().slice(0, 60), cta_url: a.getAttribute("href"), cta_location: where });
+  }, true);
+  // FAQ opens
+  document.querySelectorAll(".faq details").forEach(function (d) {
+    d.addEventListener("toggle", function () { if (d.open) track("faq_open", { question: d.querySelector("summary").textContent.trim().slice(0, 100) }); });
+  });
+  // Scroll depth 25 / 50 / 75 / 100 %
+  (function () {
+    var marks = [25, 50, 75, 100], hit = {};
+    function onScroll() {
+      var h = document.documentElement.scrollHeight - window.innerHeight;
+      var pct = h > 0 ? Math.round(window.scrollY / h * 100) : 100;
+      marks.forEach(function (m) { if (pct >= m && !hit[m]) { hit[m] = 1; track("scroll_depth", { percent: m }, m === 75 ? "TMScroll75" : null); } });
+      if (hit[100]) window.removeEventListener("scroll", onScroll);
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+  })();
+  // Engaged visitor: still on the page after 30 s
+  setTimeout(function () { track("engaged_30s", {}, "TMEngaged30s"); }, 30000);
 
   // ---- API ----
   var isLocal = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   var ENV_API = "__VITE_API_BASE_URL__"; // replaced by vite with VITE_API_BASE_URL
-  var BASE = /^https?:\/\//.test(ENV_API) ? ENV_API : isLocal ? "http://localhost:3000" : "https://api.bizpole.io";
+  var BASE = /^https?:\/\//.test(ENV_API) ? ENV_API : ""; // .env only — no hardcoded host
+  if (!BASE) console.error("VITE_API_BASE_URL is not set in .env — API calls from this page will fail");
 
   // ---- Views ----
   // The search bar is on the page; the free-report steps (1 brand → 2 WhatsApp →
@@ -785,9 +1077,16 @@ body.modal-open{overflow:hidden}
     modal.querySelector(".sheet").scrollTop = 0;
     if (focusId) { var f = $(focusId); if (f) f.focus({ preventScroll: true }); }
   }
-  $("modal-x").addEventListener("click", closeModal);
-  modal.addEventListener("click", function (e) { if (e.target === modal) closeModal(); });
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
+  // Popup abandoned (X / backdrop / Esc) — which step they gave up on
+  function abandon(how) {
+    if (modal.hidden) return;
+    var step = !$("v1").hidden ? 1 : !$("v2").hidden ? 2 : 0;
+    closeModal();
+    if (step) track("tm_popup_close", { step: step, how: how }, "TMPopupClose");
+  }
+  $("modal-x").addEventListener("click", function () { abandon("x"); });
+  modal.addEventListener("click", function (e) { if (e.target === modal) abandon("backdrop"); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") abandon("esc"); });
   function fail(box, input, text) {
     box.textContent = text; box.classList.add("show");
     if (input) { input.setAttribute("aria-invalid", "true"); input.focus(); }
@@ -821,7 +1120,7 @@ body.modal-open{overflow:hidden}
     addlogo.hidden = type !== "WORD_MARK" || !!logo;
   }
   tabs.forEach(function (b) {
-    b.addEventListener("click", function () { type = b.dataset.type; err0.classList.remove("show"); paint(); if (type !== "IMAGE") q.focus(); });
+    b.addEventListener("click", function () { type = b.dataset.type; err0.classList.remove("show"); paint(); if (type !== "IMAGE") q.focus(); track("tm_search_type", { search_type: type }); });
   });
   narrow.addEventListener && narrow.addEventListener("change", paint);
   function pickLogo() { fileIn.click(); }
@@ -846,7 +1145,7 @@ body.modal-open{overflow:hidden}
     if (type === "IMAGE") { if (!logo) return fail(err0, null, "Choose your logo image (PNG or JPG) to search."); }
     else if (text.length < 2) return fail(err0, q, "Enter at least 2 characters to search.");
     var kind = type === "WORD_MARK" && logo ? "COMPOSITE" : type;
-    (window.dataLayer = window.dataLayer || []).push({ event: "trademark_search", search_type: kind });
+    track("trademark_search", { search_type: kind, trademark_class: cls || "all", signed_in: signedIn() }, "Search", true);
     // Signed-in customer: the live search in their dashboard — no popup.
     if (signedIn()) {
       var u = "/dashboard/bizpoleone/trademark-search?type=" + encodeURIComponent(type === "IMAGE" ? "IMAGE" : type);
@@ -861,6 +1160,7 @@ body.modal-open{overflow:hidden}
     f1.brand.value = type === "WORD_MARK" ? text : f1.brand.value;
     err1.classList.remove("show");
     show(1, f1.brand.value ? "m-title" : "f-brand");
+    track("tm_popup_open", { search_type: kind }, "TMPopupOpen");
   });
 
   // ---- Step 1 (popup) ----
@@ -874,7 +1174,7 @@ body.modal-open{overflow:hidden}
     data.brand = brand; data.category = f1.category.value.trim(); data.state = f1.state.value;
     $("s2-brand").textContent = brand;
     show(2, "s2-title");
-    (window.dataLayer = window.dataLayer || []).push({ event: "tm_search_step1", brand_length: brand.length });
+    track("tm_search_step1", { state: data.state, has_category: !!data.category }, "TMStep1Complete");
   });
   $("s2-edit").addEventListener("click", function () { show(1); f1.brand.focus(); f1.brand.select(); });
 
@@ -920,16 +1220,24 @@ body.modal-open{overflow:hidden}
     fd.append("attribution", JSON.stringify(a));
 
     btn2.disabled = true; txt2.textContent = "Sending your report…";
+    track("tm_report_submit", { search_type: s.type || "WORD_MARK", state: data.state }, "TMReportSubmit");
     fetch(BASE + "/api/trademark/whatsapp-report", { method: "POST", body: fd })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); })
       .then(function (res) {
-        if (res.j && res.j.limitReached) return fail(err2, null, "This number has used its 10 free searches. Sign in to see your saved reports, or talk to our trademark experts.");
-        if (!res.ok) return fail(err2, null, (res.j && res.j.message) || "Could not send your report right now. Please try again.");
+        if (res.j && res.j.limitReached) { track("tm_report_error", { reason: "limit_reached", status: res.status }); return fail(err2, null, "This number has used its 10 free searches. Sign in to see your saved reports, or talk to our trademark experts."); }
+        if (!res.ok) { track("tm_report_error", { reason: "server", status: res.status }); return fail(err2, null, (res.j && res.j.message) || "Could not send your report right now. Please try again."); }
         done(res.j.message || "Your Trademark Search Report has been sent to WhatsApp +91 " + m + ".", res.j, q);
-        (window.dataLayer = window.dataLayer || []).push({ event: "generate_lead", lead_source: "trademark_whatsapp", form: "trademark-search-lp", whatsapp_sent: res.j.whatsappSent !== false });
-        if (window.fbq) fbq("track", "Lead", { content_name: "Free Trademark Search" });
+        // reportUrl comes back only when this request created the customer (= a new CRM lead)
+        var isNew = !!res.j.reportUrl, score = res.j.assessment && res.j.assessment.probability;
+        var leadP = { lead_source: "trademark_whatsapp", form: "trademark-search-lp", search_type: s.type || "WORD_MARK", state: data.state,
+                      new_customer: isNew, whatsapp_sent: res.j.whatsappSent !== false, matches: (res.j.results && res.j.results.total) || 0,
+                      score: typeof score === "number" ? Math.round(score) : undefined, content_name: "Free Trademark Search", currency: "INR", value: 0 };
+        // Meta "Lead" (what the ads optimise for) only when a CRM lead was raised; an
+        // existing customer gets the report but no new lead → custom event instead.
+        if (isNew) track("generate_lead", leadP, "Lead", true, "tmlead-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8));
+        else track("tm_report_existing_customer", leadP, "TMExistingCustomer");
       })
-      .catch(function () { fail(err2, null, "Network error. Please check your connection and try again."); })
+      .catch(function () { track("tm_report_error", { reason: "network" }); fail(err2, null, "Network error. Please check your connection and try again."); })
       .finally(function () { btn2.disabled = false; txt2.textContent = "Send My Free Report on WhatsApp"; });
   });
 

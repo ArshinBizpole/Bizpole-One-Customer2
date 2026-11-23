@@ -7,7 +7,8 @@ import nodePath from 'node:path'
 // Static pages/scripts in public/ are copied as-is, so they can't read
 // import.meta.env. They carry this token instead; it is replaced with
 // VITE_API_BASE_URL from the .env (dev server) or the build environment
-// (vite build). Left unreplaced, each page falls back to its hostname rule.
+// (vite build). There is no hardcoded fallback host — if VITE_API_BASE_URL is
+// missing the pages log an error and their API calls fail (same as the React app).
 const API_TOKEN = '__VITE_API_BASE_URL__'
 const API_FILES = /\.(html|js)$/
 
@@ -66,7 +67,7 @@ const STATIC_PAGES = [
   '/private-limited-company-registration/apply',
   '/gst-registration',
   '/gst-registration/apply',
-  '/trademark-search',
+  '/trademark-search/meta', // Meta (FB/IG) ads copy — separate file, edited independently
   '/trademark-classes',
 ]
 

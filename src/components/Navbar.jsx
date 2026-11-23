@@ -31,6 +31,19 @@ export default function Navbar() {
     }
   }, [location.state]);
 
+  // Static landing pages (public/*.html) can't pass router state — they link to
+  // `/?signin=1` (or `?signup=1`) instead.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (!params.has("signin") && !params.has("signup")) return;
+    setSigninMode(params.has("signup") ? "signup" : "signin");
+    setShowSignin(true);
+    params.delete("signin");
+    params.delete("signup");
+    const qs = params.toString();
+    navigate({ pathname: location.pathname, search: qs ? `?${qs}` : "" }, { replace: true });
+  }, [location.search]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Token check — rechecked whenever a token is set/cleared, not just on mount,
   // since Navbar lives outside <Routes> and SPA navigation won't remount it.
   useEffect(() => {

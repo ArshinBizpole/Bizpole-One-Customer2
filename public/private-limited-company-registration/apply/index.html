@@ -341,7 +341,8 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
   // Website-lead API (public key by design: protection = CORS allowlist + per-IP limit + honeypot).
   var isLocal = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   var ENV_API = "__VITE_API_BASE_URL__"; // replaced by vite with VITE_API_BASE_URL
-  var BASE = /^https?:\/\//.test(ENV_API) ? ENV_API : isLocal ? "http://localhost:3000" : /^test/.test(location.hostname) ? "https://testapi.bizpole.io" : "https://api.bizpole.io";
+  var BASE = /^https?:\/\//.test(ENV_API) ? ENV_API : ""; // .env only — no hardcoded host
+  if (!BASE) console.error("VITE_API_BASE_URL is not set in .env — API calls from this page will fail");
   var API = BASE + "/lead-generation/website-lead";
   var API_KEY = "ad5c04dcf7248dc0fdc8efdf78f1c1f5b77da7a2aaefa926";
 

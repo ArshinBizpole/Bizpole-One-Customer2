@@ -5,8 +5,8 @@
       "rewrite": "/trademark-classes/index.html"
     },
     {
-      "route": "/trademark-search",
-      "rewrite": "/trademark-search/index.html"
+      "route": "/trademark-search/meta",
+      "rewrite": "/trademark-search/meta/index.html"
     },
     {
       "route": "/trademark-registration/apply",
@@ -41,7 +41,8 @@
       "/css/*",
       "/js/*",
       "/trademark-registration/*",
-      "/trademark-search/*",
+      "/trademark-search/meta/*",
+      "/trademark-search/img/*",
       "/trademark-classes/*",
       "/private-limited-company-registration/*",
       "/gst-registration/*",

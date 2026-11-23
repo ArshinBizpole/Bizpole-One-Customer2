@@ -8,7 +8,12 @@
 
 const KEY = "leadAttribution";
 const TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const PARAMS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "gclid"];
+// + Meta ad URL dynamic parameters ({{campaign.id}}, {{adset.id}}, {{ad.id}} …) —
+// the server puts them on the lead's Campaign / Ad set / Ad columns.
+const PARAMS = [
+  "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "utm_id", "fbclid", "gclid",
+  "campaign_id", "campaign_name", "adset_id", "adset_name", "ad_id", "ad_name", "placement", "site_source",
+];
 
 const read = () => {
   try {

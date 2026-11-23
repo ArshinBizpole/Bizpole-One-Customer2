@@ -14,10 +14,10 @@ import {
 } from "../api/TrademarkApi";
 import { NICE_CLASSES } from "../components/ExixistingCompany/existingCompanyData";
 import { LeadCaptureModal, requireVerifiedCustomer } from "../components/ExixistingCompany/FlowRunner";
-import { FiDatabase, FiZap, FiLock, FiDownload } from "react-icons/fi";
-import { HiOutlineShieldCheck } from "react-icons/hi";
+import { FiDownload } from "react-icons/fi";
 import TrademarkReport from "../components/Trademark/TrademarkReport";
 import TrademarkHeroArt from "../components/Trademark/TrademarkHeroArt";
+import TrademarkLandingSections from "../components/Trademark/TrademarkLandingSections";
 import ClassSelect from "../components/Trademark/ClassSelect";
 import HistoryMenu from "../components/Trademark/HistoryMenu";
 import WhatsAppReportModal from "../components/Trademark/WhatsAppReportModal";
@@ -49,12 +49,51 @@ const useIsPhone = () => {
   return isPhone;
 };
 
+// Highlight-card icons (same line icons as the static /trademark-search/meta page).
+const hlIcon = (children) => {
+  const Icon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {children}
+    </svg>
+  );
+  return Icon;
+};
+
 const HIGHLIGHTS = [
-  { icon: FiDatabase, title: "Official Database", text: "Data from Indian Trademark Registry" },
-  { icon: HiOutlineShieldCheck, title: "Up to date", text: "Latest trademark records" },
-  { icon: FiZap, title: "Fast & Accurate", text: "Get results in seconds" },
-  { icon: FiLock, title: "Trusted Information", text: "For reference only" },
+  {
+    icon: hlIcon(<><path d="M3 21l1.65-4.6A8.5 8.5 0 1 1 7.6 19.4z" /><path d="M9 10.5c.5 1.6 1.9 3 3.5 3.5l1.2-1.1 2 .9c-.2 1.3-1.2 2-2.4 1.8-2.9-.5-5.3-2.9-5.8-5.8-.2-1.2.5-2.2 1.8-2.4l.9 2z" /></>),
+    title: "Free report on WhatsApp",
+    text: "Saved in your chat, not lost in email",
+  },
+  {
+    icon: hlIcon(<><path d="M3.5 17a9 9 0 1 1 17 0" /><path d="M12 14l4-5" /><circle cx="12" cy="14" r="1.5" /></>),
+    title: "Approval score",
+    text: <>Your approval odds, <span className="whitespace-nowrap">0–100</span></>,
+  },
+  {
+    icon: hlIcon(<path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 11v2" />),
+    title: "Sound-alike check",
+    text: "Catches names that sound similar",
+  },
+  {
+    icon: hlIcon(<><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /><path d="M16.5 3.5l1.5 1.5 3-3" /></>),
+    title: "Next steps",
+    text: "What to fix before you file",
+  },
 ];
+
+// "Brand names checked" counter — same formula as the static page: starts at 200 on
+// 20 Nov 2026 (IST) and climbs 10–20 a day. NOTE: computed, not read from real searches.
+function brandsCheckedCount() {
+  const DAY = 864e5, start = Date.UTC(2026, 10, 20) - 19800000;
+  const t = Date.now() - start, days = Math.max(0, Math.floor(t / DAY)), frac = t > 0 ? (t % DAY) / DAY : 0;
+  const inc = (i) => 10 + ((Math.imul(i + 7, 2654435761) >>> 0) % 11);
+  let v = 200;
+  for (let i = 0; i < days; i++) v += inc(i);
+  v += Math.floor(inc(days) * frac);
+  if (v % 10 === 0) v += 1;
+  return v.toLocaleString("en-IN");
+}
 
 const LOGO_TYPES = ["image/png", "image/jpeg"];
 const LOGO_MAX_BYTES = 2 * 1024 * 1024;
@@ -535,15 +574,24 @@ export default function TrademarkSearch({ embedded = false }) {
               transition={{ duration: 0.6 }}
               className="flex flex-col"
             >
-              <div className="w-full lg:w-[62%] xl:w-[64%] text-center">
-                <h1 className="text-[40px] sm:text-[54px] lg:text-[58px] xl:text-[66px] font-extrabold text-[#0B0B0B] leading-[1.1] tracking-tight">
-                  Protect your <span className="text-[#FFC21A]">brand.</span>
+              <div className="w-full lg:w-[62%] xl:w-[64%] text-center lg:text-left">
+                <p className="inline-flex items-center gap-2 rounded-full border border-[#FDE9A8] bg-[#FFF6D6] py-1.5 pl-3 pr-4 text-[11px] sm:text-[12px] font-semibold uppercase tracking-[0.08em] text-[#9A5B06]">
+                  <span className="relative flex h-2.5 w-2.5" aria-hidden="true">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-60 motion-safe:animate-ping" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-600" />
+                  </span>
+                  <b className="text-[15px] sm:text-[16px] font-extrabold normal-case tracking-normal text-[#0B0B0B] tabular-nums">
+                    {brandsCheckedCount()}
+                  </b>
+                  brand names checked so far
+                </p>
+                <h1 className="mt-4 text-[40px] sm:text-[54px] lg:text-[58px] xl:text-[66px] font-extrabold text-[#0B0B0B] leading-[1.1] tracking-tight">
+                  Brand protection
                   <br />
-                  Start with a <span className="text-[#FFC21A]">search.</span>
+                  starts with a <span className="text-[#FFC21A]">search.</span>
                 </h1>
-                <p className="text-gray-600 text-[15px] md:text-[17px] leading-[26px] max-w-[660px] mx-auto mt-8 md:mt-[38px]">
-                  Check whether your brand name or logo is already registered or applied for before you file in India.
-                  Search by brand name, owner, application number or logo and narrow it down by class.
+                <p className="text-gray-600 text-[15px] md:text-[17px] leading-[26px] max-w-[660px] mx-auto lg:mx-0 mt-5 md:mt-6">
+                  One free search today can save you a costly rebrand tomorrow. Get your expert report instantly on WhatsApp.
                 </p>
               </div>
             </motion.div>
@@ -554,13 +602,13 @@ export default function TrademarkSearch({ embedded = false }) {
             {HIGHLIGHTS.map(({ icon: Icon, title, text }) => (
               <div
                 key={title}
-                className="flex items-center gap-3 xl:gap-4 bg-white rounded-2xl px-4 xl:px-6 min-h-[102px] py-4 shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-white"
+                className="flex flex-col items-start gap-3 bg-white rounded-2xl px-5 xl:px-6 py-5 shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-white"
               >
-                <span className="shrink-0 w-12 h-12 xl:w-14 xl:h-14 rounded-xl flex items-center justify-center text-[22px] xl:text-[24px] bg-[#FFF6D6] text-[#F5B400]">
+                <span className="shrink-0 w-12 h-12 rounded-xl flex items-center justify-center bg-[#FFF6D6] text-[#F5B400]">
                   <Icon />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-[16px] xl:text-[18px] font-semibold text-black">{title}</p>
+                  <p className="text-[16px] xl:text-[18px] font-semibold text-black leading-snug">{title}</p>
                   <p className="text-[13.5px] xl:text-[14.5px] text-gray-500 leading-snug mt-0.5">{text}</p>
                 </div>
               </div>
@@ -658,6 +706,7 @@ export default function TrademarkSearch({ embedded = false }) {
                 {/* md:flex-1 only — flex-1 in the phone column squashes the fixed height */}
                 <FaSearch className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
+                  id="tm-search-q"
                   type={type === "APPLICATION_NUMBER" ? "number" : "text"}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -1022,6 +1071,16 @@ export default function TrademarkSearch({ embedded = false }) {
           </div>
         )}
       </section>
+
+      {/* Landing content (How it works, report, why, CTA, FAQs) — public page only */}
+      {!embedded && (
+        <TrademarkLandingSections
+          onCheck={() => {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            setTimeout(() => document.getElementById("tm-search-q")?.focus({ preventScroll: true }), 450);
+          }}
+        />
+      )}
 
       {/* newco-theme recolours the modal's blue buttons to brand yellow, as in the
           Trademark Registration flow (NewCompanyFlow wraps FlowRunner the same way). */}
