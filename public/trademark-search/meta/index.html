@@ -100,9 +100,9 @@
       "mainEntity": [
         { "@type": "Question", "name": "Is the trademark search free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. The trademark search and the report are 100% free. No payment or card details are needed." } },
         { "@type": "Question", "name": "Does an available search result guarantee registration?", "acceptedAnswer": { "@type": "Answer", "text": "No. A preliminary search is not a guarantee of registration. The result needs to be assessed in context, and the final decision rests with the Trade Marks Registry after examination." } },
-        { "@type": "Question", "name": "Can I search a logo as well as a brand name?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Choose the Logo tab and upload your logo as a PNG or JPG (up to 2 MB). You can also search by owner name or trademark application number." } },
+        { "@type": "Question", "name": "Can I search a logo as well as a brand name?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Choose the Logo tab and upload your logo as a PNG or JPG (up to 2 MB). You can also add your logo to a brand-name search to check both together." } },
         { "@type": "Question", "name": "What happens after I complete a search?", "acceptedAnswer": { "@type": "Answer", "text": "Your report link is sent to the WhatsApp number you enter, usually within a minute. It shows your approval score, matching marks and their status, and a trademark expert can walk you through the findings and next steps." } },
-        { "@type": "Question", "name": "Which trademark class should I choose?", "acceptedAnswer": { "@type": "Answer", "text": "India follows the Nice Classification with 45 classes: 1–34 for goods and 35–45 for services. Tell us your business category and we will suggest the right class in your report." } },
+        { "@type": "Question", "name": "Which trademark class should I choose?", "acceptedAnswer": { "@type": "Answer", "text": "India follows the Nice Classification with 45 classes: 1–34 for goods and 35–45 for services. Not sure which one? Search all classes, and our trademark expert will help you pick the right class for your business." } },
         { "@type": "Question", "name": "Can Bizpole help with trademark registration?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. If your name looks available, Bizpole experts can file your trademark application for ₹3,000 incl. GST + Govt. fee, and you get your TM application number in 24–48 hours. File early, because rights in India generally go to whoever files first, and you can use the ™ symbol once it is filed." } }
       ]
     }
@@ -218,11 +218,9 @@ main > section:not(.hero), .site-footer{content-visibility:auto;contain-intrinsi
 .tab{flex:0 0 auto;height:36px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:#fff;font:500 .9rem var(--font);color:var(--ink-2);cursor:pointer}
 .tab:hover{border-color:var(--ink);color:var(--ink)}
 .tab[aria-selected="true"]{background:#111827;border-color:#111827;color:#fff}
-/* Phones: the 4 tabs share the row (no clipped/scrolling last tab) */
-@media (max-width:639px){.tabs{justify-content:flex-start;gap:5px}.tab{flex:1 1 auto;min-width:0;padding:0 8px;font-size:.84rem;white-space:nowrap}}
-.tab .t-short{display:none}
+/* Campaign page: only Brand name + Logo tabs. Phones: left-aligned with the hero */
+@media (max-width:639px){.tabs{justify-content:flex-start}}
 @media (max-width:379px){.badge.live{letter-spacing:.03em;font-size:.66rem;padding:6px 12px 6px 10px;white-space:nowrap}}
-@media (max-width:379px){.tab .t-long{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.tab .t-short{display:inline}.tabs{gap:4px}.tab{padding:0 6px;font-size:.8rem;height:34px}}
 .srow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px}
 .sbox{grid-column:1/-1;display:flex;align-items:center;gap:10px;min-width:0;height:56px;padding:0 8px 0 16px;background:#fff;border:1.5px solid var(--line-2);border-radius:14px;box-shadow:0 2px 10px rgba(15,23,42,.05);transition:border-color .15s,box-shadow .15s}
 .sbox:focus-within{border-color:#f5b301;box-shadow:0 0 0 4px rgba(252,196,25,.3)}
@@ -320,7 +318,13 @@ main > section:not(.hero), .site-footer{content-visibility:auto;contain-intrinsi
 .brandbox{display:flex;align-items:center;gap:14px;background:#fff6d6;border-radius:16px;padding:14px 16px;margin:6px 0 18px}
 .brandbox .ck{flex:0 0 40px;height:40px;border-radius:50%;background:#22c55e;display:grid;place-items:center}
 .brandbox .bx{flex:1;min-width:0;border-left:1.5px solid #e9d9a3;padding-left:14px}
-.brandbox small{display:block;font-size:.85rem;color:var(--ink-2)}
+.brandbox small,.brandbox label{display:block;font-size:.85rem;color:var(--ink-2)}
+/* Edit (or no name yet, e.g. a logo search): the brand name becomes an input in the box */
+.bb-inp{display:none;width:100%;height:42px;margin-top:4px;padding:0 12px;font:700 1.05rem var(--font);color:var(--ink);background:#fff;border:1.5px solid #e9d9a3;border-radius:10px}
+.bb-inp:focus{outline:none;border-color:#f5b301;box-shadow:0 0 0 3px rgba(252,196,25,.3)}
+.bb-inp[aria-invalid="true"]{border-color:var(--err)}
+.brandbox.editing strong,.brandbox.editing button{display:none}
+.brandbox.editing .bb-inp{display:block}
 .brandbox strong{display:block;font-size:1.15rem;color:var(--ink);font-weight:700;overflow-wrap:anywhere;line-height:1.3}
 .brandbox button{background:none;border:0;font:600 .85rem var(--font);color:var(--brand-d);cursor:pointer;padding:6px;min-height:40px}
 .grp{display:flex;align-items:center;height:56px;border:1.5px solid var(--line-2);border-radius:999px;background:#fff;transition:border-color .15s,box-shadow .15s;overflow:hidden}
@@ -350,7 +354,12 @@ main > section:not(.hero), .site-footer{content-visibility:auto;contain-intrinsi
 .modal.open .sheet{transform:none}
 .sheet .card{border:0;box-shadow:none;padding:16px 18px calc(22px + env(safe-area-inset-bottom))}
 .sheet .stepbar{padding-right:40px}
-.m-copy{display:none}
+/* "Your free report is almost ready!" block: centred above the form on phones/tablets, left column on desktop */
+.m-copy{text-align:center;padding:26px 46px 0}
+.m-h{margin:0 0 6px;font-size:clamp(1.45rem,6.2vw,1.9rem);font-weight:700;line-height:1.25;color:var(--ink)}
+.m-h mark{display:inline-block;background:var(--brand);color:var(--ink);border-radius:999px;padding:0 .4em;margin-top:4px}
+.m-lede{color:var(--ink-2);font-size:1rem}
+.m-art{width:min(170px,48%);margin:8px auto 0}
 .x{position:absolute;top:6px;right:6px;z-index:2;width:44px;height:44px;border:0;border-radius:50%;background:none;color:var(--ink-2);font-size:1.8rem;line-height:1;cursor:pointer}
 .x:hover{background:#f1f5f9}
 @media (max-width:599px){.sheet{max-height:calc(100% - 24px)}}
@@ -358,11 +367,11 @@ main > section:not(.hero), .site-footer{content-visibility:auto;contain-intrinsi
 @media (min-width:960px){
   .sheet{max-width:1040px;display:grid;grid-template-columns:1fr 470px;gap:28px;align-items:center;padding:36px 36px 36px 44px;background:#fff}
   .sheet .card{border:1px solid var(--line);box-shadow:0 18px 50px rgba(15,23,42,.08);padding:28px 32px 30px}
-  .m-copy{display:block}
-  .m-h{margin:14px 0 10px;font-size:2.6rem;font-weight:700;line-height:1.1;letter-spacing:-.03em;color:var(--ink)}
-  .m-h span{display:block;color:#f5b301}
+  .m-copy{text-align:left;padding:0}
+  .m-h{margin:0 0 12px;font-size:2.6rem;line-height:1.15;letter-spacing:-.03em}
+  .m-h mark{margin-top:6px}
   .m-lede{font-size:1.1rem;color:var(--muted);max-width:440px}
-  .m-art{width:100%;max-width:440px;margin-top:20px}
+  .m-art{width:100%;max-width:400px;margin:22px 0 0}
   .x{top:10px;right:10px}
   .sheet .stepbar{padding-right:0}
 }
@@ -484,7 +493,41 @@ body.modal-open{overflow:hidden}
 
 /* ===== Campaign mode (/trademark-search/<campaign>) — full site navbar (same as general page); footer trimmed ===== */
 .campaign .site-footer nav[aria-label="Services"],.campaign .site-footer nav[aria-label="Company"]{display:none!important}
+/* Translated page (?lang=…): Indic scripts break with letter-spacing and need taller lines; Urdu is RTL */
+html.i18n *{letter-spacing:normal!important}
+html.i18n h1,html.i18n h2,html.i18n h3{line-height:1.35}
+html.i18n body{line-height:1.7}
+html[dir="rtl"] .hero-copy,html[dir="rtl"] .res{text-align:right}
 </style>
+
+<!-- ============ LANGUAGE ============
+  ?lang=hi|bn|te|mr|ta|gu|kn|ml|or|pa|as|ur shows the page in that language (kept for
+  the tab; ?lang=en switches back). Translations: /trademark-search/meta/i18n/<lang>.js,
+  made with Qwen by scripts/translate-tm-meta.mjs (re-run it after changing any copy).
+  I18N_V is bumped by that script so browsers fetch the new files. -->
+<script>
+(function () {
+  var I18N_V = "2a0d8a15";
+  var FONTS = { hi: "Noto+Sans+Devanagari", mr: "Noto+Sans+Devanagari", bn: "Noto+Sans+Bengali", as: "Noto+Sans+Bengali",
+    te: "Noto+Sans+Telugu", ta: "Noto+Sans+Tamil", gu: "Noto+Sans+Gujarati", kn: "Noto+Sans+Kannada",
+    ml: "Noto+Sans+Malayalam", or: "Noto+Sans+Oriya", pa: "Noto+Sans+Gurmukhi", ur: "Noto+Naskh+Arabic" };
+  var l = "";
+  try {
+    var p = (new URLSearchParams(location.search).get("lang") || "").toLowerCase().slice(0, 2);
+    if (p === "en") sessionStorage.removeItem("tm_lang");
+    else if (FONTS[p]) sessionStorage.setItem("tm_lang", p);
+    l = p === "en" ? "" : FONTS[p] ? p : sessionStorage.getItem("tm_lang") || "";
+  } catch (e) {}
+  if (!FONTS[l]) return;
+  var h = document.documentElement;
+  h.lang = l + "-IN"; h.classList.add("i18n"); if (l === "ur") h.dir = "rtl";
+  h.style.setProperty("--font", '"Poppins","' + FONTS[l].replace(/\+/g, " ") + '","Poppins Fallback",system-ui,sans-serif');
+  document.write(
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=' + FONTS[l] + ':wght@400;600;700&display=swap">' +
+    '<script src="/trademark-search/meta/i18n/i18n.js?v=' + I18N_V + '"><\/script>' +
+    '<script src="/trademark-search/meta/i18n/' + l + '.js?v=' + I18N_V + '"><\/script>');
+})();
+</script>
 </head>
 <body>
 
@@ -575,8 +618,6 @@ body.modal-open{overflow:hidden}
     <form class="search" id="check" novalidate>
       <div class="tabs" role="tablist" aria-label="Search by">
         <button type="button" class="tab" role="tab" aria-selected="true" data-type="WORD_MARK" data-ph="Enter your brand name (e.g. Bizpole)" data-ph-s="Enter your brand name">Brand name</button>
-        <button type="button" class="tab" role="tab" aria-selected="false" data-type="PROPRIETOR_NAME" data-ph="e.g. Bizpole India Pvt Ltd">Owner</button>
-        <button type="button" class="tab" role="tab" aria-selected="false" data-type="APPLICATION_NUMBER" data-ph="e.g. 5123456"><span class="t-long">Application no.</span><span class="t-short" aria-hidden="true">App. no.</span></button>
         <button type="button" class="tab" role="tab" aria-selected="false" data-type="IMAGE">Logo</button>
       </div>
       <div class="srow">
@@ -636,35 +677,58 @@ body.modal-open{overflow:hidden}
 <div class="modal" id="tm-modal" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="m-title">
     <button type="button" class="x" id="modal-x" aria-label="Close">&times;</button>
+    <!-- Heading + art: left column on desktop, compact block above the form on phones -->
     <div class="m-copy">
-      <p class="badge">Free trademark search</p>
-      <p class="m-h">Check your brand name. <span>Get a free report.</span></p>
-      <p class="m-lede">Find out whether your brand name may be available for trademark registration.</p>
-      <img class="m-art" src="/trademark-search/img/tm-report-800.webp" srcset="/trademark-search/img/tm-report-480.webp 480w, /trademark-search/img/tm-report-800.webp 800w" sizes="400px" width="800" height="440" loading="lazy" decoding="async" alt="">
+      <h2 tabindex="-1" id="m-title" class="m-h">Your free report is <mark>almost ready!</mark></h2>
+      <p class="m-lede">Where should we send your trademark search report?</p>
+      <img class="m-art" src="/trademark-search/img/tm-ready-400.webp" srcset="/trademark-search/img/tm-ready-400.webp 400w, /trademark-search/img/tm-ready-700.webp 700w" sizes="(min-width:960px) 400px, 170px" width="400" height="252" alt="" loading="lazy" decoding="async">
     </div>
     <div class="card">
-      <div class="stepbar"><b id="step-label">Step 1 of 2</b><span class="bar" aria-hidden="true"><i id="step-fill"></i></span></div>
-
-      <!-- Step 1: brand (prefilled from the search) -->
-      <div id="v1">
-        <h2 tabindex="-1" id="m-title">What name would you like to check?</h2>
-        <div class="err" id="err1" role="alert"></div>
-        <form id="f1" novalidate>
+      <!-- Single page: brand (prefilled from the search, editable in place) + category + state + WhatsApp + name -->
+      <div id="v2">
+        <div class="brandbox" id="brandbox">
+          <span class="ck" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <span class="bx">
+            <label for="f-brand">Your brand name:</label>
+            <strong id="s2-brand"></strong>
+            <input class="bb-inp" id="f-brand" name="brand" type="text" maxlength="100" autocomplete="organization" autocapitalize="words" enterkeyhint="next" placeholder="eg. AURA, NOVA, ZENVIA" form="f2">
+          </span>
+          <button type="button" id="s2-edit" aria-label="Edit brand name">Edit</button>
+        </div>
+        <div class="err" id="err2" role="alert"></div>
+        <form id="f2" novalidate>
           <div class="field">
-            <label for="f-brand">Brand name</label>
-            <input class="inp" id="f-brand" name="brand" type="text" required maxlength="100" autocomplete="organization" autocapitalize="words" enterkeyhint="next" placeholder="eg. AURA, NOVA, ZENVIA">
+            <label for="f-cat">Business type <small>(optional)</small></label>
+            <!-- Full list of business constitutions (static). CRM names are kept exact for the types the CRM has. -->
+            <select id="f-cat" name="constitution">
+                <option value="">Select business type</option>
+                <option>Not registered yet</option>
+                <option>Individual</option>
+                <option>Proprietorship</option>
+                <option>Partnership</option>
+                <option>LLP</option>
+                <option>Private Limited Company</option>
+                <option>OPC (One Person Company)</option>
+                <option>Public Limited Company</option>
+                <option>Section 8 Company</option>
+                <option>Nidhi Company</option>
+                <option>Farmer Producer Company</option>
+                <option>Trust</option>
+                <option>Society</option>
+                <option>Co-operative Society</option>
+                <option>Hindu Undivided Family (HUF)</option>
+                <option>Association of Persons (AOP)</option>
+                <option>Body of Individuals (BOI)</option>
+                <option>Foreign Company</option>
+                <option>Government Department</option>
+                <option>Public Sector Undertaking</option>
+                <option>Local Authority</option>
+                <option>Statutory Body</option>
+                <option>Others</option>
+              </select>
           </div>
           <div class="field">
-            <label for="f-cat">Business category <small>(optional)</small></label>
-            <input class="inp" id="f-cat" name="category" type="text" maxlength="100" list="cat-list" placeholder="eg. Clothing, Food, Tech">
-            <datalist id="cat-list">
-                <option value="Clothing &amp; Fashion"><option value="Food &amp; Beverages"><option value="Restaurant / Cafe"><option value="Technology / Software">
-                <option value="Cosmetics &amp; Beauty"><option value="Health &amp; Pharma"><option value="Education &amp; Training"><option value="Jewellery">
-                <option value="Furniture &amp; Home"><option value="Real Estate &amp; Construction"><option value="Consulting &amp; Services"><option value="E-commerce / Retail">
-              </datalist>
-          </div>
-          <div class="field">
-            <label for="f-state">Your state</label>
+            <label for="f-state">Your state <span class="req" aria-hidden="true">*</span></label>
             <select id="f-state" name="state" required autocomplete="address-level1">
                 <option value="" disabled selected>Select state</option>
                 <option>Andhra Pradesh</option><option>Arunachal Pradesh</option><option>Assam</option><option>Bihar</option>
@@ -679,26 +743,6 @@ body.modal-open{overflow:hidden}
                 <option>Jammu and Kashmir</option><option>Ladakh</option><option>Lakshadweep</option><option>Puducherry</option>
               </select>
           </div>
-          <button class="btn" type="submit">Continue to free report
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
-          </button>
-        </form>
-      </div>
-
-      <!-- Step 2: where to send -->
-      <div id="v2" hidden>
-        <div class="s2-head">
-          <h2 tabindex="-1" id="s2-title">Your free report is <mark>almost ready!</mark></h2>
-          <p>Where should we send your trademark search report?</p>
-          <div class="s2-art"><img src="/trademark-search/img/tm-ready-400.webp" srcset="/trademark-search/img/tm-ready-400.webp 400w, /trademark-search/img/tm-ready-700.webp 700w" sizes="220px" width="400" height="252" alt="" loading="lazy" decoding="async"></div>
-        </div>
-        <div class="brandbox">
-          <span class="ck" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-          <span class="bx"><small>Your brand name:</small><strong id="s2-brand">Your Brand Name</strong></span>
-          <button type="button" id="s2-edit" aria-label="Edit brand name">Edit</button>
-        </div>
-        <div class="err" id="err2" role="alert"></div>
-        <form id="f2" novalidate>
           <div class="field">
             <label for="f-mobile">Your WhatsApp number <span class="req" aria-hidden="true">*</span></label>
             <div class="grp">
@@ -751,7 +795,7 @@ body.modal-open{overflow:hidden}
       <h2 id="how-title">From search to registration</h2>
       <p class="intro">A simple, guided process to help you make informed decisions about your brand. Find out if you can register your name <b>before</b> you spend money on it. No sign-up, no payment.</p>
       <ol class="steps steps-v">
-        <li><h3>Search</h3><p>Check a brand name, logo or application number. Add your business category and we search the class that protects you.</p></li>
+        <li><h3>Search</h3><p>Check your brand name or logo. Pick a class if you know it, or search all classes.</p></li>
         <li><h3>Analyse</h3><p>Your report arrives on WhatsApp with your approval score, matching marks, classes and their status.</p></li>
         <li><h3>Consult</h3><p>Discuss your findings and next steps with a trademark expert.</p></li>
         <li><h3>Register</h3><p>Get guided assistance with the filing process once the name looks clear.</p></li>
@@ -853,9 +897,9 @@ body.modal-open{overflow:hidden}
     <div class="faq">
       <details><summary>Is the trademark search free?</summary><p>Yes. The trademark search and the report are 100% free. No payment or card details are needed.</p></details>
       <details><summary>Does an available search result guarantee registration?</summary><p>No. A preliminary search is not a guarantee of registration. The result needs to be assessed in context, and the final decision rests with the Trade Marks Registry after examination.</p></details>
-      <details><summary>Can I search a logo as well as a brand name?</summary><p>Yes. Choose the Logo tab and upload your logo as a PNG or JPG (up to 2 MB). You can also search by owner name or trademark application number.</p></details>
+      <details><summary>Can I search a logo as well as a brand name?</summary><p>Yes. Choose the Logo tab and upload your logo as a PNG or JPG (up to 2 MB). You can also add your logo to a brand-name search to check both together.</p></details>
       <details><summary>What happens after I complete a search?</summary><p>Your report link is sent to the WhatsApp number you enter, usually within a minute. It shows your approval score, matching marks and their status, and a trademark expert can walk you through the findings and next steps.</p></details>
-      <details><summary>Which trademark class should I choose?</summary><p>India follows the Nice Classification with 45 classes: 1–34 for goods and 35–45 for services. Tell us your business category and we will suggest the right class in your report.</p></details>
+      <details><summary>Which trademark class should I choose?</summary><p>India follows the Nice Classification with 45 classes: 1–34 for goods and 35–45 for services. Not sure which one? Search all classes, and our trademark expert will help you pick the right class for your business.</p></details>
       <details><summary>Can Bizpole help with trademark registration?</summary><p>Yes. If your name looks available, Bizpole experts can file your trademark application for ₹3,000 incl. GST + Govt. fee, and you get your TM application number in 24–48 hours. File early, because rights in India generally go to whoever files first, and you can use the ™ symbol once it is filed.</p></details>
     </div>
   </div>
@@ -906,6 +950,24 @@ body.modal-open{overflow:hidden}
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
+
+  // ---- Language (?lang=…): translate the page first, then t() for strings built below ----
+  var I18N = window.TMI18N && window.TM_I18N_DICT ? window.TMI18N : null;
+  if (I18N) I18N.apply(document);
+  var LANG = I18N ? I18N.lang : "en";
+  function t(s, v) {
+    if (I18N) return I18N.t(s, v);
+    return v ? s.replace(/\{(\w+)\}/g, function (m, k) { return k in v ? v[k] : m; }) : s;
+  }
+  var tr = t; // for blocks where a local variable is named t
+  // Server messages the page may show — listed so the translate script picks them up.
+  var I18N_EXTRA = [
+    "Please enter your name", "Please enter a valid 10-digit mobile number", "Please select your state",
+    "Too many requests — please wait a few minutes and try again", "Trademark search is not available right now",
+    "Enter a brand name (2–100 characters)", "Enter a search term (2–100 characters)", "Upload your logo as a PNG or JPG image",
+    "Classes must be between 1 and 45"
+  ];
+
   document.getElementById("yr").textContent = new Date().getFullYear();
 
   // ---- "Brand names checked" counter: starts at 200 on 20 Nov 2026 (IST) and climbs
@@ -947,7 +1009,7 @@ body.modal-open{overflow:hidden}
     var open = navMobile.hidden;
     navMobile.hidden = !open;
     navToggle.setAttribute("aria-expanded", String(open));
-    navToggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+    navToggle.setAttribute("aria-label", open ? t("Close menu") : t("Open menu"));
     navIcon.setAttribute("d", open ? "M6 6l12 12M18 6L6 18" : "M3 6h18M3 12h18M3 18h18");
   });
 
@@ -990,7 +1052,7 @@ body.modal-open{overflow:hidden}
     utm_source: attr.utm_source, utm_medium: attr.utm_medium, utm_campaign: attr.utm_campaign,
     utm_content: attr.utm_content, utm_term: attr.utm_term,
     campaign_id: attr.campaign_id || attr.utm_id, adset_id: attr.adset_id, ad_id: attr.ad_id,
-    placement: attr.placement, site_source: attr.site_source, page: "trademark-search-meta"
+    placement: attr.placement, site_source: attr.site_source, page: "trademark-search-meta", lang: LANG
   };
   Object.keys(adCtx).forEach(function (k) { if (!adCtx[k]) delete adCtx[k]; });
   window.dataLayer = window.dataLayer || [];
@@ -1052,8 +1114,9 @@ body.modal-open{overflow:hidden}
   // ---- Views ----
   // The search bar is on the page; the free-report steps (1 brand → 2 WhatsApp →
   // done) live in a popup that Search opens for visitors not signed in.
-  var card = $("check"), modal = $("tm-modal"), views = [$("v1"), $("v2"), null, $("v4")];
-  var label = $("step-label"), fill = $("step-fill"), lastFocus = null, timer = null;
+  // Single-page popup (#v2): brand box + category + state + WhatsApp + name in form #f2.
+  var card = $("check"), modal = $("tm-modal"), views = [null, $("v2"), null, $("v4")];
+  var lastFocus = null, timer = null;
   function signedIn() { try { return !!localStorage.getItem("token"); } catch (x) { return false; } }
   function openModal() {
     if (!modal.hidden) return;
@@ -1071,8 +1134,6 @@ body.modal-open{overflow:hidden}
   }
   function show(n, focusId) {
     views.forEach(function (v, i) { if (v) v.hidden = i !== n - 1; });
-    label.textContent = n === 1 ? "Step 1 of 2" : n === 4 ? "Done" : "Step 2 of 2";
-    fill.style.width = n === 1 ? "50%" : "100%";
     openModal();
     modal.querySelector(".sheet").scrollTop = 0;
     if (focusId) { var f = $(focusId); if (f) f.focus({ preventScroll: true }); }
@@ -1080,7 +1141,7 @@ body.modal-open{overflow:hidden}
   // Popup abandoned (X / backdrop / Esc) — which step they gave up on
   function abandon(how) {
     if (modal.hidden) return;
-    var step = !$("v1").hidden ? 1 : !$("v2").hidden ? 2 : 0;
+    var step = !$("v2").hidden ? 1 : 0;
     closeModal();
     if (step) track("tm_popup_close", { step: step, how: how }, "TMPopupClose");
   }
@@ -1129,8 +1190,8 @@ body.modal-open{overflow:hidden}
   fileIn.addEventListener("change", function () {
     var f = fileIn.files && fileIn.files[0];
     if (!f) return;
-    if (!/^image\/(png|jpeg)$/.test(f.type)) { fileIn.value = ""; return fail(err0, null, "Choose your logo as a PNG or JPG image."); }
-    if (f.size > 2 * 1024 * 1024) { fileIn.value = ""; return fail(err0, null, "Logo must be 2 MB or smaller."); }
+    if (!/^image\/(png|jpeg)$/.test(f.type)) { fileIn.value = ""; return fail(err0, null, t("Choose your logo as a PNG or JPG image.")); }
+    if (f.size > 2 * 1024 * 1024) { fileIn.value = ""; return fail(err0, null, t("Logo must be 2 MB or smaller.")); }
     logo = { name: f.name, file: f };
     $("chip-name").textContent = f.name;
     $("chip-img").src = URL.createObjectURL(f);
@@ -1142,41 +1203,38 @@ body.modal-open{overflow:hidden}
   card.addEventListener("submit", function (e) {
     e.preventDefault();
     var text = q.value.replace(/\s+/g, " ").trim(), cls = $("cls").value;
-    if (type === "IMAGE") { if (!logo) return fail(err0, null, "Choose your logo image (PNG or JPG) to search."); }
-    else if (text.length < 2) return fail(err0, q, "Enter at least 2 characters to search.");
+    if (type === "IMAGE") { if (!logo) return fail(err0, null, t("Choose your logo image (PNG or JPG) to search.")); }
+    else if (text.length < 2) return fail(err0, q, t("Enter at least 2 characters to search."));
     var kind = type === "WORD_MARK" && logo ? "COMPOSITE" : type;
     track("trademark_search", { search_type: kind, trademark_class: cls || "all", signed_in: signedIn() }, "Search", true);
-    // Signed-in customer: the live search in their dashboard — no popup.
-    if (signedIn()) {
-      var u = "/dashboard/bizpoleone/trademark-search?type=" + encodeURIComponent(type === "IMAGE" ? "IMAGE" : type);
-      if (text && type !== "IMAGE") u += "&q=" + encodeURIComponent(text);
-      if (cls) u += "&class=" + cls;
-      // One-time flag: the dashboard auto-runs only searches sent from here.
-      if (text && type !== "IMAGE") { try { sessionStorage.setItem("tm_autorun", String(text).trim().slice(0, 100)); } catch (x) {} }
-      location.href = u; return;
-    }
+    // Campaign page: every visitor (signed in or not) gets the free-report popup —
+    // no redirect to the dashboard search (the general /trademark-search does that).
     data.search = { type: kind, q: type === "IMAGE" ? "" : text, cls: cls, file: (type === "IMAGE" || type === "WORD_MARK") && logo ? logo.file : null };
     // The popup's brand name starts as what they searched (brand-name searches).
-    f1.brand.value = type === "WORD_MARK" ? text : f1.brand.value;
-    err1.classList.remove("show");
-    show(1, f1.brand.value ? "m-title" : "f-brand");
+    if (type === "WORD_MARK") setBrand(text);
+    else if (!brandIn.value.trim()) brandBox.classList.add("editing"); // logo search: type the name in the box
+    err2.classList.remove("show");
+    // Focus the heading (keeps the phone keyboard closed) unless the name is still needed.
+    show(2, !brandIn.value.trim() ? "f-brand" : "m-title");
     track("tm_popup_open", { search_type: kind }, "TMPopupOpen");
   });
 
-  // ---- Step 1 (popup) ----
-  var f1 = $("f1"), err1 = $("err1");
-  clearOn(f1, err1);
-  f1.addEventListener("submit", function (e) {
-    e.preventDefault();
-    var brand = f1.brand.value.replace(/\s+/g, " ").trim();
-    if (brand.length < 2) return fail(err1, f1.brand, "Please enter the brand name you want to check.");
-    if (!f1.state.value) return fail(err1, f1.state, "Please select your state.");
-    data.brand = brand; data.category = f1.category.value.trim(); data.state = f1.state.value;
-    $("s2-brand").textContent = brand;
-    show(2, "s2-title");
-    track("tm_search_step1", { state: data.state, has_category: !!data.category }, "TMStep1Complete");
-  });
-  $("s2-edit").addEventListener("click", function () { show(1); f1.brand.focus(); f1.brand.select(); });
+
+  // ---- Brand box: shows the searched name; Edit (or no name yet) turns it into an input ----
+  var brandBox = $("brandbox"), brandIn = $("f-brand"), brandTxt = $("s2-brand");
+  function setBrand(v) {
+    v = String(v || "").replace(/\s+/g, " ").trim();
+    brandIn.value = v; brandTxt.textContent = v;
+    brandBox.classList.toggle("editing", v.length < 2);
+  }
+  function commitBrand() {
+    var v = brandIn.value.replace(/\s+/g, " ").trim();
+    if (v.length >= 2) { brandTxt.textContent = v; brandBox.classList.remove("editing"); }
+  }
+  $("s2-edit").addEventListener("click", function () { brandBox.classList.add("editing"); brandIn.focus(); brandIn.select(); track("tm_brand_edit", {}); });
+  brandIn.addEventListener("blur", commitBrand);
+  brandIn.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); commitBrand(); $("f-cat").focus(); } });
+  brandIn.addEventListener("input", function () { brandIn.removeAttribute("aria-invalid"); err2.classList.remove("show"); });
 
   // ---- Step 2: name + WhatsApp → run the search and send the report ----
   // Same endpoint the old React search page used for signed-out visitors:
@@ -1197,18 +1255,25 @@ body.modal-open{overflow:hidden}
     e.preventDefault();
     if (btn2.disabled) return;
     var m = mob.value.trim(), name = f2.name.value.replace(/\s+/g, " ").trim();
-    if (!/^[6-9]\d{9}$/.test(m)) { mob.closest(".grp").setAttribute("aria-invalid", "true"); return fail(err2, mob, "Please enter a valid 10-digit WhatsApp number."); }
+    var brand = brandIn.value.replace(/\s+/g, " ").trim();
+    if (brand.length < 2) { brandBox.classList.add("editing"); return fail(err2, brandIn, t("Please enter the brand name you want to check.")); }
+    if (!f2.state.value) return fail(err2, f2.state, t("Please select your state."));
+    commitBrand();
+    data.brand = brand; data.constitution = f2.constitution.value; data.state = f2.state.value;
+    if (!/^[6-9]\d{9}$/.test(m)) { mob.closest(".grp").setAttribute("aria-invalid", "true"); return fail(err2, mob, t("Please enter a valid 10-digit WhatsApp number.")); }
     mob.closest(".grp").removeAttribute("aria-invalid");
-    if (name.length < 2) { f2.name.closest(".grp").setAttribute("aria-invalid", "true"); return fail(err2, f2.name, "Please enter your name."); }
-    if (!/^[A-Za-z][A-Za-z .']*$/.test(name)) { f2.name.closest(".grp").setAttribute("aria-invalid", "true"); return fail(err2, f2.name, "Name can contain only letters, spaces, dots and apostrophes."); }
+    if (name.length < 2) { f2.name.closest(".grp").setAttribute("aria-invalid", "true"); return fail(err2, f2.name, t("Please enter your name.")); }
+    // Letters in any script (translated pages: names typed in Hindi, Tamil, Urdu…); \p{M} = Indic vowel signs
+    if (!/^\p{L}[\p{L}\p{M} .']*$/u.test(name)) { f2.name.closest(".grp").setAttribute("aria-invalid", "true"); return fail(err2, f2.name, t("Name can contain only letters, spaces, dots and apostrophes.")); }
     f2.name.closest(".grp").removeAttribute("aria-invalid");
     data.mobile = m; data.name = name;
-    if (f2.company_website.value) { done("Your Trademark Search Report has been sent to WhatsApp +91 " + m + "."); return; } // honeypot: fake success, send nothing
+    if (f2.company_website.value) { done(t("Your Trademark Search Report has been sent to WhatsApp +91 {m}.", { m: m })); return; } // honeypot: fake success, send nothing
 
     var s = data.search || {}, fd = new FormData();
     fd.append("name", name);
     fd.append("mobile", m);
     fd.append("state", data.state);
+    if (data.constitution) fd.append("constitution", data.constitution); // CRM company constitution
     // Brand-name search: the (possibly edited) brand from step 1. Owner /
     // application no.: what they searched. Logo only: no q, the image is the search.
     var q = s.type === "PROPRIETOR_NAME" || s.type === "APPLICATION_NUMBER" ? s.q : data.brand;
@@ -1219,14 +1284,17 @@ body.modal-open{overflow:hidden}
     var a = Object.assign({}, attr); delete a.landing_cta;
     fd.append("attribution", JSON.stringify(a));
 
-    btn2.disabled = true; txt2.textContent = "Sending your report…";
+    btn2.disabled = true; txt2.textContent = t("Sending your report…");
     track("tm_report_submit", { search_type: s.type || "WORD_MARK", state: data.state }, "TMReportSubmit");
     fetch(BASE + "/api/trademark/whatsapp-report", { method: "POST", body: fd })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); })
       .then(function (res) {
-        if (res.j && res.j.limitReached) { track("tm_report_error", { reason: "limit_reached", status: res.status }); return fail(err2, null, "This number has used its 10 free searches. Sign in to see your saved reports, or talk to our trademark experts."); }
-        if (!res.ok) { track("tm_report_error", { reason: "server", status: res.status }); return fail(err2, null, (res.j && res.j.message) || "Could not send your report right now. Please try again."); }
-        done(res.j.message || "Your Trademark Search Report has been sent to WhatsApp +91 " + m + ".", res.j, q);
+        if (res.j && res.j.limitReached) { track("tm_report_error", { reason: "limit_reached", status: res.status }); return fail(err2, null, t("This number has used its 10 free searches. Sign in to see your saved reports, or talk to our trademark experts.")); }
+        if (!res.ok) { track("tm_report_error", { reason: "server", status: res.status }); return fail(err2, null, t((res.j && res.j.message) || "Could not send your report right now. Please try again.")); }
+        // Our own copy of the server's two success messages, so they can be translated
+        done(res.j.whatsappSent === false
+          ? t("We couldn't send the report to your WhatsApp right now — our team will share it with you shortly.")
+          : t("Your Trademark Search Report has been sent to WhatsApp +91 {m}.", { m: m }), res.j, q);
         // reportUrl comes back only when this request created the customer (= a new CRM lead)
         var isNew = !!res.j.reportUrl, score = res.j.assessment && res.j.assessment.probability;
         var leadP = { lead_source: "trademark_whatsapp", form: "trademark-search-lp", search_type: s.type || "WORD_MARK", state: data.state,
@@ -1237,8 +1305,8 @@ body.modal-open{overflow:hidden}
         if (isNew) track("generate_lead", leadP, "Lead", true, "tmlead-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8));
         else track("tm_report_existing_customer", leadP, "TMExistingCustomer");
       })
-      .catch(function () { track("tm_report_error", { reason: "network" }); fail(err2, null, "Network error. Please check your connection and try again."); })
-      .finally(function () { btn2.disabled = false; txt2.textContent = "Send My Free Report on WhatsApp"; });
+      .catch(function () { track("tm_report_error", { reason: "network" }); fail(err2, null, t("Network error. Please check your connection and try again.")); })
+      .finally(function () { btn2.disabled = false; txt2.textContent = t("Send My Free Report on WhatsApp"); });
   });
 
   // Success: close the popup and show the result under the search bar —
@@ -1251,9 +1319,13 @@ body.modal-open{overflow:hidden}
     ok.className = "res-ok" + (j.whatsappSent === false ? " warn" : "");
 
     var s = data.search || {};
-    $("res-q").textContent = s.type === "IMAGE" ? "Your logo" : (q || data.brand || "Your search") + (s.type === "COMPOSITE" ? " + logo" : "");
+    var rq = q || data.brand || t("Your search");
+    $("res-q").textContent = s.type === "IMAGE" ? t("Your logo") : s.type === "COMPOSITE" ? t("{q} + logo", { q: rq }) : rq;
     var r = j.results || { total: 0, items: [] };
-    $("res-n").textContent = r.total ? r.total + " matching mark" + (r.total === 1 ? "" : "s") + " found" + (s.cls ? " in Class " + s.cls : "") : "No matching marks found" + (s.cls ? " in Class " + s.cls : "");
+    var nv = { n: r.total, c: s.cls };
+    $("res-n").textContent = !r.total ? (s.cls ? t("No matching marks found in Class {c}", nv) : t("No matching marks found"))
+      : r.total === 1 ? (s.cls ? t("1 matching mark found in Class {c}", nv) : t("1 matching mark found"))
+      : (s.cls ? t("{n} matching marks found in Class {c}", nv) : t("{n} matching marks found", nv));
 
     // Score (brand-name searches with matches)
     var a = j.assessment, sc = $("res-score"), why = $("res-why");
@@ -1263,7 +1335,7 @@ body.modal-open{overflow:hidden}
       ring.style.setProperty("--p", p);
       ring.style.setProperty("--c", p >= 75 ? "#16a34a" : p >= 50 ? "#f59e0b" : "#dc2626");
       $("res-pct").textContent = p + "%";
-      $("res-verdict").textContent = { can_apply: "Good to apply", apply_with_changes: "Apply with changes", not_advisable: "Not advisable as is" }[a.verdict] || "";
+      $("res-verdict").textContent = ({ can_apply: t("Good to apply"), apply_with_changes: t("Apply with changes"), not_advisable: t("Not advisable as is") })[a.verdict] || "";
       sc.hidden = false;
       why.textContent = a.why || ""; why.hidden = !a.why;
     } else { sc.hidden = true; why.hidden = true; }
@@ -1271,15 +1343,15 @@ body.modal-open{overflow:hidden}
     // First matches
     var list = $("res-list"); list.textContent = "";
     if (!r.items || !r.items.length) {
-      var e = document.createElement("li"); e.className = "res-empty"; e.textContent = "No identical or similar marks found in the Registry for this search."; list.appendChild(e);
+      var e = document.createElement("li"); e.className = "res-empty"; e.textContent = t("No identical or similar marks found in the Registry for this search."); list.appendChild(e);
     } else r.items.forEach(function (t) {
       var li = document.createElement("li");
       var lg = document.createElement("span"); lg.className = "lg";
       if (t.image) { var im = document.createElement("img"); im.src = t.image; im.alt = ""; im.loading = "lazy"; im.onerror = function () { lg.textContent = (t.wordMark || "?").charAt(0).toUpperCase(); }; lg.appendChild(im); }
       else lg.textContent = (t.wordMark || "?").charAt(0).toUpperCase();
       var tx = document.createElement("span"); tx.className = "t";
-      var b = document.createElement("b"); b.textContent = t.wordMark || "(Device mark)";
-      var sm = document.createElement("small"); sm.textContent = ["Class " + (t.classNumber || "—"), t.applicationNumber ? "App. " + t.applicationNumber : "", t.proprietorName].filter(Boolean).join(" · ");
+      var b = document.createElement("b"); b.textContent = t.wordMark || tr("(Device mark)");
+      var sm = document.createElement("small"); sm.textContent = [tr("Class {c}", { c: t.classNumber || "—" }), t.applicationNumber ? tr("App. {n}", { n: t.applicationNumber }) : "", t.proprietorName].filter(Boolean).join(" · ");
       tx.appendChild(b); tx.appendChild(sm);
       var st = document.createElement("span"), sv = t.status || "—";
       st.className = "st" + (/regist/i.test(sv) ? " reg" : /abandon|refus|withdr|expir|remov|reject/i.test(sv) ? " dead" : /object|oppos|accept|advert|formal|pending|marked|exam/i.test(sv) ? " obj" : "");
