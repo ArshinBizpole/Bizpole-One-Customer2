@@ -188,6 +188,9 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
 .done .btn{max-width:360px;margin:0 auto;text-decoration:none;background:var(--brand);color:var(--ink)}
 .tmv-brand.co{font-size:2.2rem}.tmv-brand.co sup{display:none}
 </style>
+<!-- Meta Pixel (retargeting + ad conversions): shared loader, ID from VITE_META_PIXEL_ID, live site only -->
+<script src="/lp/meta-pixel.js" defer></script>
+<script>(window.bpPixelQ = window.bpPixelQ || []).push(["ViewContent", {"content_name":"GST Registration","content_category":"GST"}]);</script>
 </head>
 <body>
 
@@ -325,7 +328,7 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
         <li>We confirm the right scheme and the documents needed.</li>
         <li>We file your application, handle queries and stay with you until your GSTIN is issued.</li>
       </ol>
-      <a class="btn" href="/gst-registration#pricing">See the price for your state →</a>
+      <a class="btn" href="/gst-registration#help">See your GST document checklist →</a>
     </div>
 
     <div class="foot">
@@ -504,7 +507,8 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
         var done = document.getElementById("done-view"); done.style.display = "block"; done.focus();
         try { sessionStorage.removeItem("lp_attr"); } catch (x) {}
         (window.dataLayer = window.dataLayer || []).push({ event: "lead_submit", form: "gst-registration-lp", plan: plan, mobile_verified: true });
-        if (window.fbq) fbq("track", "Lead", { content_name: "GST Registration" });
+        // Meta Pixel Lead (eventID for a later Conversions API de-dup)
+        (window.bpPixelQ = window.bpPixelQ || []).push(["Lead", { content_name: "GST Registration", content_category: "GST" }, "gstapply-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8)]);
       })
       .catch(function () { otpFail("Network error. Please check your connection and try again."); })
       .finally(function () { otpBtn.disabled = false; otpBtn.textContent = "Verify & continue"; });

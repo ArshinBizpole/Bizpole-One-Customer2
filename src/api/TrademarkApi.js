@@ -1,6 +1,7 @@
 import { api } from "./axiosInstance";
 import { getLeadAttribution } from "../utils/leadAttribution";
 import { trackEvent } from "../utils/analytics";
+import { metaPixelTrack } from "../utils/metaPixel";
 
 // A tracked search can create the customer's Lead / Deal in the CRM — its
 // ad-click attribution (JSON) sets that record's source.
@@ -164,6 +165,12 @@ export const sendTrademarkReportToWhatsApp = async ({ name, mobile, state, param
   });
   if (firstSend) {
     trackEvent("generate_lead", { lead_source: "trademark_whatsapp", method: "whatsapp", service: "Trademark Registration", state });
+    // Meta Pixel: a standard Lead only when this send created the customer (the server
+    // returns reportUrl then = a new CRM lead); an existing customer is a custom event.
+    // Same rule as the /trademark-search/meta ads page. No-op unless the pixel loaded.
+    const pixelParams = { content_name: "Free Trademark Search", search_type: searchType, state };
+    if (data?.reportUrl) metaPixelTrack("Lead", pixelParams, `tmlead-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    else metaPixelTrack("TMExistingCustomer", pixelParams);
   }
   return data;
 };

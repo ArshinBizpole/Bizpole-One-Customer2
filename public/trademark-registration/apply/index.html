@@ -8,6 +8,9 @@
 <!-- Form step of the landing page: kept out of Google so it never competes with /trademark-registration -->
 <meta name="robots" content="noindex, follow">
 <link rel="canonical" href="https://www.bizpole.io/trademark-registration/apply">
+<!-- Meta Pixel (retargeting): shared loader, ID from VITE_META_PIXEL_ID, live site only (?pixel_test=1 elsewhere) -->
+<script src="/lp/meta-pixel.js" defer></script>
+<script>(window.bpPixelQ = window.bpPixelQ || []).push(["ViewContent", {"content_name":"Trademark Registration Apply","content_category":"Trademark","value":3000,"currency":"INR"}]);</script>
 <meta name="theme-color" content="#1a1a1a">
 <meta name="format-detection" content="telephone=no">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -186,7 +189,47 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
 .done h1{margin-bottom:8px}
 .done ol{text-align:left;margin:18px auto 22px;padding-left:20px;max-width:360px;display:grid;gap:8px;font-size:.95rem}
 .done .btn{max-width:360px;margin:0 auto;text-decoration:none;background:var(--brand);color:var(--ink)}
+/* Translated page (?lang=…): Indic scripts break with letter-spacing and need taller lines; Urdu is RTL */
+html.i18n *{letter-spacing:normal!important}
+html.i18n body{line-height:1.7}
+html.i18n h1,html.i18n h2{line-height:1.35;overflow-wrap:break-word}
+html.i18n .btn{line-height:1.35;padding:8px 14px;text-align:center}
+html[dir="rtl"] .phone,html[dir="rtl"] .otp-in,html[dir="rtl"] #f-mobile{direction:ltr}
+html[dir="rtl"] .field select{background-position:left 14px center;padding-right:14px;padding-left:36px}
+html[dir="rtl"] .done ol{text-align:right;padding-left:0;padding-right:20px}
+html[dir="rtl"] .otp-sub button{margin-left:0;margin-right:6px}
+/* left:-9999px off-screen tricks become scrollable width in RTL — park them on the right instead */
+html[dir="rtl"] .hp,html[dir="rtl"] label[for="f-otp"]{left:auto!important;right:-9999px}
 </style>
+
+<!-- ============ LANGUAGE ============
+  ?lang=hi|bn|te|mr|ta|gu|kn|ml|or|pa|as|ur (or the language picked on /trademark-registration,
+  kept for the tab in sessionStorage lp_lang; ?lang=en switches back). Runtime /lp/i18n.js;
+  translations /trademark-registration/apply/i18n/<lang>.js, checked with
+  `node scripts/translate-tm-meta.mjs --page tm-apply --check` (also bumps I18N_V). -->
+<script>
+(function () {
+  var I18N_V = "f5d7b1fd";
+  var FONTS = { hi: "Noto+Sans+Devanagari", mr: "Noto+Sans+Devanagari", bn: "Noto+Sans+Bengali", as: "Noto+Sans+Bengali",
+    te: "Noto+Sans+Telugu", ta: "Noto+Sans+Tamil", gu: "Noto+Sans+Gujarati", kn: "Noto+Sans+Kannada",
+    ml: "Noto+Sans+Malayalam", or: "Noto+Sans+Oriya", pa: "Noto+Sans+Gurmukhi", ur: "Noto+Naskh+Arabic" };
+  var l = "";
+  try {
+    var p = (new URLSearchParams(location.search).get("lang") || "").toLowerCase().slice(0, 2);
+    if (p === "en") sessionStorage.removeItem("lp_lang");
+    else if (FONTS[p]) sessionStorage.setItem("lp_lang", p);
+    l = p === "en" ? "" : FONTS[p] ? p : sessionStorage.getItem("lp_lang") || "";
+  } catch (e) {}
+  if (!FONTS[l]) return;
+  var h = document.documentElement;
+  h.lang = l + "-IN"; h.classList.add("i18n"); if (l === "ur") h.dir = "rtl";
+  h.style.setProperty("--font", '"Poppins","' + FONTS[l].replace(/\+/g, " ") + '","Poppins Fallback",system-ui,sans-serif');
+  document.write(
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=' + FONTS[l] + ':wght@400;600;700&display=swap">' +
+    '<script src="/lp/i18n.js?v=' + I18N_V + '"><\/script>' +
+    '<script src="/trademark-registration/apply/i18n/' + l + '.js?v=' + I18N_V + '"><\/script>');
+})();
+</script>
 </head>
 <body>
 
@@ -204,7 +247,7 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
         <span class="tmv-chip c3"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"/><path d="M15.5 13 17 22l-5-3-5 3 1.5-9"/></svg>Trademark registered</span>
         <div class="tmv-card">
           <div class="tmv-top"><i></i><i></i><i></i><span>Trademark Certificate</span></div>
-          <div class="tmv-brand"><span class="tmv-name">YourBrand</span><sup class="s-tm">™</sup><sup class="s-r">®</sup></div>
+          <div class="tmv-brand"><span class="tmv-name" data-noi18n>YourBrand</span><sup class="s-tm">™</sup><sup class="s-r">®</sup></div>
           <div class="tmv-meta"><b>Class 35</b><b>Class 9</b><b>Valid 10 years</b></div>
           <div class="tmv-lines"><i></i><i></i><i></i></div>
           <div class="tmv-stamp"><b>®</b><small>REGISTERED</small></div>
@@ -278,7 +321,7 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
         </div>
 
         <!-- Honeypot: real visitors never see or fill this -->
-        <div class="hp" aria-hidden="true">
+        <div class="hp" aria-hidden="true" data-noi18n>
           <label for="f-hp">Company website</label>
           <input id="f-hp" name="company_website" type="text" tabindex="-1" autocomplete="off">
         </div>
@@ -337,6 +380,28 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
 
 <script>
 (function () {
+  // ---- Language (?lang=…): translate the page FIRST, then t() for strings built below ----
+  var I18N = window.TMI18N && window.TM_I18N_DICT ? window.TMI18N : null;
+  if (I18N) I18N.apply(document);
+  var LANG = I18N ? I18N.lang : "en";
+  function t(s, v) {
+    if (I18N) return I18N.t(s, v);
+    return v ? s.replace(/\{(\w+)\}/g, function (m, k) { return k in v ? v[k] : m; }) : s;
+  }
+  function srv(j, fallback) { return j && j.message ? t(j.message) : fallback; }
+  // Server messages the form may show — listed so the translate script picks them up.
+  var I18N_EXTRA = [
+    "Enter a valid 10-digit mobile number.", "Too many OTP requests. Please try again later.",
+    "Could not send OTP right now. Please try again.", "Too many incorrect attempts. Please request a new OTP.",
+    "Please verify your mobile number with the OTP.", "Please enter a valid name, mobile number or email.",
+    "Incorrect OTP.", "This code has already been used.", "OTP has expired. Please request a new one.",
+    "No OTP was requested for this number."
+  ];
+  void I18N_EXTRA;
+  // Page language → preselect the matching CRM language (lead routing prefers franchisees who speak it)
+  var CRM_LANG = { hi: "Hindi", ml: "Malayalam", ta: "Tamil", te: "Telugu", kn: "Kannada", mr: "Marathi", gu: "Gujarati", bn: "Bengali", pa: "Punjabi" };
+  if (CRM_LANG[LANG]) { var ls = document.getElementById("f-lang"); if (ls && !ls.value) ls.value = CRM_LANG[LANG]; }
+
   // Website-lead API (public key by design: protection = CORS allowlist + per-IP limit + honeypot).
   var isLocal = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   var ENV_API = "__VITE_API_BASE_URL__"; // replaced by vite with VITE_API_BASE_URL
@@ -410,7 +475,7 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
   function sendOtp() {
     return post(BASE + "/mobile-otp/send", { mobile: details.mobile, purpose: "trademark-lp" }).then(function (res) {
       if (!res.ok) {
-        var e = new Error((res.j && res.j.message) || "Could not send OTP. Please try again.");
+        var e = new Error(srv(res.j, t("Could not send OTP. Please try again.")));
         e.retryAfter = res.j && res.j.retryAfter; throw e;
       }
       startCountdown((res.j && res.j.resendAfter) || 30);
@@ -428,18 +493,20 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
     e.preventDefault();
     var name = el.name.value.trim(), mobile = mob.value.trim(),
         state = el.state.value, lang = el.preferred_language.value;
-    if (!name) return fail(el.name, "Please enter your name.");
-    if (!/^[6-9]\d{9}$/.test(mobile)) return fail(mob, "Please enter a valid 10-digit mobile number.");
-    if (!state) return fail(el.state, "Please select your state.");
-    if (!lang) return fail(el.preferred_language, "Please select your preferred language.");
+    if (!name) return fail(el.name, t("Please enter your name."));
+    if (!/^[6-9]\d{9}$/.test(mobile)) return fail(mob, t("Please enter a valid 10-digit mobile number."));
+    if (!state) return fail(el.state, t("Please select your state."));
+    if (!lang) return fail(el.preferred_language, t("Please select your preferred language."));
     if (el.company_website.value) { // honeypot: pretend success, send nothing
       formView.style.display = "none"; document.getElementById("done-view").style.display = "block"; return;
     }
 
-    details = { name: name, mobile: mobile, state: state, lang: lang };
-    btn.disabled = true; btn.textContent = "Sending OTP…";
+    // langLabel: the option as shown (translated on a ?lang page); lang: the English CRM value
+    details = { name: name, mobile: mobile, state: state, lang: lang, langLabel: el.preferred_language.options[el.preferred_language.selectedIndex].text };
+    btn.disabled = true; btn.textContent = t("Sending OTP…");
     sendOtp()
       .then(function () {
+        (window.bpPixelQ = window.bpPixelQ || []).push(["TMApplyDetails", { content_category: "Trademark", state: state }]);
         document.getElementById("otp-to").textContent = "+91 " + mobile.slice(0, 5) + " " + mobile.slice(5);
         otpIn.value = ""; otpErr.classList.remove("show"); otpIn.removeAttribute("aria-invalid");
         showStep("otp"); otpIn.focus();
@@ -447,9 +514,9 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
       .catch(function (x) {
         // Cooldown hit (e.g. user went Back and re-submitted): the earlier code is still valid.
         if (x.retryAfter && details) { showStep("otp"); startCountdown(x.retryAfter); otpIn.focus(); return; }
-        fail(null, x.message || "Network error. Please check your connection and try again.");
+        fail(null, x.message && x.message !== "Failed to fetch" ? x.message : t("Network error. Please check your connection and try again."));
       })
-      .finally(function () { btn.disabled = false; btn.textContent = "Continue"; });
+      .finally(function () { btn.disabled = false; btn.textContent = t("Continue"); });
   });
 
   otpIn.addEventListener("input", function () {
@@ -471,7 +538,7 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
     e.preventDefault();
     if (otpBtn.disabled) return;
     var code = otpIn.value.trim();
-    if (!/^\d{4}$/.test(code)) return otpFail("Please enter the 4-digit OTP.");
+    if (!/^\d{4}$/.test(code)) return otpFail(t("Please enter the 4-digit OTP."));
 
     var plan = (qs.get("plan") || "").replace(/[^a-z-]/g, ""), cta = (qs.get("cta") || "").replace(/[^a-z-]/g, "");
     var body = Object.assign({}, attr, {
@@ -488,24 +555,26 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
       referrer: attr.referrer || document.referrer
     });
 
-    otpBtn.disabled = true; otpBtn.textContent = "Verifying…";
+    otpBtn.disabled = true; otpBtn.textContent = t("Verifying…");
     post(API, body, { "x-api-key": API_KEY })
       .then(function (res) {
         if (!res.ok) {
-          var msg = res.status === 429 ? "Too many attempts. Please try again in a few minutes." : ((res.j && res.j.message) || "Something went wrong. Please try again.");
+          var msg = res.status === 429 ? t("Too many attempts. Please try again in a few minutes.") : srv(res.j, t("Something went wrong. Please try again."));
           return otpFail(msg);
         }
         clearInterval(timer);
         document.getElementById("done-name").textContent = ", " + details.name.split(" ")[0];
-        document.getElementById("done-lang").textContent = details.lang;
+        document.getElementById("done-lang").textContent = details.langLabel || details.lang;
         otpView.style.display = "none";
         var done = document.getElementById("done-view"); done.style.display = "block"; done.focus();
         try { sessionStorage.removeItem("tm_attr"); } catch (x) {}
-        (window.dataLayer = window.dataLayer || []).push({ event: "lead_submit", form: "trademark-registration-lp", plan: plan, mobile_verified: true });
-        if (window.fbq) fbq("track", "Lead", { content_name: "Trademark Registration" });
+        (window.dataLayer = window.dataLayer || []).push({ event: "lead_submit", form: "trademark-registration-lp", plan: plan, mobile_verified: true, lang: LANG });
+        // Meta Pixel Lead (what registration ads optimise for); eventID for a later Conversions API de-dup
+        (window.bpPixelQ = window.bpPixelQ || []).push(["Lead", { content_name: "Trademark Registration", content_category: "Trademark",
+          plan: plan, state: details.state, value: 3000, currency: "INR" }, "tmreg-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8)]);
       })
-      .catch(function () { otpFail("Network error. Please check your connection and try again."); })
-      .finally(function () { otpBtn.disabled = false; otpBtn.textContent = "Verify & continue"; });
+      .catch(function () { otpFail(t("Network error. Please check your connection and try again.")); })
+      .finally(function () { otpBtn.disabled = false; otpBtn.textContent = t("Verify & continue"); });
   });
 })();
 </script>

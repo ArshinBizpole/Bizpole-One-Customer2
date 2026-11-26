@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { trackEvent } from "../utils/analytics";
+import { metaPixelPage, metaPixelTrack } from "../utils/metaPixel";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { FaSearch,FaChevronLeft, FaChevronRight, FaArrowRight, FaFilePdf, FaLock, FaImage, FaTimes, FaWhatsapp } from "react-icons/fa";
@@ -157,6 +158,7 @@ export default function TrademarkSearch({ embedded = false }) {
   const [showTrademarkService, setShowTrademarkService] = useState(false);
   const openTrademarkService = () => {
     if (!embedded) {
+      metaPixelTrack("TMApplyClick", { cta: "search-results" });
       navigate(`/services/${TRADEMARK_SERVICE_ID}`);
       return;
     }
@@ -209,6 +211,11 @@ export default function TrademarkSearch({ embedded = false }) {
   useEffect(() => {
     loadHistory();
   }, [loadHistory]);
+
+  // Meta Pixel (public page only — not the signed-in dashboard copy): retargeting audience
+  useEffect(() => {
+    if (!embedded) metaPixelPage({ content_name: "Free Trademark Search" });
+  }, [embedded]);
 
   // Probability of registration for the brand-name search on screen. Fetched
   // once per search (not per page) after the report is unlocked; the server
@@ -344,6 +351,7 @@ export default function TrademarkSearch({ embedded = false }) {
     else {
       setWaOpen(true);
       trackEvent("whatsapp_report_form_open", { form: "trademark_whatsapp", path: window.location.pathname });
+      if (!embedded) metaPixelTrack("TMPopupOpen", { search_type: lastSearch.current?.params?.type });
     }
   };
 
@@ -356,6 +364,7 @@ export default function TrademarkSearch({ embedded = false }) {
     try {
       const data = await fetchSearch(params, nextPage);
       if (!nextPage) trackEvent("trademark_search", { search_type: params.type, results: data?.total ?? data?.results?.length ?? 0 });
+      if (!nextPage && !embedded) metaPixelTrack("Search", { search_type: params.type, results: data?.total ?? data?.results?.length ?? 0 });
       setResult(data);
       setSubmitted(params);
       setPage(nextPage);

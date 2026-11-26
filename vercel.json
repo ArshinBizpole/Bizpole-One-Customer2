@@ -76,6 +76,46 @@
       "permanent": true
     },
     {
+      "source": "/trademark-registration/meta/",
+      "destination": "/trademark-registration/meta",
+      "permanent": true
+    },
+    {
+      "source": "/trademark-registration/meta/index.html",
+      "destination": "/trademark-registration/meta",
+      "permanent": true
+    },
+    {
+      "source": "/company-registration/meta/",
+      "destination": "/company-registration/meta",
+      "permanent": true
+    },
+    {
+      "source": "/company-registration/meta/index.html",
+      "destination": "/company-registration/meta",
+      "permanent": true
+    },
+    {
+      "source": "/company-registration/",
+      "destination": "/company-registration",
+      "permanent": true
+    },
+    {
+      "source": "/company-registration/index.html",
+      "destination": "/company-registration",
+      "permanent": true
+    },
+    {
+      "source": "/gst-registration/meta/",
+      "destination": "/gst-registration/meta",
+      "permanent": true
+    },
+    {
+      "source": "/gst-registration/meta/index.html",
+      "destination": "/gst-registration/meta",
+      "permanent": true
+    },
+    {
       "source": "/gst-registration/",
       "destination": "/gst-registration",
       "permanent": true
@@ -96,6 +136,10 @@
       "destination": "/trademark-search/meta/index.html"
     },
     {
+      "source": "/trademark-registration/meta",
+      "destination": "/trademark-registration/meta/index.html"
+    },
+    {
       "source": "/trademark-registration",
       "destination": "/trademark-registration/index.html"
     },
@@ -114,6 +158,18 @@
     {
       "source": "/gst-registration/apply",
       "destination": "/gst-registration/apply/index.html"
+    },
+    {
+      "source": "/gst-registration/meta",
+      "destination": "/gst-registration/meta/index.html"
+    },
+    {
+      "source": "/company-registration/meta",
+      "destination": "/company-registration/meta/index.html"
+    },
+    {
+      "source": "/company-registration",
+      "destination": "/company-registration/index.html"
     },
     {
       "source": "/gst-registration",

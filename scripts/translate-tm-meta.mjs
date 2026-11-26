@@ -1,13 +1,22 @@
 #!/usr/bin/env node
 /*
-  Translate the Meta-ads trademark page (public/trademark-search/meta/index.html)
-  into Indian languages with Qwen, writing public/trademark-search/meta/i18n/<lang>.js.
-  The page shows a language with ?lang=<code>.
+  Translate a static landing page into Indian languages with Qwen, writing
+  <page folder>/i18n/<lang>.js. The page shows a language with ?lang=<code>.
+  Pages (--page, default tm-meta):
+    tm-meta   public/trademark-search/meta/index.html   (own runtime copy in its i18n/)
+    gst       public/gst-registration/index.html        (shared runtime public/lp/i18n.js)
+    gst-meta  public/gst-registration/meta/index.html   (Meta-ads copy, own i18n/)
+    company   public/company-registration/index.html    (no Urdu)
+    company-meta public/company-registration/meta/index.html (Meta-ads copy, own i18n/, no Urdu)
+    tm-reg    public/trademark-registration/index.html
+    tm-reg-meta public/trademark-registration/meta/index.html (Meta-ads copy, own i18n/)
+    tm-apply  public/trademark-registration/apply/index.html
 
     node scripts/translate-tm-meta.mjs                 # all languages, only new/changed strings
     node scripts/translate-tm-meta.mjs hi ta           # just these
     node scripts/translate-tm-meta.mjs hi --force      # retranslate everything for hi
     node scripts/translate-tm-meta.mjs --dry           # list what would be translated, no API calls
+    node scripts/translate-tm-meta.mjs --page gst --check
 
   Qwen access (env, or Bizpole-One-Customer2/.env / .env.local — NOT VITE_-prefixed,
   so the key never reaches the browser bundle):
@@ -29,9 +38,57 @@ import { fileURLToPath } from "node:url";
 import { parseHTML } from "linkedom";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const PAGE = path.join(ROOT, "public/trademark-search/meta/index.html");
-const OUT = path.join(ROOT, "public/trademark-search/meta/i18n");
-const RUNTIME = path.join(OUT, "i18n.js");
+const PAGES = {
+  "tm-meta": {
+    dir: "public/trademark-search/meta", runtime: "public/trademark-search/meta/i18n/i18n.js", url: "/trademark-search/meta",
+    about: "a free trademark (brand name) search landing page shown to small business owners and first-time founders who arrive from Facebook/Instagram ads",
+    terms: "trademark, brand, logo, report, class, online",
+  },
+  gst: {
+    dir: "public/gst-registration", runtime: "public/lp/i18n.js", url: "/gst-registration",
+    about: "a GST registration help page for small business owners, first-time founders and online sellers, with a contact form to talk to a GST expert",
+    terms: "GST, registration, online, e-commerce, scheme, return, filing, compliance, checklist, form",
+  },
+  "gst-meta": {
+    dir: "public/gst-registration/meta", runtime: "public/lp/i18n.js", url: "/gst-registration/meta",
+    about: "a GST registration help page for small business owners, first-time founders and online sellers who arrive from Facebook/Instagram ads, with a contact form to talk to a GST expert",
+    terms: "GST, registration, online, e-commerce, scheme, return, filing, compliance, checklist, form",
+  },
+  company: {
+    dir: "public/company-registration", runtime: "public/lp/i18n.js", url: "/company-registration",
+    about: "a company registration landing page that compares business structures in India (Private Limited Company or LLP) with document checklists and a contact form",
+    terms: "company, registration, Private Limited, LLP, OPC, director, shareholder, partner, DSC, PAN, MCA, checklist, form",
+    skip: ["ur"], // no Urdu on this page
+  },
+  "company-meta": {
+    dir: "public/company-registration/meta", runtime: "public/lp/i18n.js", url: "/company-registration/meta",
+    about: "a company registration landing page for people who arrive from Facebook/Instagram ads; it compares business structures in India (Private Limited Company or LLP) with document checklists and a contact form",
+    terms: "company, registration, Private Limited, LLP, director, shareholder, partner, DSC, PAN, MCA, checklist, form",
+    skip: ["ur"],
+  },
+  "tm-reg": {
+    dir: "public/trademark-registration", runtime: "public/lp/i18n.js", url: "/trademark-registration",
+    about: "a trademark registration help page (brand name, logo, trademark search, objection reply) with document checklists and a contact form, for small business owners and first-time founders",
+    terms: "trademark, brand, logo, class, registration, objection, opposition, Registry, TM-48, checklist, form",
+  },
+  "tm-reg-meta": {
+    dir: "public/trademark-registration/meta", runtime: "public/lp/i18n.js", url: "/trademark-registration/meta",
+    about: "a trademark registration help page (brand name, logo, trademark search, objection reply) with document checklists and a contact form, for small business owners who arrive from Facebook/Instagram ads",
+    terms: "trademark, brand, logo, class, registration, objection, opposition, Registry, TM-48, checklist, form",
+  },
+  "tm-apply": {
+    dir: "public/trademark-registration/apply", runtime: "public/lp/i18n.js", url: "/trademark-registration/apply",
+    about: "the short sign-up form (name, mobile, state, language, then an OTP) behind a trademark registration landing page",
+    terms: "trademark, brand, OTP, mobile, registration, online",
+  },
+};
+const args = process.argv.slice(2);
+const pageKey = args.includes("--page") ? args[args.indexOf("--page") + 1] : "tm-meta";
+const CFG = PAGES[pageKey];
+if (!CFG) { console.error(`Unknown --page "${pageKey}". Use: ${Object.keys(PAGES).join(", ")}`); process.exit(1); }
+const PAGE = path.join(ROOT, CFG.dir, "index.html");
+const OUT = path.join(ROOT, CFG.dir, "i18n");
+const RUNTIME = path.join(ROOT, CFG.runtime);
 
 const LANGS = {
   hi: "Hindi (Devanagari script)",
@@ -103,10 +160,10 @@ function valid(src, out) {
 function systemPrompt(langName) {
   return [
     `You translate website copy from English into ${langName} for Bizpole, an Indian business-services company.`,
-    `The page is a free trademark (brand name) search landing page shown to small business owners and first-time founders who arrive from Facebook/Instagram ads.`,
+    `The page is ${CFG.about}.`,
     `Write the way people in India actually speak and read ${langName.split(" (")[0]} online: simple, warm, clear and natural — not stiff, literary or word-for-word.`,
-    `Where everyday speakers use the English word for a business/tech term (e.g. trademark, brand, logo, report, class, online), write that word as it is commonly written in ${langName.split(" (")[0]} script rather than an obscure formal coinage.`,
-    `Keep these exactly as they are, in Latin script: Bizpole, Bizpole One, WhatsApp, GST, LLP, OPC, HUF, AOP, BOI, PNG, JPG, MB, ™, ®, ₹ amounts, numbers, "+91" and the Nice class numbers.`,
+    `Where everyday speakers use the English word for a business/tech term (e.g. ${CFG.terms}), write that word as it is commonly written in ${langName.split(" (")[0]} script rather than an obscure formal coinage.`,
+    `Keep these exactly as they are, in Latin script: Bizpole, Bizpole One, WhatsApp, GST, GSTIN, PAN, Aadhaar, ARN, HSN, OTP, LLP, OPC, HUF, AOP, BOI, PNG, JPG, MB, form codes such as REG-01, CMP-08 and GSTR-4, ™, ®, ₹ amounts, numbers, "+91", email addresses and the Nice class numbers.`,
     `Input strings may contain numbered tags like <0>…</0> and <1/> marking bold text, links, line breaks etc. Keep every one of them exactly (same numbers, each opened and closed once), around the words that correspond; you may move them to fit the ${langName.split(" (")[0]} word order. Add no other tags or markup.`,
     `Keep placeholders like {m}, {n}, {c}, {q} exactly as they are.`,
     `Short UI labels (buttons, menu items, form labels, dropdown options) must stay short.`,
@@ -168,14 +225,15 @@ function readDict(lang) {
 function writeDict(lang, strings) {
   const sorted = Object.fromEntries(Object.keys(strings).sort().map((k) => [k, strings[k]]));
   fs.writeFileSync(fileOf(lang),
-    `/* ${LANGS[lang]} — /trademark-search/meta?lang=${lang}\n` +
-    `   Keys are the English text (tags as <0>…</0>, keep them and {vars}). Check with scripts/translate-tm-meta.mjs --check;\n` +
+    `/* ${LANGS[lang]} — ${CFG.url}?lang=${lang}\n` +
+    `   Keys are the English text (tags as <0>…</0>, keep them and {vars}). Check with scripts/translate-tm-meta.mjs --page ${pageKey} --check;\n` +
     `   the script with a Qwen key fills in any missing strings.\n` +
     `   Hand edits are kept when the script is re-run; delete a line to have it retranslated. */\n` +
     `window.TM_I18N_DICT = ${JSON.stringify({ lang, strings: sorted }, null, 1)};\n`);
 }
 function bumpVersion() {
   const h = crypto.createHash("sha1");
+  h.update(fs.readFileSync(RUNTIME)); // shared runtime lives outside OUT for most pages
   for (const f of fs.readdirSync(OUT).sort()) h.update(fs.readFileSync(path.join(OUT, f)));
   const v = h.digest("hex").slice(0, 8);
   const page = fs.readFileSync(PAGE, "utf8").replace(/var I18N_V = "[^"]*";/, `var I18N_V = "${v}";`);
@@ -223,12 +281,11 @@ async function translateLang(lang, strings, force) {
   return failed.length;
 }
 
-const args = process.argv.slice(2);
 const force = args.includes("--force"), dry = args.includes("--dry");
-const picked = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--export");
+const picked = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--export" && args[i - 1] !== "--page");
 const bad = picked.filter((l) => !LANGS[l]);
 if (bad.length) { console.error("Unknown language code(s): " + bad.join(", ") + ". Use: " + Object.keys(LANGS).join(" ")); process.exit(1); }
-const langs = picked.length ? picked : Object.keys(LANGS);
+const langs = picked.length ? picked : Object.keys(LANGS).filter((l) => !(CFG.skip || []).includes(l));
 
 const strings = extract();
 console.log(`${strings.size} strings on the page.`);

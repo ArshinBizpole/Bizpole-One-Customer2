@@ -5,6 +5,9 @@ import { getSharedTrademarkReport, fetchTrademarkImage } from "../api/TrademarkA
 import TrademarkReport from "../components/Trademark/TrademarkReport";
 import { saveElementAsPdf } from "../utils/elementToPdf";
 
+// No Meta Pixel on this page: its URL carries the report's access token (?t=), and
+// the pixel sends the page URL to Meta.
+
 // /trademark-report?t=<token> — one saved Trademark Search Report opened from a
 // signed link (WhatsApp, email, CRM), no sign-in: view it and download the PDF.
 

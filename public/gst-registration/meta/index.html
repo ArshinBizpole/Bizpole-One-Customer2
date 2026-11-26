@@ -1,0 +1,1152 @@
+<!doctype html>
+<!--
+  META ADS landing page — /gst-registration/meta
+  Separate copy of /gst-registration for Facebook/Instagram ad traffic; marketing can edit it
+  freely without touching the general (SEO) page.
+  - noindex (ad-only), canonical points at the general page; not in the sitemap
+  - every enquiry is tagged utm_source=meta (unless the ad link sends its own utm_source)
+    → CRM lead source "Facebook/Instagram"; form_name "gst-registration-meta-lp"
+  - Meta Pixel: shared /lp/meta-pixel.js (ID from VITE_META_PIXEL_ID, live site only;
+    ?pixel_test=1 elsewhere). Events: ViewContent on load, Lead when the enquiry is saved
+  - Languages: ?lang=hi|ta|… like the general page; own dictionaries in ./i18n/
+    (`node scripts/translate-tm-meta.mjs --page gst-meta --check`).
+
+  TRACKING — put this in each Meta ad › Tracking › URL parameters:
+    utm_source=facebook&utm_medium=paid-social&utm_campaign={{campaign.name}}&utm_term={{adset.name}}&utm_content={{ad.name}}
+  → saved on the CRM lead (raw_payload.attribution) and used for the lead source.
+-->
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+<!-- ============ PRIMARY SEO ============ -->
+<title>GST Registration Online Made Simple | Expert GST Help | Bizpole</title>
+<meta name="description" content="Starting a business, selling online or unsure whether you need GST? Tell us what you do — Bizpole's GST experts guide you to the right registration route, the documents you need and what comes after your GSTIN.">
+<link rel="canonical" href="https://www.bizpole.io/gst-registration">
+<!-- Ad-only page: kept out of Google so it never competes with /gst-registration -->
+<meta name="robots" content="noindex, follow">
+<!-- Meta Pixel (retargeting + ad conversions): shared loader, ID from VITE_META_PIXEL_ID, live site only -->
+<script src="/lp/meta-pixel.js" defer></script>
+<script>(window.bpPixelQ = window.bpPixelQ || []).push(["ViewContent", {"content_name":"GST Registration","content_category":"GST"}]);</script>
+<meta name="theme-color" content="#fffaf0">
+<meta name="format-detection" content="telephone=no">
+<meta property="og:site_name" content="Bizpole">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en_IN">
+<meta property="og:title" content="GST Registration. Made Simple. | Bizpole">
+<meta property="og:description" content="Tell us what you do — Bizpole helps you understand the right GST registration route and the documents to get started.">
+<meta property="og:url" content="https://www.bizpole.io/gst-registration">
+<meta property="og:image" content="https://www.bizpole.io/Images/bizpole-one-logo-dark.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="GST Registration. Made Simple. | Bizpole">
+<meta name="twitter:description" content="Tell us what you do — Bizpole helps you understand the right GST registration route and the documents to get started.">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<!-- Self-hosted Poppins (Latin subset): no third-party round trips before first paint -->
+<link rel="preload" href="/lp/fonts/poppins-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/lp/fonts/poppins-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" as="image" href="/lp/img/logo-one.webp" fetchpriority="high">
+<!-- The enquiry form posts to the API; warm the connection early -->
+<link rel="preconnect" href="__VITE_API_BASE_URL__" crossorigin>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    { "@type": "Organization", "@id": "https://www.bizpole.io/#organization", "name": "Bizpole", "url": "https://www.bizpole.io/", "logo": "https://www.bizpole.io/Images/bizpole-one-logo-dark.png", "areaServed": "IN",
+      "contactPoint": { "@type": "ContactPoint", "telephone": "+91-95399-95533", "email": "info@bizpole.in", "contactType": "customer service", "areaServed": "IN", "availableLanguage": ["English", "Hindi", "Malayalam", "Tamil"] } },
+    { "@type": "WebPage", "@id": "https://www.bizpole.io/gst-registration#webpage", "url": "https://www.bizpole.io/gst-registration", "name": "GST Registration Online in India", "inLanguage": "en-IN",
+      "about": { "@id": "https://www.bizpole.io/gst-registration#service" }, "breadcrumb": { "@id": "https://www.bizpole.io/gst-registration#breadcrumb" } },
+    { "@type": "BreadcrumbList", "@id": "https://www.bizpole.io/gst-registration#breadcrumb", "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.bizpole.io/" },
+        { "@type": "ListItem", "position": 2, "name": "Services", "item": "https://www.bizpole.io/services" },
+        { "@type": "ListItem", "position": 3, "name": "GST Registration", "item": "https://www.bizpole.io/gst-registration" } ] },
+    { "@type": "Service", "@id": "https://www.bizpole.io/gst-registration#service", "name": "GST Registration in India", "serviceType": "GST Registration",
+      "provider": { "@id": "https://www.bizpole.io/#organization" }, "areaServed": { "@type": "Country", "name": "India" },
+      "description": "GST registration support in India: registration guidance, composition scheme advice, document preparation, application assistance and post-registration compliance guidance." }
+  ]
+}
+</script>
+
+<style>
+@font-face{font-family:"Poppins";font-style:normal;font-weight:400;font-display:swap;src:url(/lp/fonts/poppins-400.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Poppins";font-style:normal;font-weight:600;font-display:swap;src:url(/lp/fonts/poppins-600.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Poppins";font-style:normal;font-weight:700;font-display:swap;src:url(/lp/fonts/poppins-700.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+/* ₹ only (≈680 B each) so amounts render in Poppins without the large Devanagari subset */
+@font-face{font-family:"Poppins";font-style:normal;font-weight:400;font-display:swap;src:url(/lp/fonts/poppins-400-inr.woff2) format("woff2");unicode-range:U+20B9}
+@font-face{font-family:"Poppins";font-style:normal;font-weight:600;font-display:swap;src:url(/lp/fonts/poppins-600-inr.woff2) format("woff2");unicode-range:U+20B9}
+@font-face{font-family:"Poppins";font-style:normal;font-weight:700;font-display:swap;src:url(/lp/fonts/poppins-700-inr.woff2) format("woff2");unicode-range:U+20B9}
+/* Metric-matched fallback: text shown before Poppins arrives takes the same space (no layout jump) */
+@font-face{font-family:"Poppins Fallback";src:local("Arial"),local("Helvetica"),local("Roboto");size-adjust:112%;ascent-override:94%;descent-override:31%;line-gap-override:9%}
+:root{
+  --ink:#16161a; --ink-2:#3a3f4a; --muted:#5f6573; --line:#ece8dd; --line-2:#e4e0d4;
+  --bg:#ffffff; --cream:#fffaf0; --cream-2:#fff4d6;
+  --brand:#ffc61a; --brand-h:#ffd34d; --gold:#f2b000; --brand-d:#9a6200;
+  --ok:#16a34a; --err:#b91c1c;
+  --r:20px; --r-sm:12px;
+  --shadow:0 1px 2px rgba(60,45,0,.05),0 12px 32px rgba(60,45,0,.08);
+  --font:"Poppins","Poppins Fallback",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:84px}
+body{margin:0;font-family:var(--font);font-size:16px;line-height:1.6;color:var(--ink-2);background:var(--bg);-webkit-font-smoothing:antialiased}
+img,svg{max-width:100%;display:block}
+img{height:auto}
+a{color:inherit}
+button{font:inherit;color:inherit}
+h1,h2,h3{color:var(--ink);line-height:1.15;margin:0;font-weight:700;letter-spacing:-.025em}
+p{margin:0}
+.wrap{width:100%;max-width:1160px;margin:0 auto;padding:0 16px}
+@media (min-width:640px){.wrap{padding:0 24px}}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* Off-screen by transform, not left:-999px — a negative offset becomes scrollable width in RTL (Urdu) */
+.skip{position:absolute;left:8px;top:8px;transform:translateY(-200%);background:var(--ink);color:#fff;padding:8px 12px;border-radius:8px;z-index:100}
+.skip:focus{transform:none}
+:focus-visible{outline:3px solid var(--ink);outline-offset:2px;border-radius:6px}
+.y{color:var(--gold)}
+/* Below-the-fold sections are only laid out/painted when they near the viewport */
+.lazy{content-visibility:auto;contain-intrinsic-size:auto 700px}
+
+/* ===== Buttons ===== */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;min-height:50px;padding:0 26px;border-radius:999px;font-weight:600;font-size:.97rem;text-decoration:none;border:0;cursor:pointer;white-space:nowrap;transition:background .15s,box-shadow .15s,transform .1s}
+.btn:active{transform:scale(.98)}
+.btn-y{background:var(--brand);color:var(--ink);box-shadow:0 8px 20px rgba(255,190,0,.32)}
+.btn-y:hover{background:var(--brand-h)}
+.btn-w{background:#fff;color:var(--ink);border:1px solid var(--line-2);box-shadow:0 2px 6px rgba(0,0,0,.04)}
+.btn-w:hover{border-color:#cfc8b6}
+.arr{display:inline-block;transition:transform .15s}
+.btn:hover .arr,.more:hover .arr{transform:translateX(3px)}
+
+/* ===== Site navbar (same as the main Bizpole site / trademark-search pages) ===== */
+/* Mirrors the main site navbar (src/components/Navbar.jsx). The site runs html{font-size:13px},
+   so Tailwind rem sizes there = px values here (1rem = 13px). */
+.site-header{position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid #f1efe8}
+.site-header [hidden]{display:none!important}
+.nav-bar{height:65px;padding:0 13px;display:flex;align-items:center;justify-content:space-between;gap:13px}
+.nav-logo img{display:block;height:32.5px;width:auto}
+.nav-links,.nav-right{display:none}
+.nav-links{list-style:none;margin:0;padding:0;align-items:center;gap:22.75px;font-weight:500;font-size:13px;line-height:19.5px}
+.nav-links li{position:relative}
+.nav-links a{text-decoration:none;color:#1f2937;transition:color .2s}
+.nav-links a:hover,.nav-links a[aria-current="page"]{color:#000}
+.nav-links a[aria-current="page"]::after{content:"";position:absolute;left:0;right:0;bottom:-6.5px;height:2px;background:#000;border-radius:999px}
+.nav-pill{position:relative;display:inline-block;padding:4.875px 13px;border-radius:999px;border:1px solid #FBE08A;background:#FEF1B8;color:#000!important}
+.nav-pill:hover{background:#FCE38A}
+.nav-new{position:absolute;top:-8.125px;right:9.75px;border-radius:999px;background:#F5C518;padding:1px 4.875px;font-size:9px;font-weight:600;line-height:1.25;color:#000;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.nav-new svg{position:absolute;top:-9.75px;right:-9.75px;width:13px;height:13px;color:#F5C518;pointer-events:none}
+.nav-right{align-items:center;gap:9.75px}
+.nav-btn{display:inline-block;text-decoration:none;border-radius:999px;padding:8.125px 16.25px;font-size:11.375px;line-height:16.25px;font-weight:500;white-space:nowrap;transition:transform .15s}
+.nav-btn:hover{transform:scale(1.05)}
+.nav-signin{color:#374151}.nav-signin:hover{color:#000}
+.nav-cta{background:linear-gradient(to right,#facc15,#eab308);color:#000;font-weight:600;box-shadow:0 10px 15px -3px rgba(0,0,0,.1)}
+.nav-dash{background:#000;color:#fff;box-shadow:0 4px 6px -1px rgba(0,0,0,.1)}
+.nav-toggle{background:none;border:0;padding:0;color:#000;cursor:pointer;line-height:0}
+.nav-mobile{position:absolute;left:9.75px;right:9.75px;top:100%;background:#fff;border:1px solid #e5e7eb;border-radius:13px;box-shadow:0 20px 25px -5px rgba(0,0,0,.1);padding:19.5px}
+.nav-mobile[hidden]{display:none}
+.nav-mobile ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:16.25px}
+.nav-mobile ul a{text-decoration:none;color:#1f2937;font-weight:500;font-size:13px;line-height:19.5px}
+.nav-mobile ul a[aria-current="page"]{color:#000}
+.nav-mobile .nav-new{position:static;margin-left:6.5px;font-size:10px;padding:2px 6.5px;vertical-align:middle}
+.nav-mobile-ctas{display:flex;flex-direction:column;gap:16.25px;margin-top:16.25px}
+.nav-mobile-ctas a{display:block;text-align:center;text-decoration:none;padding:9.75px;border-radius:999px;color:#000;font-size:13px;line-height:19.5px}
+.nav-m-signin{border:1px solid #d1d5db}
+.nav-m-cta{background:#facc15;font-weight:600}
+.nav-m-dash{background:#000;color:#fff!important;font-weight:500}
+@media (min-width:640px){.nav-bar{padding:0 19.5px}.nav-logo img{height:39px}.nav-mobile ul a{font-size:14.625px;line-height:22.75px}}
+@media (min-width:1024px){
+  .nav-bar{height:78px;padding:0 32.5px}.nav-logo img{height:45.5px}
+  .nav-links,.nav-right{display:flex}.nav-toggle,.nav-mobile{display:none!important}
+}
+@media (min-width:1280px){.nav-links{gap:39px;font-size:14.625px;line-height:22.75px}.nav-btn{font-size:13px;line-height:19.5px}.nav-dash{padding:8.125px 19.5px}.nav-cta{padding:9.75px 22.75px}}
+html[dir="rtl"] .nav-new{right:auto;left:9.75px}
+
+/* ===== (old page header — unused) ===== */
+.hdr{position:sticky;top:0;z-index:50;background:rgba(255,250,240,.97);border-bottom:1px solid transparent;transition:border-color .2s,background .2s}
+.hdr.scrolled{background:#fff;border-bottom-color:var(--line)}
+.hdr .wrap{display:flex;align-items:center;gap:16px;height:68px}
+.hdr .logo{flex:0 0 auto}
+.nav{display:none;margin:0 auto;font-size:.92rem;font-weight:500;color:var(--ink)}
+.nav > ul{display:flex;align-items:center;gap:34px;list-style:none;margin:0;padding:0}
+.nav > ul > li > a,.dd > button{text-decoration:none;background:none;border:0;padding:8px 0;cursor:pointer;font-weight:500}
+.nav > ul > li > a:hover,.dd > button:hover{color:var(--brand-d)}
+.dd{position:relative}
+.dd > button{display:inline-flex;align-items:center;gap:6px}
+.dd > button svg{transition:transform .2s}
+.dd > button[aria-expanded="true"] svg{transform:rotate(180deg)}
+.dd-menu{position:absolute;top:calc(100% + 10px);left:-18px;min-width:270px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:8px;margin:0;list-style:none;display:grid}
+.dd-menu[hidden]{display:none}
+.dd-menu a{display:block;padding:10px 12px;border-radius:10px;text-decoration:none;font-size:.9rem}
+.dd-menu a:hover,.dd-menu a:focus-visible{background:var(--cream)}
+.dd-menu small{display:block;color:var(--muted);font-size:.78rem;font-weight:400}
+.hdr-act{display:flex;align-items:center;gap:10px;margin-left:auto}
+.hdr-act .btn{min-height:44px;padding:0 20px;font-size:.9rem}
+.call-ic{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:50%;background:#fff;border:1px solid var(--line-2);color:var(--ink)}
+.hdr-call{display:none}
+@media (min-width:640px){.call-ic{display:none}.hdr-call{display:inline-flex}}
+@media (min-width:1024px){.nav{display:flex}.hdr-act{margin-left:0}}
+@media (max-width:420px){.hdr-act .btn-y{padding:0 16px}.hdr-act .btn-y .long{display:none}}
+@media (min-width:421px){.hdr-act .btn-y .short{display:none}}
+
+/* ===== Hero ===== */
+.hero{position:relative;overflow:hidden;background:
+  radial-gradient(520px 380px at 82% 30%,rgba(255,210,77,.20),transparent 70%),
+  linear-gradient(180deg,var(--cream) 0%,#fff 100%);padding:28px 0 36px}
+.hero-grid{display:grid;gap:12px;align-items:center}
+@media (min-width:900px){.hero{padding:44px 0 56px}.hero-grid{grid-template-columns:1.1fr .9fr;gap:40px}}
+.badge{display:inline-block;background:var(--cream-2);color:var(--ink);font-size:.82rem;font-weight:600;padding:6px 14px;border-radius:999px;margin-bottom:18px}
+.hero h1{font-size:clamp(2.35rem,8.4vw,4rem);line-height:1.04;letter-spacing:-.035em;margin-bottom:20px}
+.hero h1 .y{display:block}
+.hero .sub{font-size:1.02rem;color:var(--ink-2);max-width:500px;margin-bottom:28px}
+.hero-cta{display:flex;flex-wrap:wrap;gap:12px}
+@media (max-width:519px){.hero-cta .btn{width:100%}}
+/* Illustration (inline SVG, no image request) */
+.ill{position:relative;max-width:420px;width:100%;margin:0 0 0 auto}
+.ill svg{width:100%;height:auto;overflow:visible}
+/* Phones/tablets: skip the art so the contact form (section 2) sits close to the fold */
+@media (max-width:899px){.ill{display:none}}
+.bob{animation:bob 6s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+.bob2{animation:bob 6s ease-in-out -3s infinite;transform-box:fill-box;transform-origin:center}
+@keyframes bob{50%{transform:translateY(-8px)}}
+
+/* ===== Section heads ===== */
+.sec{padding:56px 0}
+@media (min-width:900px){.sec{padding:72px 0}}
+.head{text-align:center;max-width:780px;margin:0 auto 32px}
+.head p{max-width:640px;margin:0 auto}
+.head h2{font-size:clamp(1.6rem,4.4vw,2.3rem);margin-bottom:10px}
+.head p{color:var(--muted);font-size:.98rem}
+
+/* ===== Section 2: expert help + contact form ===== */
+.help-wrap{padding:8px 0 0}
+.helpbox{position:relative;overflow:hidden;border-radius:28px;border:1px solid #f6e7b8;padding:28px 18px 18px;display:grid;gap:26px;
+  background:
+    radial-gradient(circle at 4% 104%,rgba(255,198,26,.22) 0 150px,transparent 151px),
+    radial-gradient(circle at 46% 120%,rgba(255,198,26,.16) 0 190px,transparent 191px),
+    linear-gradient(135deg,#fff7df 0%,#fffbf0 55%,#fff7e3 100%)}
+@media (min-width:900px){.helpbox{grid-template-columns:.85fr 1.15fr;gap:40px;align-items:center;padding:36px 36px 36px 48px}}
+.bar{display:block;width:44px;height:5px;border-radius:5px;background:var(--brand);margin-bottom:18px}
+.helpbox h2{font-size:clamp(1.65rem,4.6vw,2.35rem);margin-bottom:14px}
+.helpbox .intro > p{color:var(--ink-2);max-width:380px;margin-bottom:24px}
+.feats{list-style:none;margin:0;padding:0;display:grid;gap:16px}
+.feats li{display:flex;gap:14px;align-items:center}
+.tile{flex:0 0 46px;width:46px;height:46px;border-radius:14px;background:#fff0c2;color:var(--brand-d);display:grid;place-items:center}
+.feats b{display:block;color:var(--ink);font-weight:600;font-size:.96rem;line-height:1.3}
+.feats span{font-size:.84rem;color:var(--muted)}
+@media (max-width:899px){.feats{grid-template-columns:1fr}}
+
+.formcard{position:relative;background:#fff;border-radius:22px;box-shadow:0 2px 4px rgba(60,45,0,.04),0 18px 44px rgba(60,45,0,.10);padding:22px 18px 24px}
+@media (min-width:640px){.formcard{padding:28px 28px 30px}}
+.fc-head{display:flex;gap:14px;align-items:center;margin-bottom:20px}
+.fc-head .tile{background:#fff0c2}
+.fc-head h3{font-size:1.3rem;letter-spacing:-.02em}
+.fc-head p{font-size:.86rem;color:var(--muted)}
+.fgrid{display:grid;gap:12px}
+@media (min-width:560px){.fgrid{grid-template-columns:1fr 1fr}.fgrid .full{grid-column:1/-1}}
+.fld{position:relative}
+.fld > svg{position:absolute;left:16px;top:16px;color:var(--ink-2);pointer-events:none}
+.fld input,.fld select,.fld textarea{width:100%;height:50px;padding:0 16px 0 46px;font:400 15px var(--font);color:var(--ink);background:#fff;border:1px solid var(--line-2);border-radius:14px;appearance:none;-webkit-appearance:none;transition:border-color .15s,box-shadow .15s}
+.fld textarea{height:96px;padding:13px 16px 13px 46px;resize:vertical;line-height:1.5}
+.fld select{padding-right:40px;cursor:pointer;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2316161a' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 16px center}
+.fld select:invalid{color:#7b8190}
+.fld input::placeholder,.fld textarea::placeholder{color:#7b8190}
+.fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px rgba(255,198,26,.45)}
+.fld [aria-invalid="true"]{border-color:var(--err)}
+.hp{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.send{width:100%;margin-top:16px;min-height:52px;font-size:1rem}
+.send[disabled]{opacity:.7;cursor:progress}
+.ferr{display:none;margin-top:14px;padding:10px 14px;border-radius:12px;background:#fef2f2;color:#991b1b;font-size:.88rem}
+.ferr.show{display:block}
+.fnote{margin-top:12px;font-size:.76rem;color:var(--muted);text-align:center}
+.fnote a{color:var(--brand-d);text-decoration:none;font-weight:500}
+/* OTP + thank-you states (same card) */
+.otp-v,.done-v{display:none}
+.formcard[data-step="done"] .form-v{display:none}
+.formcard[data-step="done"] .done-v{display:block}
+.linkbtn{background:none;border:0;padding:0;cursor:pointer;color:var(--brand-d);font-weight:600;font-size:inherit}
+.otp-to{font-size:.92rem;color:var(--muted);margin:-6px 0 18px}
+.otp-to b{color:var(--ink)}
+.otp-in{width:100%;max-width:300px;height:62px;display:block;margin:0 auto;text-align:center;font:600 1.8rem var(--font);letter-spacing:.8em;text-indent:.8em;color:var(--ink);border:1px solid var(--line-2);border-radius:14px;background:#fff}
+.otp-in:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px rgba(255,198,26,.45)}
+.otp-in[aria-invalid="true"]{border-color:var(--err)}
+.resend{margin-top:14px;text-align:center;font-size:.86rem;color:var(--muted)}
+.done-v{text-align:center;padding:10px 0 4px}
+.done-v .tick{width:68px;height:68px;margin:0 auto 14px;border-radius:50%;background:#ecfdf5;display:grid;place-items:center}
+.done-v h3{font-size:1.4rem;margin-bottom:6px}
+.done-v > p{color:var(--muted);font-size:.94rem}
+.done-v ol{text-align:left;max-width:380px;margin:18px auto 0;padding-left:20px;display:grid;gap:8px;font-size:.92rem}
+.done-v .ref{margin-top:14px;font-size:.8rem;color:var(--muted)}
+
+/* ===== Section 3: what do you need help with ===== */
+.sits{display:grid;gap:18px}
+@media (min-width:860px){.sits{grid-template-columns:1fr 1fr;gap:22px}}
+.sitcard{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:0 1px 2px rgba(60,45,0,.04),0 8px 22px rgba(60,45,0,.05);padding:22px 20px 20px;display:flex;flex-direction:column}
+.sitcard > .tile{margin:0 0 6px 4px;width:42px;height:42px;flex-basis:42px;border-radius:12px;color:var(--ink)}
+.sit{display:block;width:100%;text-align:left;background:none;border:0;border-radius:14px;padding:12px 14px 14px 6px;cursor:pointer;position:relative;transition:background .15s}
+.sit + .sit{margin-top:6px}
+.sit + .sit::before{content:"";position:absolute;left:6px;right:6px;top:-4px;height:1px;background:var(--line)}
+.sit:hover{background:var(--cream)}
+.sit[aria-expanded="true"]{background:var(--cream-2)}
+.sit h3{font-size:1.06rem;letter-spacing:-.015em;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.sit h3::after{content:"";width:8px;height:8px;border-right:2px solid var(--brand-d);border-bottom:2px solid var(--brand-d);transform:rotate(-45deg);margin-left:auto;flex:0 0 auto;transition:transform .2s}
+.sit[aria-expanded="true"] h3::after{transform:rotate(45deg)}
+.sit p{font-size:.88rem;color:var(--muted);padding-right:22px}
+@media (min-width:860px){.sit{padding-left:14px}.sit + .sit::before{left:14px;right:14px}.sitcard > .tile{margin-left:14px}}
+.more{display:inline-flex;align-items:center;gap:6px;margin:12px 0 0 6px;font-size:.88rem;font-weight:600;color:var(--brand-d);text-decoration:none;background:none;border:0;padding:4px 0;cursor:pointer}
+@media (min-width:860px){.more{margin-left:14px;margin-top:auto;padding-top:14px}}
+/* Detail panel: relevant information + initial document checklist */
+.panel{margin-top:22px;background:#fff;border:1px solid #f1dc98;border-radius:var(--r);box-shadow:var(--shadow);padding:24px 20px;position:relative;scroll-margin-top:96px}
+.panel[hidden]{display:none}
+.sits > .panel{margin-top:0}
+@media (min-width:860px){.panel{padding:30px 32px}}
+.panel .x{position:absolute;top:12px;right:12px;width:40px;height:40px;border-radius:50%;border:0;background:var(--cream);cursor:pointer;display:grid;place-items:center}
+.panel .x:hover{background:var(--cream-2)}
+.panel .eyebrow{display:inline-block;font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--brand-d);margin-bottom:6px}
+.panel h3{font-size:1.3rem;margin:0 44px 14px 0}
+.pgrid{display:grid;gap:22px}
+@media (min-width:860px){.pgrid{grid-template-columns:1.1fr 1fr;gap:36px}}
+.pgrid > div > p{font-size:.94rem;margin-bottom:12px}
+.pgrid h4{margin:0 0 10px;font-size:.95rem;color:var(--ink)}
+.dots{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:.92rem}
+.dots li{position:relative;padding-left:18px}
+.dots li::before{content:"";position:absolute;left:2px;top:.62em;width:7px;height:7px;border-radius:50%;background:var(--brand)}
+.check{list-style:none;margin:0;padding:16px 18px;display:grid;gap:10px;font-size:.92rem;background:var(--cream);border-radius:16px}
+.check li{display:flex;gap:10px;align-items:flex-start;line-height:1.45}
+.check li::before{content:"";flex:0 0 18px;height:18px;margin-top:1px;border-radius:5px;background:var(--brand) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10'%3E%3Cpath d='M1.5 5.5l3 3 6-7' fill='none' stroke='%2316161a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center}
+.panel .pact{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;margin-top:22px}
+.panel .pact small{color:var(--muted);font-size:.8rem}
+
+/* ===== Section 4: support cards ===== */
+.sup{display:grid;gap:16px}
+@media (min-width:600px){.sup{grid-template-columns:repeat(2,1fr)}}
+@media (min-width:1024px){.sup{grid-template-columns:repeat(4,1fr);gap:18px}}
+.supc{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:22px 20px;box-shadow:0 1px 2px rgba(60,45,0,.04),0 8px 22px rgba(60,45,0,.05)}
+.supc .tile{width:42px;height:42px;flex-basis:42px;border-radius:12px;margin-bottom:16px}
+.supc h3{font-size:1rem;letter-spacing:-.01em;margin-bottom:6px}
+.supc p{font-size:.88rem;color:var(--muted)}
+
+/* ===== Section 5: how it works ===== */
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:22px}
+@media (min-width:900px){.steps{grid-template-columns:repeat(3,1fr);gap:24px}}
+.steps li{position:relative;display:grid;grid-template-columns:auto auto 1fr;gap:12px;align-items:start}
+.num{width:34px;height:34px;border-radius:50%;background:var(--brand);color:var(--ink);font-size:.8rem;font-weight:700;display:grid;place-items:center}
+.sico{width:44px;height:44px;border-radius:12px;background:var(--cream);display:grid;place-items:center;color:var(--ink)}
+.steps h3{font-size:1rem;letter-spacing:-.01em;margin:2px 0 4px}
+.steps p{font-size:.88rem;color:var(--muted)}
+@media (min-width:900px){
+  .steps li:not(:last-child)::after{content:"";position:absolute;top:22px;right:-14px;width:44px;height:2px;background:repeating-linear-gradient(90deg,#e7e0cc 0 6px,transparent 6px 11px)}
+  .steps li > div{padding-right:28px}
+}
+@media (max-width:899px){
+  .steps li:not(:last-child)::after{content:"";position:absolute;left:16px;top:44px;bottom:-18px;width:2px;background:repeating-linear-gradient(180deg,#e7e0cc 0 6px,transparent 6px 11px)}
+}
+
+/* ===== Section 6: dark CTA band ===== */
+.cta{position:relative;overflow:hidden;background:var(--ink);color:#d4d4d8;border-radius:28px;padding:34px 22px 30px 22px;display:grid;gap:20px;align-items:center}
+.cta::before{content:"";position:absolute;left:-70px;bottom:-90px;width:170px;height:170px;border-radius:50%;background:var(--brand)}
+.cta > *{position:relative}
+.cta h2{color:#fff;font-size:clamp(1.45rem,4vw,2rem);margin-bottom:6px}
+.cta p{font-size:.95rem}
+@media (min-width:860px){.cta{grid-template-columns:1fr auto;padding:36px 44px 36px 92px}}
+@media (max-width:859px){.cta{padding-left:28px}.cta::before{left:-110px;bottom:-120px}}
+
+/* ===== Footer ===== */
+.ftr{background:#f7f6f2;margin-top:56px;padding:44px 0 22px;font-size:.88rem;color:var(--ink-2)}
+.fcols{display:grid;gap:28px;grid-template-columns:repeat(2,1fr)}
+@media (min-width:900px){.fcols{grid-template-columns:1.4fr 1fr 1fr 1fr;gap:32px}}
+.fbrand{grid-column:1/-1}
+@media (min-width:900px){.fbrand{grid-column:auto;padding-right:24px;border-right:1px solid var(--line)}}
+.fbrand p{color:var(--muted);font-size:.82rem;margin-top:10px}
+.ftr h2{font-size:.9rem;letter-spacing:0;margin-bottom:12px}
+.ftr ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.ftr ul a{text-decoration:none;color:var(--ink-2)}
+.ftr ul a:hover{color:var(--brand-d)}
+.flegal{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 24px;border-top:1px solid var(--line);margin-top:30px;padding-top:18px;font-size:.78rem;color:var(--muted)}
+
+/* ===== Sticky phone bar ===== */
+.sbar{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(0,0,0,.06);transition:transform .25s ease}
+.sbar .btn{flex:1;min-height:48px}
+.sbar .call-ic{display:inline-grid;flex:0 0 48px;width:48px;height:48px}
+.sbar.off{transform:translateY(110%)}
+@media (min-width:640px){.sbar{display:none}}
+@media (max-width:639px){body{padding-bottom:72px}}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* ===== Translated page (?lang=…): Indic scripts break with letter-spacing, need taller lines
+   and often longer words; Urdu is right-to-left ===== */
+html.i18n *{letter-spacing:normal!important}
+html.i18n body{line-height:1.7}
+html.i18n h1,html.i18n h2,html.i18n h3{line-height:1.35;overflow-wrap:break-word}
+html.i18n .hero h1{font-size:clamp(2rem,7vw,3.3rem);line-height:1.25}
+html.i18n .btn{white-space:normal;text-align:center;line-height:1.35;padding-top:10px;padding-bottom:10px}
+html.i18n .nav > ul{gap:22px}
+html[dir="rtl"] .arr{transform:scaleX(-1)}
+html[dir="rtl"] .btn:hover .arr,html[dir="rtl"] .more:hover .arr{transform:scaleX(-1) translateX(3px)}
+html[dir="rtl"] .fld > svg{left:auto;right:16px}
+html[dir="rtl"] .fld input,html[dir="rtl"] .fld select,html[dir="rtl"] .fld textarea{padding-left:16px;padding-right:46px}
+html[dir="rtl"] .fld select{padding-left:40px;background-position:left 16px center}
+html[dir="rtl"] .fld input[type="tel"],html[dir="rtl"] .fld input[type="email"],html[dir="rtl"] .otp-in{direction:ltr;text-align:right}
+html[dir="rtl"] .otp-in{text-align:center}
+html[dir="rtl"] .sit{text-align:right}
+html[dir="rtl"] .sit h3::after{margin-left:0;margin-right:auto;transform:rotate(135deg)}
+html[dir="rtl"] .sit p{padding-right:0;padding-left:22px}
+html[dir="rtl"] .panel .x{right:auto;left:12px}
+html[dir="rtl"] .panel h3{margin:0 0 14px 44px}
+html[dir="rtl"] .dots li{padding-left:0;padding-right:18px}
+html[dir="rtl"] .dots li::before{left:auto;right:2px}
+html[dir="rtl"] .dd-menu{left:auto;right:-18px}
+html[dir="rtl"] .cta::before{left:auto;right:-70px}
+@media (min-width:860px){html[dir="rtl"] .cta{padding:36px 92px 36px 44px}}
+@media (min-width:900px){html[dir="rtl"] .fbrand{padding-right:0;padding-left:24px;border-right:0;border-left:1px solid var(--line)}}
+</style>
+
+<!-- ============ LANGUAGE ============
+  ?lang=hi|bn|te|mr|ta|gu|kn|ml|or|pa|as|ur shows the page in that language (kept for the tab
+  in sessionStorage lp_lang; ?lang=en switches back) — same system as /trademark-search/meta.
+  Runtime: /lp/i18n.js (shared). Translations: /gst-registration/meta/i18n/<lang>.js (this page's
+  own copy), checked with `node scripts/translate-tm-meta.mjs --page gst-meta --check`, which also
+  bumps I18N_V so browsers fetch the new files. Re-run it after changing any copy on this page. -->
+<script>
+(function () {
+  var I18N_V = "f5871857";
+  var FONTS = { hi: "Noto+Sans+Devanagari", mr: "Noto+Sans+Devanagari", bn: "Noto+Sans+Bengali", as: "Noto+Sans+Bengali",
+    te: "Noto+Sans+Telugu", ta: "Noto+Sans+Tamil", gu: "Noto+Sans+Gujarati", kn: "Noto+Sans+Kannada",
+    ml: "Noto+Sans+Malayalam", or: "Noto+Sans+Oriya", pa: "Noto+Sans+Gurmukhi", ur: "Noto+Naskh+Arabic" };
+  var l = "";
+  try {
+    var p = (new URLSearchParams(location.search).get("lang") || "").toLowerCase().slice(0, 2);
+    if (p === "en") sessionStorage.removeItem("lp_lang");
+    else if (FONTS[p]) sessionStorage.setItem("lp_lang", p);
+    l = p === "en" ? "" : FONTS[p] ? p : sessionStorage.getItem("lp_lang") || "";
+  } catch (e) {}
+  if (!FONTS[l]) return;
+  var h = document.documentElement;
+  h.lang = l + "-IN"; h.classList.add("i18n"); if (l === "ur") h.dir = "rtl";
+  h.style.setProperty("--font", '"Poppins","' + FONTS[l].replace(/\+/g, " ") + '","Poppins Fallback",system-ui,sans-serif');
+  document.write(
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=' + FONTS[l] + ':wght@400;600;700&display=swap">' +
+    '<script src="/lp/i18n.js?v=' + I18N_V + '"><\/script>' +
+    '<script src="/gst-registration/meta/i18n/' + l + '.js?v=' + I18N_V + '"><\/script>');
+})();
+</script>
+</head>
+
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<!-- ================= HEADER ================= -->
+<header class="site-header">
+  <nav class="nav-bar" aria-label="Main">
+    <a class="nav-logo" href="/" aria-label="Bizpole home">
+      <img src="/lp/img/logo-one.webp" alt="Bizpole One" width="100" height="56">
+    </a>
+
+    <ul class="nav-links">
+      <li><a href="/services">Services</a></li>
+      <li><a href="/products">Product</a></li>
+      <li>
+        <a class="nav-pill" href="/bizpoleone">Bizpole One
+          <span class="nav-new">New<svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4.5 7.5 L5.5 2.5"/><path d="M7.5 9 L11.5 5"/><path d="M8.5 12 L13.5 11"/></svg></span>
+        </a>
+      </li>
+      <li><a href="/partners">Partners</a></li>
+      <li><a href="/trademark-search">Trademark Search</a></li>
+    </ul>
+
+    <div class="nav-right" data-auth="out">
+      <a class="nav-btn nav-signin" href="/?signin=1">Sign In</a>
+      <a class="nav-btn nav-cta" href="/startbusiness">Get Started Business</a>
+    </div>
+    <div class="nav-right" data-auth="in" hidden>
+      <a class="nav-btn nav-dash" href="/dashboard/bizpoleone">Dashboard →</a>
+    </div>
+
+    <button class="nav-toggle" id="navToggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="navMobile">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path id="navToggleIcon" d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
+  </nav>
+
+  <div class="nav-mobile" id="navMobile" hidden>
+    <ul>
+      <li><a href="/services">Services</a></li>
+      <li><a href="/products">Product</a></li>
+      <li><a href="/bizpoleone">Bizpole One<span class="nav-new">New</span></a></li>
+      <li><a href="/partners">Partners</a></li>
+      <li><a href="/trademark-search">Trademark Search</a></li>
+    </ul>
+    <div class="nav-mobile-ctas" data-auth="out">
+      <a class="nav-m-signin" href="/?signin=1">Sign In</a>
+      <a class="nav-m-cta" href="/startbusiness">Get Started</a>
+    </div>
+    <div class="nav-mobile-ctas" data-auth="in" hidden>
+      <a class="nav-m-dash" href="/dashboard">Dashboard</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ================= 1. HERO ================= -->
+<section class="hero" aria-labelledby="hero-title">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="badge">GST Registration &amp; Business Support</span>
+      <h1 id="hero-title">GST Registration. <span class="y">Made Simple.</span></h1>
+      <p class="sub">Starting a business, expanding online or unsure whether you need GST? Tell us what you do. Bizpole helps you understand the right registration route and the documents to get started.</p>
+      <div class="hero-cta" id="hero-cta">
+        <a class="btn btn-y" href="#help">Find the GST Service You Need <span class="arr" aria-hidden="true" data-noi18n>→</span></a>
+        <a class="btn btn-w" href="#contact" data-go="Not Sure If I Need GST" data-cta="hero-unsure">I'm Not Sure — Help Me</a>
+      </div>
+    </div>
+
+    <!-- GST checklist illustration (decorative) -->
+    <div class="ill" aria-hidden="true">
+      <svg viewBox="0 0 440 360" role="presentation" focusable="false">
+        <defs>
+          <linearGradient id="g-blob" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffeaa8"/><stop offset="1" stop-color="#ffd24d"/></linearGradient>
+          <filter id="f-sh" x="-25%" y="-20%" width="150%" height="150%"><feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#7a5a00" flood-opacity=".16"/></filter>
+        </defs>
+        <path d="M300 18c72 8 128 58 132 128s-38 152-118 174-176 12-210-38 12-112 42-162S228 10 300 18z" fill="url(#g-blob)" opacity=".75"/>
+        <path d="M58 132c28-22 72-14 84 16s-8 62-44 66-64-18-66-42 0-26 26-40z" fill="#ffe7a0" opacity=".55"/>
+        <ellipse cx="236" cy="322" rx="134" ry="14" fill="#3b2a00" opacity=".07"/>
+        <g class="bob2">
+          <g transform="rotate(9 262 170)"><rect x="162" y="40" width="196" height="256" rx="18" fill="#fff" stroke="#efe9d8" filter="url(#f-sh)"/></g>
+        </g>
+        <g class="bob">
+          <g transform="rotate(5 226 172)" filter="url(#f-sh)">
+            <rect x="124" y="36" width="206" height="268" rx="18" fill="#fff" stroke="#efe9d8"/>
+            <text x="160" y="104" font-family="Poppins, Arial, sans-serif" font-weight="700" font-style="italic" font-size="44" fill="#16161a" letter-spacing="1">GST</text>
+            <rect x="158" y="114" width="96" height="6" rx="3" fill="#16161a"/>
+            <g>
+              <rect x="150" y="146" width="28" height="28" rx="7" fill="#ffc61a"/>
+              <path d="M157 160l5 5 9-10" fill="none" stroke="#8a5a00" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="192" y="149" width="112" height="9" rx="4.5" fill="#d9d6cf"/>
+              <rect x="192" y="164" width="76" height="8" rx="4" fill="#e8e5de"/>
+            </g>
+            <g>
+              <rect x="150" y="194" width="28" height="28" rx="7" fill="#ffc61a"/>
+              <path d="M157 208l5 5 9-10" fill="none" stroke="#8a5a00" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="192" y="197" width="104" height="9" rx="4.5" fill="#d9d6cf"/>
+              <rect x="192" y="212" width="88" height="8" rx="4" fill="#e8e5de"/>
+            </g>
+            <g>
+              <rect x="150" y="242" width="28" height="28" rx="7" fill="#ffc61a"/>
+              <path d="M157 256l5 5 9-10" fill="none" stroke="#8a5a00" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="192" y="245" width="98" height="9" rx="4.5" fill="#d9d6cf"/>
+              <rect x="192" y="260" width="62" height="8" rx="4" fill="#e8e5de"/>
+            </g>
+          </g>
+        </g>
+        <g transform="translate(338 252)">
+          <g class="bob2">
+            <path d="M-24 14 L-32 70 L-15 59 L-5 74 L4 18z" fill="#16161a"/>
+            <path d="M24 14 L32 70 L15 59 L5 74 L-4 18z" fill="#16161a"/>
+            <circle r="42" fill="#ffc61a"/>
+            <circle r="32" fill="#f2b000"/>
+            <circle r="32" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2"/>
+            <path d="M-15 1l10 10 20-21" fill="none" stroke="#fff" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 2. EXPERT HELP + CONTACT FORM ================= -->
+<section class="help-wrap" id="contact" aria-labelledby="contact-title">
+  <div class="wrap">
+    <div class="helpbox">
+      <div class="intro">
+        <span class="bar" aria-hidden="true"></span>
+        <h2 id="contact-title">Get Expert Help for Your <span class="y">GST Needs.</span></h2>
+        <p>Share your details and our GST specialists will get in touch with the right guidance.</p>
+        <ul class="feats">
+          <li><span class="tile" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14v-2a9 9 0 0 1 18 0v2"/><path d="M21 15a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2zM3 15a2 2 0 0 0 2 2h1v-6H5a2 2 0 0 0-2 2z"/><path d="M18 17v1a3 3 0 0 1-3 3h-3"/></svg></span><div><b>Talk to a GST Expert</b><span>Get the right advice for your business</span></div></li>
+          <li><span class="tile" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span><div><b>Quick Response</b><span>We'll get back to you shortly</span></div></li>
+          <li><span class="tile" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><div><b>End-to-End Support</b><span>From registration to compliance</span></div></li>
+        </ul>
+      </div>
+
+      <div class="formcard" id="formcard" data-step="form">
+        <div class="fc-head">
+          <span class="tile" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 6-10 7L2 6"/></svg></span>
+          <div>
+            <h3 id="fc-title">Contact Us</h3>
+            <p id="fc-sub">Share your details and our team will connect with you.</p>
+          </div>
+        </div>
+
+        <!-- Step 1: details -->
+        <form class="form-v" id="gst-form" novalidate aria-labelledby="fc-title">
+          <div class="fgrid">
+            <div class="fld">
+              <label class="sr-only" for="f-name">Full name (required)</label>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>
+              <input id="f-name" name="name" type="text" autocomplete="name" maxlength="150" required placeholder="Full Name *">
+            </div>
+            <div class="fld">
+              <label class="sr-only" for="f-mobile">Phone number (required, 10 digits)</label>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>
+              <input id="f-mobile" name="mobile" type="tel" inputmode="numeric" autocomplete="tel-national" required placeholder="Phone Number *">
+            </div>
+            <div class="fld full">
+              <label class="sr-only" for="f-state">State (required)</label>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              <!-- Needed for lead routing: a lead with no state and no language lands in the holding pool -->
+              <select id="f-state" name="state" required autocomplete="address-level1">
+                <option value="" disabled selected>State *</option>
+                <option>Andhra Pradesh</option><option>Arunachal Pradesh</option><option>Assam</option><option>Bihar</option>
+                <option>Chhattisgarh</option><option>Goa</option><option>Gujarat</option><option>Haryana</option>
+                <option>Himachal Pradesh</option><option>Jharkhand</option><option>Karnataka</option><option>Kerala</option>
+                <option>Madhya Pradesh</option><option>Maharashtra</option><option>Manipur</option><option>Meghalaya</option>
+                <option>Mizoram</option><option>Nagaland</option><option>Odisha</option><option>Punjab</option>
+                <option>Rajasthan</option><option>Sikkim</option><option>Tamil Nadu</option><option>Telangana</option>
+                <option>Tripura</option><option>Uttar Pradesh</option><option>Uttarakhand</option><option>West Bengal</option>
+                <option>Andaman and Nicobar Islands</option><option>Chandigarh</option>
+                <option>Dadra and Nagar Haveli and Daman and Diu</option><option>Delhi</option>
+                <option>Jammu and Kashmir</option><option>Ladakh</option><option>Lakshadweep</option><option>Puducherry</option>
+              </select>
+            </div>
+            <!-- Set by the help-card / hero buttons (data-go); sent as "Requirement: …" on the lead -->
+            <input type="hidden" id="f-req" name="requirement" value="">
+            <div class="fld full">
+              <label class="sr-only" for="f-msg">Your message (optional)</label>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/></svg>
+              <textarea id="f-msg" name="message" maxlength="1500" placeholder="Your Message (Optional)"></textarea>
+            </div>
+          </div>
+          <!-- Honeypot: real visitors never see or fill this -->
+          <div class="hp" aria-hidden="true" data-noi18n>
+            <label for="f-hp">Company website</label>
+            <input id="f-hp" name="company_website" type="text" tabindex="-1" autocomplete="off">
+          </div>
+          <div class="ferr" id="f-err" role="alert"></div>
+          <button class="btn btn-y send" type="submit" id="f-send"><span class="lbl">Send Enquiry</span> <span class="arr" aria-hidden="true" data-noi18n>→</span></button>
+          <p class="fnote">By sending, you agree to our <a href="/privacy-policy">privacy policy</a>.</p>
+        </form>
+
+        <!-- Step 2: thank you -->
+        <div class="done-v" id="done-v" tabindex="-1" aria-live="polite">
+          <div class="tick" aria-hidden="true"><svg width="34" height="34" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#16a34a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <h3>Thank you<span id="done-name"></span>!</h3>
+          <p>Your enquiry is in. Here's what happens next:</p>
+          <ol>
+            <li>A GST expert calls you shortly to understand your business.</li>
+            <li>We confirm the right registration route and share your document checklist.</li>
+            <li>We help with the application and stay with you after you get your GSTIN.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 3. WHAT DO YOU NEED HELP WITH ================= -->
+<section class="sec" id="help" aria-labelledby="help-title">
+  <div class="wrap">
+    <div class="head">
+      <h2 id="help-title">What Do You Need Help With?</h2>
+      <p>Choose the situation that best describes your business. We'll show you the relevant information and an initial document checklist.</p>
+    </div>
+
+    <div class="sits">
+      <div class="sitcard">
+        <span class="tile" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+        <button type="button" class="sit" data-sit="new" aria-expanded="false" aria-controls="sit-new">
+          <h3>New GST Registration</h3>
+          <p>I'm starting a business or need a GST number for my existing business.</p>
+        </button>
+        <button type="button" class="sit" data-sit="comp" aria-expanded="false" aria-controls="sit-comp">
+          <h3>Composition Scheme Guidance</h3>
+          <p>I'm a small eligible business and want to understand whether the Composition Scheme may suit me.</p>
+        </button>
+        <button type="button" class="more" data-sit="comp">Understand the scheme <span class="arr" aria-hidden="true" data-noi18n>→</span></button>
+      </div>
+
+      <div class="sitcard">
+        <span class="tile" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg></span>
+        <button type="button" class="sit" data-sit="online" aria-expanded="false" aria-controls="sit-online">
+          <h3>Online or Interstate Business</h3>
+          <p>I sell through e-commerce platforms, supply across states or have a special registration situation.</p>
+        </button>
+        <button type="button" class="sit" data-sit="unsure" aria-expanded="false" aria-controls="sit-unsure">
+          <h3>Not Sure If I Need GST</h3>
+          <p>I'm confused about GST applicability, turnover limits, business type or the right scheme.</p>
+        </button>
+        <a class="more" href="#contact" data-go="Not Sure If I Need GST" data-cta="help-guidance">Get expert guidance <span class="arr" aria-hidden="true" data-noi18n>→</span></a>
+      </div>
+    </div>
+
+    <!-- Detail panels: relevant information + initial document checklist (one shown at a time) -->
+    <div class="panel" id="sit-new" role="region" aria-labelledby="sit-new-h" hidden>
+      <button type="button" class="x" data-close aria-label="Close New GST Registration details"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M1 1l12 12M13 1 1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <span class="eyebrow">New GST Registration</span>
+      <h3 id="sit-new-h">Getting your GSTIN for a new or existing business</h3>
+      <div class="pgrid">
+        <div>
+          <p>GST registration is mandatory once your aggregate turnover crosses <strong>₹40 lakh for goods</strong> or <strong>₹20 lakh for services</strong> in most states (₹20 lakh and ₹10 lakh in special category states). Any business can also register voluntarily to claim input tax credit or work with clients who ask for a GSTIN.</p>
+          <ul class="dots">
+            <li>The government charges no fee for GST registration.</li>
+            <li>You get an ARN when the application is filed; the GSTIN follows once the officer approves it.</li>
+            <li>Each state where you have a place of business needs its own registration.</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Initial document checklist</h4>
+          <ul class="check">
+            <li>PAN of the business or proprietor</li>
+            <li>Aadhaar and photo of the proprietor, partners or directors</li>
+            <li>Proof of business address: rent agreement or ownership document, with a recent electricity bill</li>
+            <li>Bank statement or cancelled cheque</li>
+            <li>Partnership deed or Certificate of Incorporation, if applicable</li>
+            <li>Authorisation letter or board resolution for the signatory</li>
+          </ul>
+        </div>
+      </div>
+      <div class="pact">
+        <a class="btn btn-y" href="#contact" data-go="New GST Registration" data-cta="sit-new">Get help with registration <span class="arr" aria-hidden="true" data-noi18n>→</span></a>
+        <small>Our expert confirms the exact list for your business type.</small>
+      </div>
+    </div>
+
+    <div class="panel" id="sit-comp" role="region" aria-labelledby="sit-comp-h" hidden>
+      <button type="button" class="x" data-close aria-label="Close Composition Scheme details"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M1 1l12 12M13 1 1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <span class="eyebrow">Composition Scheme</span>
+      <h3 id="sit-comp-h">Is the Composition Scheme right for you?</h3>
+      <div class="pgrid">
+        <div>
+          <p>The Composition Scheme lets small businesses pay GST at a fixed low rate on turnover and file fewer returns. It suits businesses that mostly sell to end consumers and don't need input tax credit.</p>
+          <ul class="dots">
+            <li>Turnover up to ₹1.5 crore for goods (₹75 lakh in special category states), or ₹50 lakh for services.</li>
+            <li>Tax at a fixed 1%–6% of turnover, depending on the type of business.</li>
+            <li>No input tax credit, and no inter-state sale of goods.</li>
+            <li>Returns: CMP-08 every quarter and GSTR-4 once a year.</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Initial document checklist</h4>
+          <ul class="check">
+            <li>Everything needed for a new registration (PAN, Aadhaar, photo, address and bank proof)</li>
+            <li>Your estimated annual turnover</li>
+            <li>Nature of business: trader, manufacturer, restaurant or service provider</li>
+            <li>Whether you sell outside your state or through e-commerce platforms</li>
+          </ul>
+        </div>
+      </div>
+      <div class="pact">
+        <a class="btn btn-y" href="#contact" data-go="Composition Scheme Guidance" data-cta="sit-comp">Check if I'm eligible <span class="arr" aria-hidden="true" data-noi18n>→</span></a>
+        <small>We compare regular and composition for your numbers.</small>
+      </div>
+    </div>
+
+    <div class="panel" id="sit-online" role="region" aria-labelledby="sit-online-h" hidden>
+      <button type="button" class="x" data-close aria-label="Close Online or Interstate Business details"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M1 1l12 12M13 1 1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <span class="eyebrow">Online or Interstate Business</span>
+      <h3 id="sit-online-h">Selling online or across state borders</h3>
+      <div class="pgrid">
+        <div>
+          <p>Inter-state supply of goods and selling goods through e-commerce marketplaces generally require GST registration irrespective of turnover, with limited exceptions. Marketplaces usually ask for your GSTIN before you can list products.</p>
+          <ul class="dots">
+            <li>A warehouse or office in another state needs a separate GSTIN for that state.</li>
+            <li>Special situations — casual taxable persons, reverse charge, agents and input service distributors — have their own rules.</li>
+            <li>We help you choose the right registration type before you apply.</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Initial document checklist</h4>
+          <ul class="check">
+            <li>Everything needed for a new registration (PAN, Aadhaar, photo, address and bank proof)</li>
+            <li>Address proof for each additional place of business or warehouse</li>
+            <li>List of states you supply to</li>
+            <li>The products you sell, so we can map the right HSN codes</li>
+          </ul>
+        </div>
+      </div>
+      <div class="pact">
+        <a class="btn btn-y" href="#contact" data-go="Online / Interstate Business" data-cta="sit-online">Talk to a GST expert <span class="arr" aria-hidden="true" data-noi18n>→</span></a>
+        <small>Tell us where and how you sell.</small>
+      </div>
+    </div>
+
+    <div class="panel" id="sit-unsure" role="region" aria-labelledby="sit-unsure-h" hidden>
+      <button type="button" class="x" data-close aria-label="Close GST applicability details"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M1 1l12 12M13 1 1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <span class="eyebrow">GST Applicability</span>
+      <h3 id="sit-unsure-h">Do you need GST registration?</h3>
+      <div class="pgrid">
+        <div>
+          <p>You generally need to register if any of these apply to you. If none do, registration is optional — but it can still help you claim input tax credit and win larger clients.</p>
+          <ul class="dots">
+            <li>Your turnover crosses ₹40 lakh (goods) or ₹20 lakh (services) — lower in special category states.</li>
+            <li>You supply goods to customers in another state.</li>
+            <li>You sell goods through e-commerce marketplaces.</li>
+            <li>You pay tax under reverse charge, or act as an agent or input service distributor.</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Information to keep ready</h4>
+          <ul class="check">
+            <li>What you sell: goods, services or both</li>
+            <li>Your current or expected yearly turnover</li>
+            <li>The states where your customers are</li>
+            <li>Whether you sell online or through marketplaces</li>
+            <li>Your business type: proprietorship, partnership, LLP or company</li>
+          </ul>
+        </div>
+      </div>
+      <div class="pact">
+        <a class="btn btn-y" href="#contact" data-go="Not Sure If I Need GST" data-cta="sit-unsure">Ask a GST expert <span class="arr" aria-hidden="true" data-noi18n>→</span></a>
+        <small>We'll tell you whether you need GST and which scheme fits.</small>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 4. SUPPORT ================= -->
+<section class="sec lazy" id="why" aria-labelledby="why-title" style="padding-top:0">
+  <div class="wrap">
+    <div class="head">
+      <h2 id="why-title">GST Support That Helps You Move Forward</h2>
+      <p>Get assistance with the registration process and understand what comes after receiving your GSTIN.</p>
+    </div>
+    <div class="sup">
+      <article class="supc">
+        <span class="tile" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg></span>
+        <h3>Registration Guidance</h3>
+        <p>Understand the suitable registration route for your business.</p>
+      </article>
+      <article class="supc">
+        <span class="tile" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></span>
+        <h3>Document Preparation</h3>
+        <p>Know what information and proofs you may need to submit.</p>
+      </article>
+      <article class="supc">
+        <span class="tile" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a6 6 0 0 1 6-6h2a6 6 0 0 1 6 6v1"/><path d="M16 3.1a4 4 0 0 1 0 7.8M22 21v-1a6 6 0 0 0-4-5.7"/></svg></span>
+        <h3>Application Assistance</h3>
+        <p>Get support with the application process and follow-up requirements.</p>
+      </article>
+      <article class="supc">
+        <span class="tile" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-15.5 6.3L3 16M3 12a9 9 0 0 1 15.5-6.3L21 8"/><path d="M21 3v5h-5M3 21v-5h5"/></svg></span>
+        <h3>Ongoing Compliance Guidance</h3>
+        <p>Ask about return filing and other post-registration responsibilities.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 5. HOW IT WORKS ================= -->
+<section class="sec lazy" id="how" aria-labelledby="how-title" style="padding-top:0">
+  <div class="wrap">
+    <div class="head">
+      <h2 id="how-title">How It Works</h2>
+      <p>A simple path from your first question to the next step.</p>
+    </div>
+    <ol class="steps">
+      <li>
+        <span class="num">01</span>
+        <span class="sico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="18" rx="2"/><path d="M9 2h6v4H9zM9 12h6M9 16h4"/></svg></span>
+        <div><h3>Tell Us About Your Business</h3><p>Select the option that best describes your GST requirement.</p></div>
+      </li>
+      <li>
+        <span class="num">02</span>
+        <span class="sico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></span>
+        <div><h3>Prepare Your Details</h3><p>Review the initial checklist and keep the relevant business and address information ready.</p></div>
+      </li>
+      <li>
+        <span class="num">03</span>
+        <span class="sico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/></svg></span>
+        <div><h3>Speak With Bizpole</h3><p>Submit your contact details so our team can discuss the next steps with you.</p></div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ================= 6. CTA BAND ================= -->
+<section class="lazy" aria-labelledby="cta-title">
+  <div class="wrap">
+    <div class="cta">
+      <div>
+        <h2 id="cta-title">GST Rules Feel <span class="y">Confusing?</span></h2>
+        <p>You don't have to figure it out alone. Share your details and let our team understand your requirement.</p>
+      </div>
+      <a class="btn btn-y" href="#contact" data-go="" data-cta="band">Talk to a GST Expert <span class="arr" aria-hidden="true" data-noi18n>→</span></a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ================= FOOTER ================= -->
+<footer class="ftr lazy">
+  <div class="wrap">
+    <div class="fcols">
+      <div class="fbrand">
+        <img src="/lp/img/logo-one.webp" alt="Bizpole One" width="86" height="48" loading="lazy" decoding="async">
+        <p>Business Registration · GST · Compliance</p>
+      </div>
+      <nav aria-label="GST services">
+        <h2>GST Services</h2>
+        <ul>
+          <li><a href="#sit-new" data-sit="new">New GST Registration</a></li>
+          <li><a href="#sit-online" data-sit="online">Online / Interstate Business</a></li>
+          <li><a href="#sit-comp" data-sit="comp">Composition Scheme</a></li>
+          <li><a href="#sit-unsure" data-sit="unsure">GST Applicability Help</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Explore">
+        <h2>Explore</h2>
+        <ul>
+          <li><a href="#why">Why Bizpole</a></li>
+          <li><a href="#how">How It Works</a></li>
+          <li><a href="#contact" data-go="" data-cta="footer">Request a Call Back</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Contact">
+        <h2>Contact</h2>
+        <ul>
+          <li><a href="mailto:info@bizpole.in">info@bizpole.in</a></li>
+          <li><a href="tel:+919539995533">Talk to Bizpole</a></li>
+          <li><a href="/privacy-policy">Privacy Policy</a></li>
+        </ul>
+      </nav>
+    </div>
+    <div class="flegal">
+      <span>© <span id="yr">2026</span> Bizpole. All rights reserved.</span>
+      <span>GST registration is subject to applicable law and approval.</span>
+    </div>
+  </div>
+</footer>
+
+<!-- ================= STICKY PHONE BAR ================= -->
+<div class="sbar off" id="sbar" role="navigation" aria-label="Quick actions">
+  <a class="call-ic" href="tel:+919539995533" aria-label="Call Bizpole">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>
+  </a>
+  <a class="btn btn-y" href="#contact" data-go="" data-cta="sticky">Talk to a GST Expert <span class="arr" aria-hidden="true" data-noi18n>→</span></a>
+</div>
+
+<script src="/lp/lp.js" defer></script>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------- Language (?lang=…): translate the page FIRST (it rebuilds text nodes and
+     inline elements), then t() for every string built below ---------- */
+  var I18N = window.TMI18N && window.TM_I18N_DICT ? window.TMI18N : null;
+  if (I18N) I18N.apply(document);
+  var LANG = I18N ? I18N.lang : "en";
+  function t(s, v) {
+    if (I18N) return I18N.t(s, v);
+    return v ? s.replace(/\{(\w+)\}/g, function (m, k) { return k in v ? v[k] : m; }) : s;
+  }
+  // Server messages the form may show — listed so the translate script picks them up.
+  var I18N_EXTRA = [
+    "Enter a valid 10-digit mobile number.", "Too many OTP requests. Please try again later.",
+    "Could not send OTP right now. Please try again.", "Too many incorrect attempts. Please request a new OTP.",
+    "Please verify your mobile number with the OTP.", "Please enter a valid name, mobile number or email.",
+    "Name and mobile number or email are required.", "Incorrect OTP.", "This code has already been used.",
+    "OTP has expired. Please request a new one.", "No OTP was requested for this number."
+  ];
+  void I18N_EXTRA;
+  // CRM language names (lead routing prefers franchisees that speak the lead's language)
+  var CRM_LANG = { hi: "Hindi", ml: "Malayalam", ta: "Tamil", te: "Telugu", kn: "Kannada", mr: "Marathi", gu: "Gujarati", bn: "Bengali", pa: "Punjabi" };
+
+  var fine = window.matchMedia && matchMedia("(pointer:fine)").matches;
+
+  /* ---------- Site navbar: signed-in state + mobile menu ---------- */
+  var navSignedIn = false;
+  try { navSignedIn = !!localStorage.getItem("token"); } catch (e) {}
+  if (navSignedIn) {
+    document.querySelectorAll('[data-auth="out"]').forEach(function (el) { el.hidden = true; });
+    document.querySelectorAll('[data-auth="in"]').forEach(function (el) { el.hidden = false; });
+  }
+  var navToggle = $("navToggle"), navMobile = $("navMobile"), navIcon = $("navToggleIcon");
+  navToggle.addEventListener("click", function () {
+    var open = navMobile.hidden;
+    navMobile.hidden = !open;
+    navToggle.setAttribute("aria-expanded", String(open));
+    navToggle.setAttribute("aria-label", open ? t("Close menu") : t("Open menu"));
+    navIcon.setAttribute("d", open ? "M6 6l12 12M18 6L6 18" : "M3 6h18M3 12h18M3 18h18");
+  });
+  function dd() {} // the old GST Services dropdown is gone; situation links still call dd(false)
+
+  /* ---------- Situations: show info + checklist panel ---------- */
+  var panels = document.querySelectorAll(".panel");
+  var sitBtns = document.querySelectorAll("button.sit");
+  var narrow = window.matchMedia ? matchMedia("(max-width:859px)") : { matches: false };
+  function openSit(key, scroll) {
+    var target = $("sit-" + key);
+    // Phones: open the panel right under the card that holds the situation; desktop: under both cards
+    var src = target && document.querySelector('button.sit[data-sit="' + key + '"]');
+    var anchor = src && (narrow.matches ? src.closest(".sitcard") : document.querySelector(".sits"));
+    if (anchor && anchor.nextElementSibling !== target) anchor.parentNode.insertBefore(target, anchor.nextSibling);
+    panels.forEach(function (p) { p.hidden = p !== target || !target; });
+    sitBtns.forEach(function (b) { b.setAttribute("aria-expanded", b.getAttribute("data-sit") === key && target ? "true" : "false"); });
+    if (target && scroll) target.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  function closeSits(focusBtn) {
+    var open = document.querySelector('.sit[aria-expanded="true"]');
+    openSit(null);
+    if (focusBtn && open) open.focus();
+  }
+  document.querySelectorAll("[data-sit]").forEach(function (el) {
+    el.addEventListener("click", function (e) {
+      e.preventDefault();
+      var key = el.getAttribute("data-sit");
+      dd(false);
+      if (el.classList.contains("sit") && el.getAttribute("aria-expanded") === "true") return closeSits();
+      openSit(key, true);
+      track("gst_situation_open", { situation: key });
+    });
+  });
+  document.querySelectorAll("[data-close]").forEach(function (b) { b.addEventListener("click", function () { closeSits(true); }); });
+  // Deep links such as /gst-registration#sit-comp open that panel
+  function fromHash(scroll) {
+    var h = location.hash.match(/^#sit-(new|comp|online|unsure)$/);
+    if (h) openSit(h[1], scroll);
+  }
+  fromHash(true); // the panel was hidden at parse time, so the browser couldn't scroll to it itself
+  window.addEventListener("hashchange", function () { fromHash(true); });
+
+  /* ---------- CTAs into the form (preselect the requirement) ---------- */
+  var form = $("gst-form"), el = form.elements, card = $("formcard");
+  var lastCta = "";
+  document.querySelectorAll("[data-go]").forEach(function (a) {
+    a.addEventListener("click", function (e) {
+      e.preventDefault();
+      var req = a.getAttribute("data-go");
+      lastCta = a.getAttribute("data-cta") || lastCta;
+      if (req && card.getAttribute("data-step") === "form") el.requirement.value = req;
+      $("contact").scrollIntoView({ behavior: "smooth", block: "start" });
+      if (fine && card.getAttribute("data-step") === "form") {
+        setTimeout(function () { (el.name.value ? el.mobile : el.name).focus({ preventScroll: true }); }, 450);
+      }
+      track("cta_click", { cta: lastCta, requirement: req });
+    });
+  });
+
+  /* ---------- Sticky phone bar: hidden while the hero buttons or the form are on screen ---------- */
+  var sbar = $("sbar");
+  if (sbar && "IntersectionObserver" in window) {
+    var seen = {};
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (x) { seen[x.target.id] = x.isIntersecting; });
+      sbar.classList.toggle("off", !!(seen["hero-cta"] || seen["formcard"]));
+    });
+    io.observe($("hero-cta")); io.observe(card);
+  } else if (sbar) { sbar.classList.remove("off"); }
+
+  /* ---------- Enquiry form → website-lead (no OTP) ---------- */
+  // Website-lead API (public key by design: protection = CORS allowlist + per-IP limit + honeypot).
+  var ENV_API = "__VITE_API_BASE_URL__"; // replaced by vite with VITE_API_BASE_URL
+  var BASE = /^https?:\/\//.test(ENV_API) ? ENV_API : ""; // .env only — no hardcoded host
+  if (!BASE) console.error("VITE_API_BASE_URL is not set in .env — API calls from this page will fail");
+  var API_KEY = "ad5c04dcf7248dc0fdc8efdf78f1c1f5b77da7a2aaefa926";
+  var ATTR_KEYS = ["utm_source","utm_medium","utm_campaign","utm_content","utm_term","fbclid","gclid"];
+
+  var err = $("f-err"), sendBtn = $("f-send"), sendLbl = sendBtn.querySelector(".lbl"), mob = el.mobile;
+  // A server message is shown translated when the dictionary has it, else as sent
+  function srv(j, fallback) { return j && j.message ? t(j.message) : fallback; }
+  var details = null;
+
+  function track(event, params) {
+    try { (window.dataLayer = window.dataLayer || []).push(Object.assign({ event: event, page: "gst-registration-meta", lang: LANG }, params || {})); } catch (x) {}
+  }
+  function pixel(event, params, eventId) {
+    (window.bpPixelQ = window.bpPixelQ || []).push([event, Object.assign({ content_name: "GST Registration", content_category: "GST" }, params || {}), eventId]);
+  }
+  function attribution() {
+    var a = {};
+    try { a = JSON.parse(sessionStorage.getItem("lp_attr") || "{}"); } catch (x) {}
+    var qs = new URLSearchParams(location.search);
+    ATTR_KEYS.forEach(function (k) { if (qs.get(k)) a[k] = qs.get(k); });
+    // Meta ads page: anyone here came from a Facebook/Instagram ad, so the lead is tagged Meta
+    // even when the ad link carries no utm_source / fbclid (server → lead source
+    // "Facebook/Instagram"). Landing is re-stamped: an earlier page in the tab may have set it.
+    if (!qs.get("utm_source")) a.utm_source = "meta";
+    if (!qs.get("utm_medium") && !a.utm_medium) a.utm_medium = "paid-social";
+    a.landing = location.href.split("#")[0];
+    return a;
+  }
+
+  // No maxlength: it would cut a pasted "+91 98765 43210" before we strip it. Keep digits,
+  // drop a +91 / 0 prefix, then cap at 10.
+  mob.addEventListener("input", function () {
+    var d = mob.value.replace(/\D/g, "");
+    if (d.length > 10 && d.indexOf("91") === 0) d = d.slice(2);
+    else if (d.length > 10 && d.charAt(0) === "0") d = d.slice(1);
+    mob.value = d.slice(0, 10);
+  });
+  ["input", "change"].forEach(function (t) {
+    form.addEventListener(t, function (e) { e.target.removeAttribute("aria-invalid"); err.classList.remove("show"); });
+  });
+
+  function fail(input, text) {
+    err.textContent = text; err.classList.add("show");
+    if (input) { input.setAttribute("aria-invalid", "true"); input.focus(); }
+    return false;
+  }
+  function post(url, data, headers) {
+    return fetch(url, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, headers || {}), body: JSON.stringify(data) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); });
+  }
+
+  function setStep(step) {
+    card.setAttribute("data-step", step);
+    var title = $("fc-title"), sub = $("fc-sub");
+    if (step === "form") { title.textContent = t("Contact Us"); sub.textContent = t("Share your details and our team will connect with you."); }
+    if (step === "done") { title.textContent = t("Enquiry received"); sub.textContent = t("Our GST team will be in touch."); }
+    var r = card.getBoundingClientRect();
+    if (r.top < 70 || r.top > window.innerHeight * 0.6) card.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+
+  // Details → create the lead straight away (no OTP). The server sets the CRM preferred
+  // language from the state; the message becomes a pending follow-up for the lead's owner.
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (sendBtn.disabled) return;
+    var name = el.name.value.trim(), mobile = mob.value.trim(),
+        state = el.state.value, req = el.requirement.value, msg = el.message.value.trim();
+    if (!name) return fail(el.name, t("Please enter your full name."));
+    if (!/^[6-9]\d{9}$/.test(mobile)) return fail(mob, t("Please enter a valid 10-digit mobile number."));
+    if (!state) return fail(el.state, t("Please select your state."));
+    if (el.company_website.value) { setStep("done"); return; } // honeypot: pretend success, send nothing
+
+    details = { name: name, mobile: mobile, state: state, req: req, msg: msg };
+    var attr = attribution();
+    var body = Object.assign({}, attr, {
+      name: name,
+      mobile: mobile,
+      state: state,
+      service: "GST Registration",
+      form_name: "gst-registration-meta-lp",
+      site: "bizpole.io",
+      message: [req ? "Requirement: " + req : "", msg, lastCta ? "CTA: " + lastCta : ""].filter(Boolean).join(" | "),
+      page_url: attr.landing || location.href,
+      referrer: attr.referrer || document.referrer
+    });
+
+    sendBtn.disabled = true; sendLbl.textContent = t("Sending…");
+    post(BASE + "/lead-generation/website-lead", body, { "x-api-key": API_KEY })
+      .then(function (res) {
+        if (!res.ok) {
+          return fail(null, res.status === 429 ? t("Too many attempts. Please try again in a few minutes.") : srv(res.j, t("Something went wrong. Please try again.")));
+        }
+        $("done-name").textContent = ", " + details.name.split(/\s+/)[0];
+        setStep("done"); $("done-v").focus({ preventScroll: true });
+        form.reset();
+        try { sessionStorage.removeItem("lp_attr"); } catch (x) {}
+        track("lead_submit", { form: "gst-registration-meta-lp", requirement: details.req });
+        // Meta Pixel Lead (what the ads optimise for); eventID for a later Conversions API de-dup
+        pixel("Lead", { requirement: details.req, state: details.state }, "gstmeta-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8));
+      })
+      .catch(function () { fail(null, t("Network error. Please check your connection and try again.")); })
+      .finally(function () { sendBtn.disabled = false; sendLbl.textContent = t("Send Enquiry"); });
+  });
+})();
+</script>
+</body>
+</html>

@@ -188,6 +188,9 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
 .done .btn{max-width:360px;margin:0 auto;text-decoration:none;background:var(--brand);color:var(--ink)}
 .tmv-brand.co{font-size:2.2rem}.tmv-brand.co sup{display:none}
 </style>
+<!-- Meta Pixel (retargeting + ad conversions): shared loader, ID from VITE_META_PIXEL_ID, live site only -->
+<script src="/lp/meta-pixel.js" defer></script>
+<script>(window.bpPixelQ = window.bpPixelQ || []).push(["ViewContent", {"content_name":"Private Limited Company Registration","content_category":"Company Registration"}]);</script>
 </head>
 <body>
 
@@ -504,7 +507,8 @@ h1{font-size:clamp(1.35rem,5.6vw,2rem);margin-bottom:18px}
         var done = document.getElementById("done-view"); done.style.display = "block"; done.focus();
         try { sessionStorage.removeItem("lp_attr"); } catch (x) {}
         (window.dataLayer = window.dataLayer || []).push({ event: "lead_submit", form: "private-limited-company-registration-lp", plan: plan, mobile_verified: true });
-        if (window.fbq) fbq("track", "Lead", { content_name: "Private Limited Company Registration" });
+        // Meta Pixel Lead (eventID for a later Conversions API de-dup)
+        (window.bpPixelQ = window.bpPixelQ || []).push(["Lead", { content_name: "Private Limited Company Registration", content_category: "Company Registration" }, "pvtapply-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8)]);
       })
       .catch(function () { otpFail("Network error. Please check your connection and try again."); })
       .finally(function () { otpBtn.disabled = false; otpBtn.textContent = "Verify & continue"; });

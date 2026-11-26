@@ -11,7 +11,7 @@
     utm_source=facebook&utm_medium=paid-social&utm_campaign={{campaign.name}}&utm_term={{adset.name}}&utm_content={{ad.name}}&campaign_id={{campaign.id}}&adset_id={{adset.id}}&ad_id={{ad.id}}&placement={{placement}}&site_source={{site_source_name}}
   → saved on the CRM lead (Campaign / Ad set / Ad columns + raw_payload.attribution)
     and sent with every GA4 / Meta Pixel event. Events: see track() calls in the script.
-  Set META_PIXEL_ID in the script to switch the Pixel on (GA4 is always on, live site only).
+  Meta Pixel: shared /lp/meta-pixel.js, ID from VITE_META_PIXEL_ID (GA4 is always on, live site only).
 -->
 <html lang="en-IN" class="campaign">
 <head>
@@ -22,6 +22,8 @@
 <title>Free Trademark Search – Check Your Brand Before You Invest | Bizpole</title>
 <meta name="description" content="Search your brand name, understand trademark results and get guided registration support with Bizpole One. Free trademark search report on WhatsApp. No payment needed.">
 <link rel="canonical" href="https://www.bizpole.io/trademark-search">
+<!-- Meta Pixel (retargeting): shared loader, ID from VITE_META_PIXEL_ID, live site only (?pixel_test=1 elsewhere) -->
+<script src="/lp/meta-pixel.js" defer></script>
 <meta name="robots" content="noindex, follow">
 <meta name="theme-color" content="#ffffff">
 <meta name="format-detection" content="telephone=no">
@@ -1042,11 +1044,11 @@ html[dir="rtl"] .hero-copy,html[dir="rtl"] .res{text-align:right}
     }
   } catch (e) {}
 
-  // ---- Tracking: GA4 + Meta Pixel (live bizpole.io only; local / test runs don't count) ----
+  // ---- Tracking: GA4 (live bizpole.io only) + Meta Pixel (shared /lp/meta-pixel.js,
+  // loaded in <head>: ID from VITE_META_PIXEL_ID, live site only, ?pixel_test=1 to try it elsewhere).
   // Every event carries the ad it came from, so GA reports and Meta Events Manager
   // can be split by campaign / ad set / ad / placement.
   var GA_ID = "G-PNZSLDSE7D";        // same GA4 property as the main site
-  var META_PIXEL_ID = "";             // ← Meta Events Manager › Data sources › Pixel ID
   var LIVE = /(^|\.)bizpole\.io$/.test(location.hostname);
   var adCtx = {
     utm_source: attr.utm_source, utm_medium: attr.utm_medium, utm_campaign: attr.utm_campaign,
@@ -1063,21 +1065,18 @@ html[dir="rtl"] .hero-copy,html[dir="rtl"] .res{text-align:right}
     window.gtag = function () { dataLayer.push(arguments); };
     gtag("js", new Date());
     gtag("config", GA_ID, { page_title: document.title, page_location: location.href });
-    if (META_PIXEL_ID) {
-      /* Meta Pixel base code */
-      !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version="2.0";n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,"script","https://connect.facebook.net/en_US/fbevents.js");
-      fbq("init", META_PIXEL_ID);
-      fbq("track", "PageView");
-    }
   }
-  // track(gaEvent, params, metaEvent, metaIsStandard, eventId)
+  // track(gaEvent, params, metaEvent, metaIsStandard, eventId) — metaEvent goes to the
+  // pixel queue; meta-pixel.js sends Meta's standard names as standard events itself.
+  var pixelQ = (window.bpPixelQ = window.bpPixelQ || []);
   function track(name, params, metaName, metaStd, eventId) {
     var p = Object.assign({}, adCtx, params || {});
     dataLayer.push(Object.assign({ event: name }, p));
     if (window.gtag && LIVE) gtag("event", name, p);
-    if (metaName && window.fbq) fbq(metaStd ? "track" : "trackCustom", metaName, p, eventId ? { eventID: eventId } : undefined);
+    if (metaName) pixelQ.push([metaName, Object.assign({ content_category: "Trademark" }, p), eventId]);
   }
-  track("tm_landing_view", { referrer: document.referrer || "" }, "TMLandingView");
+  // ViewContent (standard): the "visited the trademark search ad page" audience
+  track("tm_landing_view", { referrer: document.referrer || "", content_name: "Free Trademark Search" }, "ViewContent", true);
 
   // CTA / link clicks, labelled by the section they sit in
   document.addEventListener("click", function (e) {

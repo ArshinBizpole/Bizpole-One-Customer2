@@ -9,6 +9,10 @@
       "rewrite": "/trademark-search/meta/index.html"
     },
     {
+      "route": "/trademark-registration/meta",
+      "rewrite": "/trademark-registration/meta/index.html"
+    },
+    {
       "route": "/trademark-registration/apply",
       "rewrite": "/trademark-registration/apply/index.html"
     },
@@ -29,6 +33,18 @@
       "rewrite": "/gst-registration/apply/index.html"
     },
     {
+      "route": "/gst-registration/meta",
+      "rewrite": "/gst-registration/meta/index.html"
+    },
+    {
+      "route": "/company-registration/meta",
+      "rewrite": "/company-registration/meta/index.html"
+    },
+    {
+      "route": "/company-registration",
+      "rewrite": "/company-registration/index.html"
+    },
+    {
       "route": "/gst-registration",
       "rewrite": "/gst-registration/index.html"
     }
@@ -46,6 +62,7 @@
       "/trademark-classes/*",
       "/private-limited-company-registration/*",
       "/gst-registration/*",
+      "/company-registration/*",
       "/lp/*"
     ]
   }
