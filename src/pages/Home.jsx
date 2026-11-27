@@ -1,5 +1,9 @@
+import { MotionConfig } from "framer-motion";
 
 import HeroSection from "../components/HeroSection";
+import BrandMarquee from "../components/BrandMarquee";
+import ServicePicker from "../components/ServicePicker";
+import { ScrollProgress } from "../components/Reveal";
 import GlobalStats from "../components/GlobalStats";
 import DashboardShowcase from "../components/DashboardShowcase";
 import Howwework from "./../components/Howwework";
@@ -11,20 +15,19 @@ import CustomerSupport from "../components/CustomerSupport";
 
 export default function Home() {
   return (
-    <>
+    <MotionConfig reducedMotion="user">
+    <ScrollProgress />
     <HeroSection />
+    <BrandMarquee />
+    <ServicePicker />
     <GlobalStats />
     <DashboardShowcase />
     <Howwework />
     <FocusSection />
     <ProductsSection />
     <ClientsSection />
-    {/* "More than 25,000 clients" + payment methods strip — under the reviews */}
-    <h2 className="bg-[#f7f5f0] text-center text-lg sm:text-xl md:text-2xl font-semibold text-black pt-10 px-4">
-      More than 25,000 clients
-    </h2>
     <PaymentLogs />
     <CustomerSupport />
-    </>
+    </MotionConfig>
   );
 }

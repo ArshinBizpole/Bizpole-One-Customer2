@@ -3,9 +3,6 @@ import {
   AnimatePresence,
   motion,
   useInView,
-  useScroll,
-  useTransform,
-  useSpring,
 } from "framer-motion";
 
 // "How to use Bizpole One" walkthrough (built in bizpole-one-customer-ad-video, served from public/videos).
@@ -17,7 +14,16 @@ const HOWTO_VIDEO = {
   thumb: "/videos/bizpole-one-how-to-use-thumb.jpg",
 };
 
+const STEPS = [
+  { title: "Choose your service", desc: "Pick what you need — company registration, GST, trademark or compliance. You see the full price, government fees included, before you pay." },
+  { title: "Share your documents", desc: "Upload them once from your phone or laptop. We tell you exactly what's needed — no guesswork." },
+  { title: "Our experts file for you", desc: "Your dedicated team prepares and files everything with the government, and handles any follow-ups." },
+  { title: "Track it and get it done", desc: "Watch each step update live in your dashboard and download your certificates when they're issued." },
+];
+
 const Howwework = () => {
+  const [step, setStep] = useState(0);
+
   const sectionRef = useRef(null);
   const leftRef = useRef(null);
   const rightRef = useRef(null);
@@ -49,14 +55,6 @@ const Howwework = () => {
   const leftInView = useInView(leftRef, { once: true, margin: "-80px" });
   const rightInView = useInView(rightRef, { once: true, margin: "-80px" });
 
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ["start end", "end start"],
-  });
-
-  const rawY = useTransform(scrollYProgress, [0, 1], [50, -50]);
-  const y = useSpring(rawY, { stiffness: 60, damping: 18 });
-  const cardRotate = useTransform(scrollYProgress, [0, 0.5, 1], [2, 0, -1]);
 
   const stagger = {
     hidden: {},
@@ -67,8 +65,8 @@ const Howwework = () => {
     show: { y: 0, opacity: 1, transition: { duration: 0.75, ease: [0.16, 1, 0.3, 1] } },
   };
   const fadeLeft = {
-    hidden: { x: -50, opacity: 0 },
-    show: { x: 0, opacity: 1, transition: { duration: 0.85, ease: [0.16, 1, 0.3, 1] } },
+    hidden: { y: 20, opacity: 0 },
+    show: { y: 0, opacity: 1, transition: { duration: 0.6, ease: "easeOut" } },
   };
 
   return (
@@ -91,10 +89,9 @@ const Howwework = () => {
           position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none;
         }
         .hww-display {
-          font-family: 'Syne', sans-serif;
-          font-weight: 500;
-          letter-spacing: -0.03em;
-          line-height: 1.05;
+          font-weight: 600;
+          letter-spacing: -0.025em;
+          line-height: 1.1;
         }
         .hww-card {
           background: linear-gradient(135deg, #d4d0c8 0%, #c8c4bb 50%, #bcb8b0 100%);
@@ -170,7 +167,7 @@ const Howwework = () => {
         }
       `}</style>
 
-      <section ref={sectionRef} className="hww-section py-20 md:py-28">
+      <section ref={sectionRef} className="hww-section py-16 md:py-24">
 
         <div className="relative z-10 max-w-[1600px] mx-auto px-6 md:px-12">
           <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16">
@@ -178,29 +175,17 @@ const Howwework = () => {
             {/* ── LEFT: Video Card ── */}
             <motion.div
               ref={leftRef}
-              style={{ y, rotateY: cardRotate }}
               variants={fadeLeft}
               initial="hidden"
               animate={leftInView ? "show" : "hidden"}
               className="w-full lg:w-[52%] relative"
             >
-              {/* Curtain reveal */}
-              <motion.div
-                initial={{ scaleY: 1, originY: 0 }}
-                animate={leftInView ? { scaleY: 0 } : { scaleY: 1 }}
-                transition={{ duration: 0.9, delay: 0.2, ease: [0.76, 0, 0.24, 1] }}
-                className="absolute inset-0 bg-[#F5C518] z-20 rounded-[24px] pointer-events-none"
-                style={{ originY: 0 }}
-              />
-
               {/* Shadow glow */}
               <div className="absolute inset-x-8 -bottom-5 h-16 bg-black/20 blur-2xl rounded-full z-0" />
 
               {/* Card */}
               <motion.div
                 className="hww-card rounded-[24px] aspect-video relative z-10 ring-1 ring-black/10 shadow-2xl cursor-pointer group"
-                whileHover={{ scale: 1.015 }}
-                transition={{ duration: 0.4 }}
                 onClick={openVideos}
                 role="button"
                 aria-label="Play the How to use Bizpole One video"
@@ -229,9 +214,7 @@ const Howwework = () => {
                   onHoverEnd={() => setHoveringPlay(false)}
                   onClick={(e) => { e.stopPropagation(); openVideos(); }}
                   whileTap={{ scale: 0.92 }}
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={leftInView ? { scale: 1, opacity: 1 } : {}}
-                  transition={{ delay: 1.0, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+
                 >
                   <div className="relative w-16 h-16 md:w-20 md:h-20">
                     {/* Pulse rings */}
@@ -274,8 +257,7 @@ const Howwework = () => {
                   <span className="relative z-10">manage</span>
                   <motion.span
                     className="absolute inset-[-5px_-3px] bg-[#F5C518] rounded-xl z-0"
-                    initial={{ scaleX: 0 }}
-                    animate={rightInView ? { scaleX: 1 } : { scaleX: 0 }}
+                    initial={false}
                     transition={{ delay: 0.7, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                     style={{ originX: 0 }}
                   />
@@ -284,7 +266,63 @@ const Howwework = () => {
               </motion.h2>
 
               {/* Body */}
-             
+              <motion.p variants={fadeUp} className="text-[#1a1a1a]/60 text-base md:text-lg leading-relaxed max-w-lg">
+                Getting started takes four simple steps. Our experts handle the rest.
+              </motion.p>
+
+              {/* How it works — click a step, or let it play */}
+              <motion.ol variants={fadeUp} className="space-y-2.5 max-w-lg">
+                {STEPS.map((s, i) => {
+                  const on = i === step;
+                  return (
+                    <li key={s.title}>
+                      <button
+                        type="button"
+                        onClick={() => setStep(i)}
+                        aria-expanded={on}
+                        className={`w-full text-left rounded-2xl px-4 py-3.5 flex gap-4 border transition-all duration-300
+                          ${on ? "bg-white border-[#F5C518] shadow-lg" : "bg-transparent border-[#1a1a1a]/[0.08] hover:bg-white/70"}`}
+                      >
+                        <span className={`w-8 h-8 flex-none rounded-full flex items-center justify-center text-sm font-bold transition-colors
+                          ${on ? "bg-[#F5C518] text-[#1a1a1a]" : "bg-[#1a1a1a]/[0.06] text-[#1a1a1a]/60"}`}>
+                          {i + 1}
+                        </span>
+                        <span className="min-w-0 pt-1">
+                          <span className="block font-semibold text-[#1a1a1a]">{s.title}</span>
+                          <AnimatePresence initial={false}>
+                            {on && (
+                              <motion.span
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.3 }}
+                                className="block overflow-hidden text-sm text-[#1a1a1a]/60 leading-relaxed"
+                              >
+                                <span className="block pt-1">{s.desc}</span>
+                              </motion.span>
+                            )}
+                          </AnimatePresence>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </motion.ol>
+
+              <motion.div variants={fadeUp}>
+                <motion.button
+                  whileHover={{ scale: 1.04, y: -2 }}
+                  whileTap={{ scale: 0.97 }}
+                  className="inline-flex items-center gap-2 bg-[#1a1a1a] text-white text-sm font-semibold px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-shadow"
+                  onClick={openVideos}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  <span>Watch how it works</span>
+                </motion.button>
+              </motion.div>
+
 
            
               {/* CTA */}

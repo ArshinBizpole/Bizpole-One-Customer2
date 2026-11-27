@@ -101,13 +101,13 @@ const BusinessTypeScreen = () => (
 const FEATURES = [
   {
     icon: Rocket,
-    title: "Easy to Get Started",
-    desc: "Pick a service, upload your documents and track everything from your dashboard.",
+    title: "Up and running in minutes",
+    desc: "Pick a service, upload your documents and you're done — we take it from there.",
   },
   {
     icon: RefreshCw,
-    title: "Always Improving",
-    desc: "Regular updates designed to keep your workflow smooth and efficient.",
+    title: "Not sure where to start?",
+    desc: "Tell us about your business and our team will help you choose the right structure and services.",
   },
 ];
 
@@ -150,18 +150,18 @@ const FocusSection = () => {
           transition={{ duration: 0.8, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
           className="space-y-6"
         >
-          <h2 className="text-3xl md:text-5xl font-bold text-[#1a1a1a] leading-tight">
+          <h2 className="text-3xl md:text-5xl font-semibold tracking-tight text-[#1a1a1a] leading-tight">
             Stay Focused on Your
             <span className="block text-[#F5C518]">Business Goals</span>
           </h2>
           <p className="text-[#1a1a1a]/60 text-base md:text-lg leading-relaxed max-w-xl">
-            Manage your business from one connected platform. Track registrations, invoices, payments and
-            compliance with a simpler, smarter workflow.
+            Leave the paperwork to us. Registrations, invoices, payments and compliance are handled by our
+            team and tracked in one app — so your time goes into growing your business.
           </p>
           <div className="space-y-4">
             {FEATURES.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="flex items-start gap-4">
-                <span className="w-11 h-11 flex-none rounded-xl bg-[#FFF3C4] flex items-center justify-center">
+              <div key={title} className="group flex items-start gap-4">
+                <span className="w-11 h-11 flex-none rounded-xl bg-[#FFF3C4] flex items-center justify-center transition-colors duration-300 group-hover:bg-[#F5C518]">
                   <Icon className="w-5 h-5 text-[#1a1a1a]" />
                 </span>
                 <div>
@@ -175,7 +175,7 @@ const FocusSection = () => {
             onClick={() => navigate("/bizpoleone")}
             className="px-6 py-3 rounded-full bg-[#F5C518] text-[#1a1a1a] text-sm md:text-base font-semibold shadow-lg shadow-[#F5C518]/30 hover:bg-[#e0b420] transition"
           >
-            Explore Bizpole →
+            Explore Bizpole One →
           </button>
         </motion.div>
       </div>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { motion, useInView, AnimatePresence, useScroll, useTransform } from "framer-motion";
+import { motion, useInView, AnimatePresence } from "framer-motion";
 import { fetchPublicReviews } from "../api/customerReviewsApi";
 
 // Reviews come from admin Settings → Customer Reviews (no photo → initials).
@@ -106,8 +106,6 @@ function ClientsCarousel({ testimonials }) {
   const headInView = useInView(headRef, { once: true, margin: "-80px" });
   const dragStartX = useRef(0);
 
-  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start end", "end start"] });
-  const bgY = useTransform(scrollYProgress, [0, 1], [40, -40]);
 
   const prev = () => {
     setDirection(-1);
@@ -141,7 +139,7 @@ function ClientsCarousel({ testimonials }) {
           background-size: 180px;
         }
         .cs-blob { position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none; }
-        .cs-display { font-family: 'Syne', sans-serif; font-weight: 500; letter-spacing: -0.03em; line-height: 1.05; }
+        .cs-display { font-weight: 600; letter-spacing: -0.025em; line-height: 1.1; }
         .cs-track::-webkit-scrollbar { display: none; }
         .cs-track { -ms-overflow-style: none; scrollbar-width: none; }
         .nav-btn {
@@ -160,7 +158,7 @@ function ClientsCarousel({ testimonials }) {
         .nav-btn-yellow:hover { transform: scale(1.08); box-shadow: 0 8px 28px rgba(245,197,24,0.55); }
       `}</style>
 
-      <section ref={sectionRef} className="cs-section py-20 md:py-28">
+      <section ref={sectionRef} className="cs-section py-16 md:py-24">
 
         <div className="relative z-10 max-w-[1600px] mx-auto px-6 md:px-12">
 
@@ -175,25 +173,27 @@ function ClientsCarousel({ testimonials }) {
             <div className="space-y-3 max-w-xl">
               <motion.div variants={fadeUp}>
                 <span className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-widest uppercase text-[#1a1a1a]/45 border border-[#1a1a1a]/10 rounded-full px-4 py-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#F5C518] animate-pulse inline-block" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#F5C518] inline-block" />
                   Client Stories
                 </span>
               </motion.div>
 
               <motion.h2 variants={fadeUp} className="cs-display text-[#1a1a1a] text-3xl md:text-5xl">
-                What Our{" "}
+                Founders who{" "}
                 <span className="relative inline-block">
-                  <span className="relative z-10">Clients</span>
+                  <span className="relative z-10">trust</span>
                   <motion.span
                     className="absolute inset-[-5px_-3px] bg-[#F5C518] rounded-xl z-0"
-                    initial={{ scaleX: 0 }}
-                    animate={headInView ? { scaleX: 1 } : { scaleX: 0 }}
+                    initial={false}
                     transition={{ delay: 0.6, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                     style={{ originX: 0 }}
                   />
                 </span>{" "}
-                Said About Us
+                Bizpole
               </motion.h2>
+              <motion.p variants={fadeUp} className="text-[#1a1a1a]/55 text-base md:text-lg">
+                Real stories from businesses we've helped start, run and grow.
+              </motion.p>
             </div>
 
             {/* Nav buttons */}
@@ -235,7 +235,6 @@ function ClientsCarousel({ testimonials }) {
 
           {/* ── Cards Track ── */}
           <motion.div
-            style={{ y: bgY }}
             className="relative"
           >
             {/* Equal-width columns + fixed gap = evenly spaced cards (2nd/3rd hide on small screens) */}

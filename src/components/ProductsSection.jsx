@@ -100,18 +100,18 @@ const ProductsSection = () => {
       <div className="max-w-[1600px] mx-auto px-6 md:px-12">
         {/* Header: title | blurb | CTA */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1.2fr_auto] gap-6 md:gap-10 items-center mb-10 md:mb-14">
-          <h2 className="text-3xl md:text-5xl font-bold text-[#1a1a1a] leading-tight">
-            Our products
-            <span className="block">you can get</span>
+          <h2 className="text-3xl md:text-5xl font-semibold tracking-tight text-[#1a1a1a] leading-tight">
+            Tools for every
+            <span className="block">stage of your business</span>
           </h2>
           <p className="text-[#1a1a1a]/50 text-sm md:text-base leading-relaxed max-w-lg">
-            Three platforms that work together — so you can start, run and grow your business from one place.
+            Start with a free trademark search, register and track your company in Bizpole One, and keep your books GST-ready with Journl — all working together.
           </p>
           <button
             onClick={() => navigate("/startbusiness")}
             className="justify-self-start md:justify-self-end px-6 py-3 rounded-full bg-[#1a1a1a] text-white text-sm font-semibold hover:bg-black transition"
           >
-            Get Started
+            Start your business
           </button>
         </div>
 
@@ -127,7 +127,7 @@ const ProductsSection = () => {
               transition={{ duration: 0.7, delay: 0.1 * i, ease: [0.16, 1, 0.3, 1] }}
               className="group text-left"
             >
-              <div className="h-60 md:h-64 rounded-2xl bg-[#EEF1FB] overflow-hidden transition group-hover:shadow-xl">
+              <div className="h-60 md:h-64 rounded-2xl bg-[#EEF1FB] overflow-hidden transition duration-300 group-hover:shadow-xl group-hover:-translate-y-1 group-hover:bg-[#FFF3C4]">
                 <Art />
               </div>
               <div className="mt-5 flex items-center gap-2">

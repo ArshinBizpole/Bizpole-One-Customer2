@@ -36,8 +36,6 @@ const PaymentLogs = () => {
         {marqueeItems.map(({ icon, key }, i) => (
           <motion.div
             key={key + i}
-            whileHover={{ scale: 1.15 }}
-            transition={{ type: "spring", stiffness: 300 }}
             className="text-3xl sm:text-4xl md:text-5xl flex items-center flex-none"
           >
             {icon}

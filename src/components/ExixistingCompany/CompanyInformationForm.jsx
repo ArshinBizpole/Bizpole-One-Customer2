@@ -444,7 +444,7 @@ const CompanyInformationForm = ({ onNext, initialData }) => {
               </div>
             </div>
  <img
-              src="/Images/image.png"
+              src="/Images/logo.webp"
               alt="Bizpole Logo"
               className="h-12 md:h-14 lg:h-14"
             />          </div>

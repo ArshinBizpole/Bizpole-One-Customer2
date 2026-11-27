@@ -1,18 +1,46 @@
-import { useRef } from "react";
-import { motion, useInView, useScroll, useTransform } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useRef, useState } from "react";
+import { AnimatePresence, motion, useInView } from "framer-motion";
+import { Phone, Mail, FileText, Plus } from "lucide-react";
+import { Reveal, RevealGroup, RevealItem } from "./Reveal";
+
+const CONTACTS = [
+  { icon: Phone, label: "Call us", value: "+91 95399 95533", href: "tel:+919539995533" },
+  { icon: Mail, label: "Email us", value: "info@bizpole.in", href: "mailto:info@bizpole.in" },
+  { icon: FileText, label: "Refund policy", value: "Cancellation & refunds", href: "/cancellation-refund-policy" },
+];
+
+const FAQS = [
+  {
+    q: "Will I know the total cost before I pay?",
+    a: "Yes. Every service shows our fee and the government fees for your state upfront, before you pay. No hidden charges.",
+  },
+  {
+    q: "How do I know what's happening with my application?",
+    a: "Every service is tracked in your dashboard — you can see each step, the documents shared and the deliverables as soon as they're ready.",
+  },
+  {
+    q: "Which documents will I need?",
+    a: "It depends on the service. Once you choose one, we tell you exactly what's needed and you upload everything from your dashboard.",
+  },
+  {
+    q: "I already have a company. Can Bizpole help?",
+    a: "Absolutely. Onboard your existing company and our team can take care of GST, filings and ongoing compliance for you.",
+  },
+  {
+    q: "Who do I talk to if I have a question?",
+    a: "You get a dedicated team. Reach them by phone, by email, or by raising a ticket from your dashboard.",
+  },
+  {
+    q: "What if I need to cancel?",
+    a: "Cancellations and refunds follow our Cancellation and Refund Policy, which you can read before you buy.",
+  },
+];
 
 export default function CustomerSupport() {
-  const navigate = useNavigate();
+  const [openFaq, setOpenFaq] = useState(0);
   const sectionRef = useRef(null);
   const headRef = useRef(null);
-  const ctaRef = useRef(null);
   const headInView = useInView(headRef, { once: true, margin: "-80px" });
-  const ctaInView = useInView(ctaRef, { once: true, margin: "-60px" });
-
-  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start end", "end start"] });
-  const glowY = useTransform(scrollYProgress, [0, 1], [30, -30]);
-  const textY = useTransform(scrollYProgress, [0, 1], [20, -20]);
 
   const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.13 } } };
   const fadeUp = {
@@ -32,84 +60,8 @@ export default function CustomerSupport() {
           background-size: 180px;
         }
         .cs2-blob { position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none; }
-        .cs2-display { font-family: 'Syne', sans-serif; font-weight: 500; letter-spacing: -0.03em; line-height: 1.05; }
+        .cs2-display { font-weight: 600; letter-spacing: -0.025em; line-height: 1.1; }
 
-        /* Dark CTA banner */
-        .cta-banner {
-          background: radial-gradient(ellipse 70% 80% at 30% 50%, #2a2a2a 0%, #111111 55%, #0a0a0a 100%);
-          border-radius: 28px;
-          position: relative;
-          overflow: hidden;
-        }
-        /* Inner gloss reflections */
-        .cta-gloss-top {
-          position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
-        }
-        .cta-gloss-inner {
-          position: absolute; top: 0; left: 0; right: 0; height: 50%;
-          background: radial-gradient(ellipse 60% 100% at 50% 0%, rgba(255,255,255,0.04) 0%, transparent 70%);
-          pointer-events: none;
-        }
-        /* Ambient glow blob inside banner */
-        .cta-glow {
-          position: absolute; border-radius: 50%; pointer-events: none;
-          background: radial-gradient(circle, rgba(80,70,40,0.7) 0%, transparent 70%);
-          filter: blur(50px);
-          width: 400px; height: 300px;
-          bottom: -60px; left: -40px;
-        }
-
-        /* Get Started button */
-        .gs-btn {
-          display: inline-flex; align-items: center; gap: 10px;
-          background: #F5C518;
-          color: #1a1a1a;
-          font-family: 'DM Sans', sans-serif;
-          font-weight: 700;
-          font-size: 15px;
-          border-radius: 100px;
-          padding: 14px 28px;
-          border: none; cursor: pointer;
-          position: relative; overflow: hidden;
-          transition: box-shadow 0.3s, transform 0.25s;
-          white-space: nowrap;
-          flex-shrink: 0;
-        }
-        .gs-btn::before {
-          content: '';
-          position: absolute; inset: 0;
-          background: #fff;
-          opacity: 0;
-          transition: opacity 0.3s;
-        }
-        .gs-btn:hover { box-shadow: 0 8px 32px rgba(245,197,24,0.55); transform: translateY(-2px) scale(1.03); }
-        .gs-btn:hover::before { opacity: 0.14; }
-        .gs-btn:active { transform: scale(0.97); }
-
-        .arrow-circle {
-          width: 30px; height: 30px; border-radius: 50%;
-          background: rgba(26,26,26,0.15);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 14px; transition: transform 0.3s;
-        }
-        .gs-btn:hover .arrow-circle { transform: translateX(3px); }
-
-        /* Feature pills */
-        .feat-pill {
-          display: inline-flex; align-items: center; gap: 6px;
-          background: rgba(255,255,255,0.06);
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 100px;
-          padding: 5px 12px;
-          font-size: 12px;
-          color: rgba(255,255,255,0.5);
-          font-family: 'DM Sans', sans-serif;
-        }
-        .feat-pill-dot {
-          width: 5px; height: 5px; border-radius: 50%; background: #F5C518;
-          flex-shrink: 0;
-        }
       `}</style>
 
       <section ref={sectionRef} className="cs2-section py-16 md:py-24">
@@ -122,13 +74,13 @@ export default function CustomerSupport() {
             variants={stagger}
             initial="hidden"
             animate={headInView ? "show" : "hidden"}
-            className="mb-14 space-y-6"
+            className="space-y-6"
           >
             {/* Tag */}
             <motion.div variants={fadeUp}>
               <span className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-widest uppercase text-[#1a1a1a]/45 border border-[#1a1a1a]/10 rounded-full px-4 py-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#F5C518] animate-pulse inline-block" />
-                Support
+                <span className="w-1.5 h-1.5 rounded-full bg-[#F5C518] inline-block" />
+                Help &amp; Support
               </span>
             </motion.div>
 
@@ -139,80 +91,81 @@ export default function CustomerSupport() {
                 <span className="relative z-10">We make it easier</span>
                 <motion.span
                   className="absolute inset-[-5px_-3px] bg-[#F5C518] rounded-xl z-0"
-                  initial={{ scaleX: 0 }}
-                  animate={headInView ? { scaleX: 1 } : { scaleX: 0 }}
+                  initial={false}
                   transition={{ delay: 0.65, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                   style={{ originX: 0 }}
                 />
               </span>
             </motion.h2>
 
-            {/* Body + features grid */}
-            <motion.div variants={fadeUp} className="flex flex-col md:flex-row gap-8 md:gap-16 items-start">
-              <p className="text-[#1a1a1a]/52 text-base leading-relaxed font-light ">
-                From incorporation and tax filing to compliance, our team guides you through every step, and you can
-                follow each service from your dashboard. Questions? Call{" "}
-                <a href="tel:+919539995533" className="underline underline-offset-2">+91 95399 95533</a> or write to{" "}
-                <a href="mailto:info@bizpole.in" className="underline underline-offset-2">info@bizpole.in</a>.
-                Cancellations and refunds follow our{" "}
-                <a href="/cancellation-refund-policy" className="underline underline-offset-2">Cancellation and Refund Policy</a>.
-              </p>
+            <motion.p variants={fadeUp} className="text-[#1a1a1a]/60 text-base md:text-lg leading-relaxed max-w-2xl">
+              From incorporation and tax filing to compliance, a real person is always a call or an email away —
+              and every service is tracked in your dashboard.
+            </motion.p>
 
-            
+            {/* Contact cards */}
+            <motion.div variants={fadeUp} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {CONTACTS.map(({ icon: Icon, label, value, href }) => (
+                <a
+                  key={label}
+                  href={href}
+                  className="group flex items-center gap-4 rounded-2xl bg-white border border-[#1a1a1a]/[0.06] px-5 py-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-[#F5C518]"
+                >
+                  <span className="w-11 h-11 flex-none rounded-xl bg-[#FFF3C4] flex items-center justify-center transition-colors group-hover:bg-[#F5C518]">
+                    <Icon className="w-5 h-5 text-[#1a1a1a]" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-xs font-semibold uppercase tracking-wider text-[#1a1a1a]/45">{label}</span>
+                    <span className="block font-semibold text-[#1a1a1a] truncate">{value}</span>
+                  </span>
+                </a>
+              ))}
             </motion.div>
           </motion.div>
 
-          {/* ── Dark CTA Banner ── */}
-          <motion.div
-            ref={ctaRef}
-            initial={{ y: 50, opacity: 0, scale: 0.97 }}
-            animate={ctaInView ? { y: 0, opacity: 1, scale: 1 } : {}}
-            transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
-          >
-            {/* Curtain reveal */}
-            <motion.div
-              initial={{ scaleY: 1 }}
-              animate={ctaInView ? { scaleY: 0 } : { scaleY: 1 }}
-              transition={{ duration: 0.75, delay: 0.15, ease: [0.76, 0, 0.24, 1] }}
-              style={{ originY: 0 }}
-              className="absolute inset-0 bg-[#F5C518] rounded-[28px] z-20 pointer-events-none"
-            />
-
-            <div className="cta-banner px-8 md:px-14 py-10 md:py-12">
-              <div className="cta-gloss-top" />
-              <div className="cta-gloss-inner" />
-              <motion.div className="cta-glow" style={{ y: glowY }} />
-
-              <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
-
-                {/* Left: headline + pills */}
-                <motion.div style={{ y: textY }} className="space-y-5">
-                  <h3 className="cs2-display text-white text-3xl md:text-5xl lg:text-6xl">
-                    Ready to work
-                   
-                    <span className="text-[#F5C518]"> with us</span> ?
-                  </h3>
-
-                 
-                </motion.div>
-
-                {/* Right: CTA button */}
-                <motion.div
-                  initial={{ x: 30, opacity: 0 }}
-                  animate={ctaInView ? { x: 0, opacity: 1 } : {}}
-                  transition={{ delay: 0.4, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-                  className="flex flex-col items-start md:items-end gap-3"
-                >
-                  <button className="gs-btn" onClick={() => navigate("/startbusiness")}>
-                    Get Started
-                    <span className="arrow-circle">→</span>
-                  </button>
-                 
-                </motion.div>
-
-              </div>
-            </div>
-          </motion.div>
+          {/* FAQ */}
+          <div className="mt-16 md:mt-20 grid grid-cols-1 lg:grid-cols-[1fr_1.6fr] gap-8 lg:gap-16">
+            <Reveal>
+              <h3 className="cs2-display text-[#1a1a1a] text-2xl md:text-4xl">Questions before you start?</h3>
+              <p className="mt-3 text-[#1a1a1a]/55 text-base leading-relaxed max-w-sm">
+                The things founders ask us most. Can't find yours? Call or email us — we're happy to help.
+              </p>
+            </Reveal>
+            <RevealGroup className="space-y-3">
+              {FAQS.map((f, i) => {
+                const open = i === openFaq;
+                return (
+                  <RevealItem
+                    key={f.q}
+                    className={`rounded-2xl border transition-colors duration-300 ${open ? "bg-white border-[#F5C518] shadow-md" : "bg-white/60 border-[#1a1a1a]/[0.07] hover:bg-white"}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setOpenFaq(open ? -1 : i)}
+                      aria-expanded={open}
+                      className="w-full flex items-center justify-between gap-4 text-left px-5 py-4 font-semibold text-[#1a1a1a]"
+                    >
+                      {f.q}
+                      <Plus className={`w-5 h-5 flex-none transition-transform duration-300 ${open ? "rotate-45" : ""}`} />
+                    </button>
+                    <AnimatePresence initial={false}>
+                      {open && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="overflow-hidden"
+                        >
+                          <p className="px-5 pb-5 text-[#1a1a1a]/65 leading-relaxed">{f.a}</p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </RevealItem>
+                );
+              })}
+            </RevealGroup>
+          </div>
 
         </div>
       </section>

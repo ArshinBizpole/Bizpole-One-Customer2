@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { FaBars, FaTimes } from "react-icons/fa";
 import SigninModal from "./Modals/SigninModal";
 import ProfileMenu from "./ProfileMenu";
+import { ProductsDropdown, ProductsMobileList } from "./ProductsDropdown";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ export default function Navbar() {
 
   const navItems = [
     { label: "Services", path: "/services" },
-    { label: "Product", path: "/products" },
+    { label: "Product", dropdown: true },
     { label: "Bizpole One", path: "/bizpoleone", isNew: true },
     { label: "Partners", path: "/partners" },
     { label: "Trademark Search", path: "/trademark-search" },
@@ -86,7 +87,12 @@ export default function Navbar() {
             onClick={() => navigate("/")}
             className="cursor-pointer flex items-center"
           >
-            <img src="/Images/image.png" alt="Bizpole One" className="h-10 sm:h-12 lg:h-14 w-auto" />
+            {/* Bizpole One logo only on the Bizpole One page; plain Bizpole logo elsewhere */}
+            {isBizpoleOnePage ? (
+              <img src="/Images/image.png" alt="Bizpole One" className="h-10 sm:h-12 lg:h-14 w-auto" />
+            ) : (
+              <img src="/Images/logo.webp" alt="Bizpole" className="h-10 sm:h-12 lg:h-14 w-auto" />
+            )}
           </div>
 
           {/* DESKTOP MENU */}
@@ -96,7 +102,9 @@ export default function Navbar() {
 
               return (
                 <li key={index} className="relative">
-                  {item.isNew ? (
+                  {item.dropdown ? (
+                    <ProductsDropdown label={item.label} />
+                  ) : item.isNew ? (
                     // Highlighted pill with a "New" badge (design: 3.jpg)
                     <button
                       onClick={() => handleNavigate(item.path)}
@@ -212,6 +220,7 @@ export default function Navbar() {
               <ul className="flex flex-col p-6 space-y-5 text-gray-800">
                 {navItems.map((item, index) => (
                   <li key={index}>
+                    {item.dropdown ? <ProductsMobileList label={item.label} /> : (
                     <button
                       onClick={() => handleNavigate(item.path)}
                       className={`w-full text-left text-base sm:text-lg font-medium hover:text-black transition ${location.pathname === item.path ? "text-black" : ""}`}
@@ -223,6 +232,7 @@ export default function Navbar() {
                         </span>
                       )}
                     </button>
+                    )}
                   </li>
                 ))}
 

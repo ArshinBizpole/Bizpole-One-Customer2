@@ -9,35 +9,35 @@ import { Wallet, ListChecks, ShieldCheck, Headphones } from "lucide-react";
 const LEFT_FEATURES = [
   {
     icon: Wallet,
-    title: "Save costs",
-    desc: "Transparent, state-wise pricing with government fees shown upfront — no hidden charges.",
+    title: "Know the full cost upfront",
+    desc: "Our fee and government fees, shown state by state before you pay. No surprise charges later.",
   },
   {
     icon: ListChecks,
-    title: "Live tracking",
-    desc: "Follow every service step by step, with documents and deliverables in your dashboard.",
+    title: "Never chase for updates",
+    desc: "Every step, document and deliverable is visible in your dashboard — the moment it happens.",
   },
 ];
 
 const RIGHT_FEATURES = [
   {
     icon: ShieldCheck,
-    title: "Safe & secure",
-    desc: "Your company documents are stored securely and shared only with your assigned team.",
+    title: "Your documents, protected",
+    desc: "Stored securely and shared only with the experts working on your service.",
   },
   {
     icon: Headphones,
-    title: "Customer experience",
-    desc: "A dedicated team guides you from application to completion — by phone, email or ticket.",
+    title: "Real experts, real answers",
+    desc: "A dedicated team guides you from application to approval — by phone, email or ticket.",
   },
 ];
 
 const Feature = ({ icon: Icon, title, desc }) => (
-  <div className="flex flex-col gap-3">
+  <div className="group flex flex-col gap-3 rounded-2xl p-5 -m-5 transition-all duration-300 hover:bg-white hover:shadow-lg hover:-translate-y-1">
     <span className="w-12 h-12 rounded-xl bg-[#F5C518] flex items-center justify-center shadow-md shadow-[#F5C518]/30">
       <Icon className="w-6 h-6 text-[#1a1a1a]" />
     </span>
-    <h3 className="text-lg font-bold text-[#1a1a1a]">{title}</h3>
+    <h3 className="text-lg font-semibold text-[#1a1a1a]">{title}</h3>
     <p className="text-sm text-[#1a1a1a]/55 leading-relaxed max-w-[240px]">{desc}</p>
   </div>
 );
@@ -163,7 +163,7 @@ const GlobalStats = () => {
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
         .gs-section { font-family: 'DM Sans', sans-serif; background: #f7f5f0; position: relative; overflow: hidden; }
         .gs-blob { position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none; }
-        .gs-display { font-family: 'Syne', sans-serif; font-weight: 400; letter-spacing: -0.03em; line-height: 1.05; }
+        .gs-display { font-weight: 600; letter-spacing: -0.025em; line-height: 1.1; }
         .gs-tag {
           display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600;
           letter-spacing: 0.12em; text-transform: uppercase; color: rgba(26,26,26,0.45);
@@ -171,7 +171,7 @@ const GlobalStats = () => {
         }
       `}</style>
 
-      <section ref={sectionRef} className="gs-section py-20 md:py-28">
+      <section ref={sectionRef} className="gs-section py-16 md:py-24">
 
         <div className="relative z-10 max-w-[1600px] mx-auto px-6 md:px-12">
           {/* Header */}
@@ -183,8 +183,8 @@ const GlobalStats = () => {
           >
             <motion.div variants={fadeUp}>
               <span className="gs-tag">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#F5C518] animate-pulse" />
-                Platform Features
+                <span className="w-1.5 h-1.5 rounded-full bg-[#F5C518]" />
+                Why founders choose Bizpole
               </span>
             </motion.div>
             <motion.h2 variants={fadeUp} className="gs-display text-[#1a1a1a] text-4xl md:text-6xl">
@@ -193,8 +193,7 @@ const GlobalStats = () => {
                 <span className="relative z-10">business</span>
                 <motion.span
                   className="absolute inset-[-6px_-4px] bg-[#F5C518] rounded-2xl z-0"
-                  initial={{ scaleX: 0 }}
-                  animate={isInView ? { scaleX: 1 } : { scaleX: 0 }}
+                  initial={false}
                   transition={{ delay: 0.7, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                   style={{ originX: 0 }}
                 />
@@ -202,7 +201,7 @@ const GlobalStats = () => {
               needs
             </motion.h2>
             <motion.p variants={fadeUp} className="text-[#1a1a1a]/50 text-base md:text-lg max-w-xl mx-auto font-light leading-relaxed">
-              One platform to manage and track every registration, filing and compliance — in real time.
+              Clear pricing, expert hands and full visibility — from the day you register to every filing after.
             </motion.p>
           </motion.div>
 

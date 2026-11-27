@@ -42,7 +42,7 @@ const PreviewScreen = () => (
         </div>
         <div className="space-y-1.5">
           {SERVICES.map((s) => (
-            <div key={s.name} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-2.5 py-2">
+            <div key={s.name} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-2.5 py-2 transition hover:bg-white/10 hover:translate-x-0.5">
               <span className="text-[11px] text-white/80 truncate">{s.name}</span>
               <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${s.cls}`}>{s.status}</span>
             </div>
@@ -78,12 +78,12 @@ const DashboardShowcase = () => {
           transition={{ duration: 0.8, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
           className="space-y-6"
         >
-          <h2 className="text-3xl md:text-5xl font-bold text-[#1a1a1a] leading-tight">
-            Easy collaborative business team
+          <h2 className="text-3xl md:text-5xl font-semibold tracking-tight text-[#1a1a1a] leading-tight">
+            Your business team, working in the open
           </h2>
           <p className="text-[#1a1a1a]/55 text-base md:text-lg leading-relaxed max-w-md">
-            No more chasing documents or deadlines — your registrations, payments, invoices and
-            compliance live in one dashboard, shared with your Bizpole team.
+            No more calls asking for a status update. Your registrations, payments, invoices and
+            compliance live in one dashboard — shared with the Bizpole experts doing the work.
           </p>
           <div className="flex items-center gap-3">
             <div className="flex">
@@ -97,13 +97,13 @@ const DashboardShowcase = () => {
                 />
               ))}
             </div>
-            <span className="text-sm font-semibold text-[#1a1a1a]">Trusted by founders across India</span>
+            <span className="text-sm font-semibold text-[#1a1a1a]">Join 30,000+ businesses already on Bizpole</span>
           </div>
           <button
             onClick={() => navigate("/startbusiness/services")}
             className="px-6 py-3 rounded-full bg-[#F5C518] text-[#1a1a1a] text-sm font-semibold shadow-lg shadow-[#F5C518]/30 hover:bg-[#e0b420] transition"
           >
-            Get Started →
+            Start your business →
           </button>
         </motion.div>
       </div>
